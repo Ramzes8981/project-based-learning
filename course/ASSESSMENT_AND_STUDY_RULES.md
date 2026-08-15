@@ -78,7 +78,111 @@ Do **not** restart an entire previous module.
 
 ---
 
-# 5. Module exit gate
+# 5. Canonical lesson template
+
+Every instructor-led lesson should contain these blocks. Short lessons may combine them, but none should disappear without a reason.
+
+## A. Goal and prerequisite check
+
+State one concrete outcome, for example:
+
+> After this lesson, explain what a pointer parameter changes about ownership/lifetime reasoning and use one safely in the current project.
+
+Then ask 2–5 prerequisite questions. Do not teach the next layer on top of an unknown gap.
+
+## B. Why it matters / industry situation
+
+Give a concrete situation, not motivational filler.
+
+Example:
+
+> A service reads from a TCP socket and assumes one `recv()` equals one request. Under load, requests become split/coalesced and parsing breaks. The lesson introduces stream framing to prevent that class of bug.
+
+This section answers **what engineering problem the concept solves or explains**.
+
+## C. Exact source assignment
+
+Assign an exact video segment, section, chapter fragment, or documentation page.
+
+Good:
+
+> Dive into Systems §X.Y–X.Z + 10-minute CS50 short.
+
+Bad:
+
+> Read Dive into Systems.
+
+Normally use one teaching source. Add a companion only if it resolves a specific difficulty.
+
+## D. Causal understanding questions
+
+Prefer questions such as:
+
+- What changes if…?
+- Why does this fail when…?
+- Which invariant is broken?
+- Where does the state live?
+- Which layer owns this behavior?
+
+Avoid making recall-only questions the main assessment.
+
+## E. Focused exercise
+
+10–30 minutes, usually one concept.
+
+It must have explicit self-check criteria:
+
+- expected observable behavior;
+- important edge cases;
+- warnings/errors that must be absent;
+- explanation the learner should be able to give.
+
+## F. Project slice
+
+Use the concept in the current milestone as soon as it is ready.
+
+A project slice must state:
+
+- what behavior changes;
+- which files/components are in scope;
+- what is deliberately **not** being implemented yet;
+- acceptance criteria.
+
+The project slice should be larger than the exercise but small enough to finish/review without a multi-week black box.
+
+## G. Edge cases / debugging checklist
+
+Every lesson that touches code should name at least the important failure modes.
+
+Examples:
+
+- empty input;
+- maximum size;
+- allocation failure;
+- malformed frame;
+- short read/write;
+- descriptor leak;
+- race;
+- integer overflow;
+- use-after-free;
+- partial persistence.
+
+The lesson should also name the first diagnostic tool/action to use.
+
+## H. Exit check
+
+A lesson ends when the learner can:
+
+1. explain the concept;
+2. pass the focused exercise;
+3. integrate the project slice where applicable;
+4. answer at least one unfamiliar "what goes wrong if…?" scenario.
+
+Do not move on merely because the video is finished.
+
+---
+
+# 6. Module exit gate
 
 A module is complete only when all five conditions are satisfied.
 
@@ -125,7 +229,29 @@ A project can work and still fail the module gate if the learner cannot explain 
 
 ---
 
-# 6. Knowledge states
+# 7. Practical self-check rubric
+
+For code/lab work, use four dimensions instead of a vague "done" flag.
+
+| Dimension | Pass condition |
+|---|---|
+| Correctness | agreed normal + boundary cases work |
+| Explanation | learner can explain why the behavior occurs |
+| Diagnostics | warnings/errors are understood; suitable tool was used when needed |
+| Transfer | learner can change the example without copying a ready solution |
+
+For milestone projects add:
+
+| Dimension | Pass condition |
+|---|---|
+| Design | interfaces/state/ownership documented |
+| Failure handling | important failures are explicit and tested/simulated |
+| Evidence | tests/metrics support claims |
+| Trade-offs | alternatives and limitations can be discussed |
+
+---
+
+# 8. Knowledge states
 
 Use four simple states when tracking a concept:
 
@@ -140,7 +266,7 @@ Core module concepts should normally reach **Apply**; milestone-defining concept
 
 ---
 
-# 7. Retrieval and forgetting
+# 9. Retrieval and forgetting
 
 Long courses fail when early knowledge is never revisited.
 
@@ -155,7 +281,7 @@ Do not create hundreds of flashcards. Review should stay connected to code and m
 
 ---
 
-# 8. Difficulty / stuck rule
+# 10. Difficulty / stuck rule
 
 Being stuck is part of systems programming, but the course should distinguish **productive struggle** from environment friction.
 
@@ -183,7 +309,7 @@ Do not waste a study evening on this. Escalate quickly, adapt the lab, and recor
 
 ---
 
-# 9. AI policy
+# 11. AI policy
 
 AI is used as tutor, reviewer, and debugger — not as the implementation engine.
 
@@ -215,7 +341,7 @@ The learner writes the final milestone implementation.
 
 ---
 
-# 10. Source policy
+# 12. Source policy
 
 For any single learning block, normally use:
 
@@ -231,13 +357,16 @@ A source is assigned a role:
 - `REFERENCE`
 - `EXERCISES`
 - `CONCEPT_COMPANION`
+- `GUIDED_LAB`
 - `HISTORICAL_REFERENCE`
 
 If a source is old but pedagogically useful, the course must say so explicitly.
 
+See [`SOURCE_MATRIX.md`](SOURCE_MATRIX.md) for the current source map.
+
 ---
 
-# 11. Consolidation buffer
+# 13. Consolidation buffer
 
 Heavy systems projects often take longer than estimates.
 
@@ -253,7 +382,7 @@ The schedule is a pacing guide, not a deadline system.
 
 ---
 
-# 12. What evidence should remain after a module
+# 14. What evidence should remain after a module
 
 Each core milestone should leave:
 
@@ -262,6 +391,9 @@ Each core milestone should leave:
 - README with design and limitations;
 - a short engineering review;
 - one transfer feature;
+- one debugging story;
 - Git history showing incremental work.
+
+Performance/network/service milestones additionally retain the workload definition and measurements behind performance claims.
 
 The portfolio should demonstrate reasoning, not just completed tutorials.
