@@ -1,56 +1,58 @@
 # Systems Engineering Course
 
-> This is the **canonical learning path** for this fork.
+> Canonical learning path for this fork.
 >
-> The old roadmap describes the full landscape. This course turns that landscape into a simple sequence that can actually be followed week by week.
+> **Audience:** programmer with existing Python experience and little/no C or low-level background.  
+> **Pace:** 6–8 hours/week.  
+> **Mode:** mobile-first theory + PC-first implementation.  
+> **Expected core duration:** roughly 15–20 months including consolidation buffers.
 
-## Course goal
-
-Build a strong computer-science and systems-engineering foundation starting from an existing Python background and ending with the ability to reason about software across layers: data structures, memory, CPU, operating systems, networks, storage, binaries, performance, security, and architecture.
-
-**Pace:** 6–8 hours/week.
-
-**Mode:** mobile-first theory + PC-first project work.
+This repository is no longer just a roadmap. The `course/` directory is an instructor-led, project-first curriculum with prerequisites, source roles, labs, milestones, rubrics and exit gates.
 
 ---
 
-# The simple learning rule
+# Start here
 
-Every module follows the same pattern:
+Before Module 0 read:
 
-```text
-learn just enough theory
-        ↓
-small exercises
-        ↓
-apply it immediately in the active project
-        ↓
-learn the next concept when the project needs it
-        ↓
-expand the same project
-        ↓
-review the design and trade-offs
+1. [`ENVIRONMENT.md`](ENVIRONMENT.md) — canonical Windows/WSL2/Linux toolchain and Android role.
+2. [`ASSESSMENT_AND_STUDY_RULES.md`](ASSESSMENT_AND_STUDY_RULES.md) — lesson cycle, module gates, AI policy, workload and evidence.
+3. [`AUDIT_2026-08.md`](AUDIT_2026-08.md) — why the course is structured this way and which hidden prerequisites/outdated tutorials were corrected.
+
+Russian alternatives/companions are tracked in:
+
+- [`../SYSTEMS_ENGINEERING_RUSSIAN_RESOURCES.md`](../SYSTEMS_ENGINEERING_RUSSIAN_RESOURCES.md)
+
+Progress is tracked in:
+
+- [`../SYSTEMS_ENGINEERING_PROGRESS.md`](../SYSTEMS_ENGINEERING_PROGRESS.md)
+
+---
+
+# Learning model
+
+A lesson is not "read chapter 3 and come back".
+
+The operating loop is:
+
+```mermaid
+flowchart LR
+    S[Exact source section] --> Q[Understanding questions]
+    Q --> E[Small exercise / lab]
+    E --> P[Active project slice]
+    P --> R[Debug + engineering review]
+    R --> N[Next needed concept]
 ```
 
-The course is **project-first**, not exercise-first.
+Rules:
 
-Exercises exist to learn one concept. Projects exist to learn engineering.
-
----
-
-# Source policy
-
-At any moment there should normally be only:
-
-1. **one primary teaching source**;
-2. **one optional reference / Russian companion**;
-3. the **active project**.
-
-Do not study five courses in parallel.
-
-Russian materials are preferred when quality is comparable. English primary material is kept when it is clearly stronger, more current, or uniquely suited to the project.
-
-See [`../SYSTEMS_ENGINEERING_RUSSIAN_RESOURCES.md`](../SYSTEMS_ENGINEERING_RUSSIAN_RESOURCES.md) for Russian alternatives.
+- learn only enough theory for the next meaningful step;
+- use normally **one teaching source + one optional reference**;
+- maintain **one large core milestone at a time** where practical;
+- project code is written by the learner;
+- AI gives explanations/review/debugging hints, not whole milestone solutions;
+- old tutorials are references when their API/environment is outdated;
+- a milestone is complete only after a transfer task and engineering review.
 
 ---
 
@@ -58,658 +60,381 @@ See [`../SYSTEMS_ENGINEERING_RUSSIAN_RESOURCES.md`](../SYSTEMS_ENGINEERING_RUSSI
 
 ```mermaid
 flowchart TD
-    M0[Module 0: C Fast Start] --> M1[Module 1: Data Structures & Memory]
-    M1 --> M2[Module 2: Unix & Processes]
-    M2 --> M3[Module 3: Computer Architecture]
-    M3 --> M4[Module 4: Performance & Memory]
-    M4 --> M5[Module 5: Networking & Concurrency]
-    M5 --> M6[Module 6: Operating Systems & Storage]
-    M6 --> M7[Module 7: Binaries, Debugging & Security]
-    M7 --> ADV[Advanced branches: Distributed Systems / Kernel / Rust / Compilers / Embedded]
+    M0[0 C Fast Start] --> M1[1 Memory & Data Structures]
+    M1 --> M2[2 Unix & Shell]
+    M2 --> M3[3 Computer Architecture]
+    M3 --> M4[4 Virtual Memory & Performance]
+    M4 --> M5[5 Networking & Concurrency]
+    M5 --> M6[6 OS & Isolation]
+    M6 --> M7[7 Filesystems & Databases]
+    M7 --> M8[8 Binaries / Debugging / Security]
+    M8 --> M9[9 Systems Integration / Architecture]
+    M9 --> ADV[Advanced branches]
 ```
 
 ---
 
-# Module 0 — C Fast Start
+# Core modules
 
-**Goal:** learn enough C to start building real software quickly.
+## Module 0 — C Fast Start
 
-**Expected time:** ~2–4 weeks.
+**File:** [`00-c-fast-start/README.md`](00-c-fast-start/README.md)  
+**Time:** ~10–15 h  
+**Outcome:** become syntactically functional in C without repeating a beginner programming semester.  
+**Project:** `MiniKV v0` — fixed-array key/value store with linear lookup.
 
-## Primary source
+Main topics:
 
-**Russian-first option:** translated CS50 C material (Vert Dider / JavaRush), selectively.
-
-**Current reference:** modern CS50 C pages + Beej's Guide to C as lookup material.
-
-Do not complete CS50 as a separate course.
-
-## Learn
-
-- compile and run a C program
-- primitive types and `sizeof`
-- operators and control flow
-- functions
-- arrays
-- strings
-- `struct`
-- basic `.c` / `.h`
-- compiler warnings
-- very basic Git workflow
-
-## Exercises
-
-Short exercises only. The purpose is syntax fluency, not completion badges.
-
-Recommended mobile exercise bank: Stepik C.
-
-## Active project begins immediately
-
-### Project A — Hash Table in C
-
-Start with a deliberately primitive version:
-
-1. project skeleton;
-2. fixed array of key/value entries;
-3. linear lookup;
-4. explicit `Entry` / `Table` structs.
-
-Do **not** wait until pointers and hashing are fully learned before starting the project.
-
-## CS concepts introduced
-
-- what compilation is
-- representation of values
-- arrays as contiguous data
-- linear search
-- first Big-O intuition: why linear lookup becomes a problem
-
-## Module exit condition
-
-You can write small C programs without constantly translating Python syntax and can explain why fixed arrays and C strings behave differently from Python containers/strings.
+- compile/run/debug basics;
+- types / `sizeof`;
+- functions / control flow;
+- arrays / C strings;
+- structs / simple modules;
+- linear search / first complexity intuition.
 
 ---
 
-# Module 1 — Data Structures, Pointers, and Memory
+## Module 1 — Memory, Pointers, and Data Structures
 
-**Goal:** learn the low-level concepts that make C valuable for systems work.
+**File:** [`01-memory-data-structures/README.md`](01-memory-data-structures/README.md)  
+**Time:** ~55–70 h  
+**Core milestone:** Hash Table in C  
+**Mini-milestone:** Dynamic Array / Vector.
 
-**Expected time:** ~8–12 weeks.
+Main topics:
 
-## Primary source
-
-**Dive into Systems**, selected C/memory chapters.
-
-## Russian companion / exercises
-
-- Stepik C exercises
-- CSC / Stepik Algorithms & Data Structures, selected modules
-
-## Learn in project order
-
-### Block 1 — pointers
-
-- addresses
-- `&` and `*`
-- pointer types
-- passing pointers to functions
-- arrays vs pointers
-- pointer arithmetic
-
-**Project A expansion:** change APIs to operate on table pointers; reason about object lifetime.
-
-### Block 2 — stack and heap
-
-- local lifetime
-- stack vs heap
-- `malloc`, `calloc`, `realloc`, `free`
-- ownership
-- leaks
-- dangling pointers
-- double-free / use-after-free concepts
-
-**Project A expansion:** dynamically allocate the table and entries; implement cleanup paths.
-
-### Block 3 — data structures
-
-- dynamic array
-- linked list
-- stack
-- queue
-- hash table
-- binary search tree basics
-
-### Mini-project — Dynamic Array / Vector in C
-
-Build:
-
-- create/free
-- get/set
-- push
-- capacity growth
-
-### Block 4 — algorithms and math just in time
-
-- Big O / Θ intuition
-- binary search
-- elementary sorting
-- amortized growth intuition
-- logarithms where needed
-- modulo arithmetic for hashing
-- probability intuition for collisions
-
-### Project A completion — Hash Table in C
-
-Add:
-
-- hash function
-- buckets
-- collision handling
-- load factor
-- resize / rehash
-- tests
-- transfer feature not in tutorial
-
-## Engineering review
-
-Explain:
-
-- average vs worst-case lookup
-- ownership of every allocation
-- load factor
-- resize cost
-- failure paths
-- API design
-- what changes at 10x / 100x size
+- pointers / ownership / lifetime;
+- stack vs heap;
+- `malloc/calloc/realloc/free`;
+- undefined behavior / sanitizers / GDB;
+- arrays vs linked structures;
+- Big-O/Θ, search/sort, recursion;
+- BST/heap concepts;
+- dynamic-programming fundamentals;
+- hashing/collisions/load factor/rehash.
 
 ---
 
-# Module 2 — Unix, Processes, and the Shell
+## Module 2 — Unix, Processes, and the Shell
 
-**Goal:** understand how programs interact with the operating system.
+**File:** [`02-unix-shell/README.md`](02-unix-shell/README.md)  
+**Time:** ~40–55 h  
+**Core milestone:** Unix Shell in C  
+**Guided lab:** only selected Kilo terminal/raw-mode work.
 
-**Expected time:** ~6–8 weeks.
+Main topics:
 
-## Primary source
+- file descriptors;
+- robust short read/write handling;
+- `errno` / `strace`;
+- `fork/exec/waitpid`;
+- `dup2` / redirection;
+- pipes and descriptor topology;
+- signals;
+- terminal/`termios`.
 
-**Dive into Systems / selected Unix-OS sections**, supported by selected OSTEP process chapters.
-
-## Russian companion
-
-Russian Missing Semester translation for shell/tooling concepts.
-
-## Learn in project order
-
-- files and file descriptors
-- `open/read/write/close`
-- kernel vs user space
-- syscall idea
-- process / PID
-- `fork`
-- `exec`
-- `wait`
-- environment variables
-- pipes
-- redirection
-- signals
-- terminal / TTY basics
-
-## Project B — Text Editor
-
-Use the repository's **Build Your Own Text Editor** tutorial incrementally:
-
-- terminal I/O
-- raw mode
-- editable buffer
-- file load/save
-- cursor/status
-- transfer feature
-
-## Project C — Unix Shell
-
-Core project; do not skip.
-
-Progression:
-
-1. parse a command;
-2. launch one process;
-3. `fork/exec/wait`;
-4. built-in `cd`;
-5. redirection;
-6. pipelines;
-7. signals/environment as extensions.
-
-## CS concepts introduced
-
-- process model
-- isolation
-- OS interfaces
-- resource handles
-- composition via pipes
+The course shell has an explicit limited grammar. It is not presented as a POSIX-complete shell.
 
 ---
 
-# Module 3 — Computer Architecture and Assembly
+## Module 3 — Computer Architecture and Machine Code
 
-**Goal:** understand what C eventually turns into and how a CPU executes programs.
+**File:** [`03-computer-architecture/README.md`](03-computer-architecture/README.md)  
+**Time:** ~50–65 h  
+**Core milestone:** Nand2Tetris Projects 1–6 + small VM/emulator.
 
-**Expected time:** ~8–10 weeks.
+Main topics:
 
-## Primary source
+- binary/hex/two's complement;
+- gates / ALU / state / RAM;
+- CPU / program counter;
+- machine code / assembly;
+- assembler;
+- x86-64 bridge;
+- stack frames / ABI basics;
+- fetch/decode/execute.
 
-**Nand2Tetris Projects 1–6**.
+---
 
-## Reference
+## Module 4 — Virtual Memory, Performance, and Allocators
 
-Dive into Systems architecture/assembly chapters.
+**File:** [`04-virtual-memory-performance-allocator/README.md`](04-virtual-memory-performance-allocator/README.md)  
+**Time:** ~35–50 h  
+**Core milestone:** Arena Allocator.
 
-## Learn
+Main topics:
 
-- binary and hexadecimal
-- signed integers
-- bitwise operations
-- logic gates
-- ALU
-- registers
-- RAM
-- CPU
-- machine instructions
-- program counter
-- machine code
-- assembly
-- stack pointer
-- calls/returns
-- stack frames
-- calling conventions / ABI basics
+- virtual addresses / pages / page faults / TLB;
+- `mmap`;
+- cache lines / locality / working sets;
+- measurement methodology;
+- alignment / allocator metadata;
+- free lists;
+- fragmentation;
+- split/coalesce;
+- policy comparison.
 
-## Projects
+`Memory Allocators 101` is a **historical reference** because its `sbrk()` backend is not the modern course recommendation.
 
-### Nand2Tetris 1–6
+---
 
-Build the chain:
+## Module 5 — Networking and Concurrency
+
+**File:** [`05-networking-concurrency/README.md`](05-networking-concurrency/README.md)  
+**Time:** ~55–70 h  
+**Core milestone:** Concurrent TCP KV Server.
+
+Main topics:
+
+- Ethernet / ARP / IPv4 / routing;
+- TCP / UDP;
+- socket API / `getaddrinfo`;
+- TCP stream framing;
+- partial send/recv;
+- threads / races / mutexes / condition variables;
+- bounded queues / backpressure;
+- event-loop/`poll` model;
+- throughput and p50/p95/p99 latency;
+- graphs / BFS / DFS / Dijkstra checkpoint.
+
+---
+
+## Module 6 — Operating Systems and Isolation
+
+**File:** [`06-os-isolation/README.md`](06-os-isolation/README.md)  
+**Time:** ~40–55 h  
+**Core milestone:** Modern Linux mini-container / isolation lab.
+
+Main topics:
+
+- scheduling and context switching;
+- VM deeper / copy-on-write;
+- synchronization / deadlocks;
+- IPC;
+- `/proc` process inspection;
+- Linux namespaces;
+- cgroup v2;
+- capabilities/security-boundary limitations.
+
+The old `Linux Container in 500 Lines of Code` is **historical reference**, not a 2026 implementation spec.
+
+---
+
+## Module 7 — Filesystems and Database Internals
+
+**File:** [`07-filesystems-databases/README.md`](07-filesystems-databases/README.md)  
+**Time:** ~60–80 h  
+**Core milestone:** Simple Database in C  
+**Guided lab:** current libfuse 3 examples.
+
+Main topics:
+
+- pathnames / inodes / links;
+- page cache / durability / `fsync` concept;
+- libfuse 3 callback model;
+- storage pages / records / serialization;
+- B-tree/page-index reasoning;
+- page access instrumentation;
+- transactions / WAL / isolation conceptually.
+
+The cstack database milestone does **not** pretend to implement a complete transactional/WAL database.
+
+---
+
+## Module 8 — Binaries, Debugging, and Security Bridge
+
+**File:** [`08-binaries-debugging-security/README.md`](08-binaries-debugging-security/README.md)  
+**Time:** ~40–55 h  
+**Core milestone:** Minimal Linux Debugger in C.
+
+Main topics:
+
+- ELF;
+- symbols / debug information;
+- process memory;
+- PIE / ASLR;
+- `ptrace`;
+- registers / memory;
+- x86 `int3` software breakpoints;
+- single-step;
+- NX / canaries / RELRO concepts;
+- controlled local memory-corruption diagnostics.
+
+The Sy Brand C++ debugger series is a **concept/reference source**; C++ is not a hidden core prerequisite.
+
+---
+
+## Module 9 — Systems Integration and Architecture Capstone
+
+**File:** [`09-systems-integration-architecture/README.md`](09-systems-integration-architecture/README.md)  
+**Time:** ~40–55 h  
+**Core capstone:** observable persistent KV service.
+
+Main topics:
+
+- requirements and component boundaries;
+- service protocol;
+- latency / throughput / saturation;
+- Little's Law `L = λW`;
+- backpressure / overload;
+- graceful shutdown / recovery;
+- observability;
+- SLI/SLO introduction;
+- failure injection;
+- ADRs;
+- capacity/scaling analysis.
+
+This module deliberately asks "what actually bottlenecks/fails?" before introducing distributed-systems buzzwords.
+
+---
+
+# Where the CS foundation lives
+
+The course does not run separate disconnected semesters for every CS subject, but coverage is mandatory.
+
+| CS area | Main location |
+|---|---|
+| C / software construction | Modules 0–2 |
+| Algorithms / data structures | Modules 1 and 5 |
+| Discrete reasoning / math | just-in-time in Modules 1, 3, 5, 9 |
+| Computer architecture | Module 3 |
+| Virtual memory / performance | Modules 4 and 6 |
+| Operating systems | Modules 2 and 6 |
+| Networking | Module 5 |
+| Concurrency | Modules 5–6 |
+| Filesystems / storage | Module 7 |
+| Database internals | Module 7 |
+| Binaries / debugging / security | Module 8 |
+| Architecture / operability | every engineering review + Module 9 |
+
+This prevents both extremes:
+
+- "just code projects without fundamentals";
+- "finish five theory courses before building anything".
+
+---
+
+# Project classification
+
+Not every upstream tutorial has equal status.
+
+## Core milestones
+
+Required integration projects:
+
+- Hash Table;
+- Unix Shell;
+- small VM/emulator;
+- Arena Allocator;
+- Concurrent KV Server;
+- modern isolation lab;
+- Simple Database;
+- Minimal Debugger in C;
+- Systems Architecture Capstone.
+
+## Guided labs
+
+Only selected learning slices are required:
+
+- Kilo terminal/raw-mode;
+- libfuse 3 `hello`/`passthrough` adaptation;
+- selected tool experiments.
+
+## Stretch / historical references
+
+Useful but not core requirements:
+
+- full Kilo editor;
+- full custom FUSE filesystem;
+- old container walkthrough as-is;
+- C++/libelfin full debugger tutorial;
+- advanced transactional DB features not implemented by the chosen milestone.
+
+---
+
+# How an instructor-led lesson is created
+
+The module README is the specification. A lesson should assign **exact sections**, not say "go learn C/OSTEP".
+
+Example structure:
 
 ```text
-NAND -> gates -> ALU -> memory -> CPU -> machine language -> assembler
+Goal: understand pointer parameters
+
+Phone:
+- exact Dive Into Systems section
+- optional Russian explanation
+
+Check:
+- 3 causal questions
+
+PC exercise:
+- one focused pointer task
+
+Project:
+- change current MiniKV API to operate on Store*
+
+Review:
+- draw ownership/lifetime
+- explain one failure mode
 ```
 
-### Project D — VM or CHIP-8 Emulator
-
-Build incrementally:
-
-- machine state
-- memory
-- registers
-- program counter
-- decode instructions
-- execute instructions
-- control flow / I/O
-
-## CS concepts introduced
-
-This entire module **is** the computer-architecture CS block.
+The repository stores durable structure and progress; the instructor/chat adapts lesson granularity to actual understanding.
 
 ---
 
-# Module 4 — Performance and Memory Hierarchy
+# Advanced branches after the finite core
 
-**Goal:** connect algorithmic complexity with actual hardware performance.
+Choose after Module 9 according to goals.
 
-**Expected time:** ~4–6 weeks.
+## Security / Reverse Engineering
 
-## Primary source
-
-**Dive into Systems — memory hierarchy / performance chapters.**
-
-## Learn
-
-- registers
-- L1/L2/L3 cache
-- RAM
-- cache lines
-- spatial / temporal locality
-- contiguous vs pointer-heavy data
-- cache hit/miss
-- basic profiling
-- branch behavior intuition
-
-## Bridge to existing Python/NumPy experience
-
-Understand why:
-
-- contiguous arrays matter;
-- vectorized NumPy operations are fast;
-- two O(n) algorithms can perform differently;
-- memory layout is an architectural decision.
-
-## Project E — Memory Allocator
-
-Build incrementally:
-
-- simple bump allocator idea
-- block metadata
-- free list
-- reuse
-- splitting / coalescing
-- fragmentation statistics
-- compare allocation policies
-
----
-
-# Module 5 — Networking and Concurrency
-
-**Goal:** understand networking below HTTP libraries and learn the first concurrency models.
-
-**Expected time:** ~8–10 weeks.
-
-## Primary source
-
-**Russian primary for networking theory:** Stepik — Основы компьютерных сетей.
-
-## Programming reference
-
-**Beej's Guide to Network Programming.**
-
-## Learn
-
-- Ethernet
-- MAC / ARP
-- IPv4
-- subnetting
-- routing
-- ICMP
-- UDP
-- TCP
-- ports
-- DNS basics
-- byte order
-- sockets
-
-## Small project progression
-
-1. TCP echo client/server
-2. simple custom protocol
-3. minimal HTTP-like server
-4. multiple clients
-
-## Concurrency block
-
-- blocking vs non-blocking
-- threads
-- race condition intuition
-- event-driven I/O
-- event loops
-
-## Project F — Concurrent Server
-
-Compare at least two designs:
-
-- thread-per-client
-- event-driven / non-blocking
-
-## Algorithms inserted when useful
-
-Selected MIT 6.006 / CSC topics only when the projects need them:
-
-- heaps
-- trees
-- BFS / DFS
-- shortest paths
-- dynamic programming basics
-
-No detached algorithms semester is required before continuing.
-
----
-
-# Module 6 — Operating Systems and Storage
-
-**Goal:** understand scheduling, virtual memory, synchronization, filesystems, and persistent data.
-
-**Expected time:** ~10–14 weeks.
-
-## Primary source
-
-**OSTEP**, selected chapters.
-
-## Russian companion
-
-Stepik Operating Systems for stable concepts / alternate explanations.
-
-## Learn
-
-- process vs thread
-- context switch
-- scheduling
-- virtual memory
-- pages / page tables
-- TLB
-- IPC
-- mutexes
-- semaphores
-- condition variables
-- deadlocks
-- devices / I/O
-- filesystem concepts
-
-## Project G — Linux Container
-
-Use namespaces/isolation to make OS abstractions concrete.
-
-## Project H — FUSE Filesystem
-
-Use filesystem callbacks, path lookup, metadata, file operations, and persistence.
-
-## Storage / database block
-
-Learn:
-
-- pages
-- records
-- serialization
-- B-trees
-- indexes
-- buffer/cache concepts
-- transactions
-- WAL / recovery intuition
-
-## Project I — Simple Database
-
-Progression:
-
-- command parser / REPL
-- rows
-- pages
-- table scan
-- B-tree/index
-- page splits
-- persistence
-- transfer feature
-
----
-
-# Module 7 — Binaries, Debugging, and Security Bridge
-
-**Goal:** understand executable files and running programs as inspectable machine state.
-
-**Expected time:** ~6–8 weeks.
-
-## Primary source
-
-The repository's **Writing a Linux Debugger** series, with targeted reference material as required.
-
-## Learn
-
-- ELF basics
-- sections / symbols
-- debug information
-- process memory
-- registers
-- breakpoints
-- signals
-- stack frames
-- calling convention deeper
-- memory corruption concepts
-
-## Project J — Linux Debugger
-
-Build:
-
-- attach/control process
-- breakpoints
-- inspect registers/memory
-- ELF/DWARF support
-- stepping
-- stack unwinding
-- variable inspection
-
-## Security bridge
-
-After this module, the foundations are sufficient to branch into:
-
-- reverse engineering
-- binary exploitation in legal/local labs
-- OS security
-- malware analysis
-
----
-
-# What is NOT a separate course anymore
-
-The following topics are still mandatory, but are integrated where they matter:
-
-| Topic | Where it is learned |
-|---|---|
-| Algorithms / Big O | Modules 1 and 5, then as needed |
-| Data structures | Module 1 |
-| Discrete math | Just-in-time inside algorithms, hashing, graphs, correctness |
-| Computer architecture | Module 3 |
-| Operating systems | Modules 2 and 6 |
-| Concurrency | Modules 5 and 6 |
-| Networking | Module 5 |
-| Database internals | Module 6 |
-| Security fundamentals | Module 7 |
-| System design / architecture thinking | engineering review after every project |
-
-This keeps the curriculum coherent without removing the CS foundation.
-
----
-
-# Lesson format
-
-A normal lesson/session is deliberately simple.
-
-## 1. One concept
-
-10–30 minutes of explanation / assigned video or reading.
-
-Examples:
-
-- what a pointer stores
-- what `fork()` creates
-- what a cache line is
-
-## 2. Check understanding
-
-A few questions. If the concept is not clear, do not continue.
-
-## 3. Small exercise
-
-Usually 10–30 minutes. One focused skill.
-
-## 4. Project slice
-
-Use the new concept in the current milestone project.
-
-This is usually the largest and most important part of a PC session.
-
-## 5. Review
-
-Explain:
-
-- what changed;
-- why it works;
-- what could fail;
-- what the cost/trade-off is.
-
-Then the next lesson begins from the next obstacle in the project.
-
----
-
-# Mobile vs PC
-
-## Phone / metro
-
-Best for:
-
-- CS50 RU / other video lectures
-- Stepik exercises and quizzes
-- Russian Missing Semester notes
-- Beej / Dive Into Systems HTML
-- conceptual questions
-- review
-
-## PC
-
-Best for:
-
-- milestone code
-- debugger
-- compiler / sanitizers
-- Wireshark
-- tests
-- profiling
-- Git commits
-
----
-
-# Advanced branches after the core
-
-Do not choose now. Finish the core first, then prioritize based on career direction.
+- deeper x86-64;
+- Ghidra;
+- binary exploitation in legal/local labs;
+- OS/embedded security;
+- malware analysis.
 
 ## Distributed Systems / Architecture
 
-- replication
-- consistency
-- partitioning
-- consensus
-- retries / idempotency
-- queues / streams
-- distributed storage
-- observability
-- reliability
-- system design case studies
+- replication;
+- partitioning/sharding;
+- consistency models;
+- consensus;
+- retries/idempotency deeper;
+- queues/streams;
+- distributed storage;
+- reliability/observability deeper.
 
 ## Kernel / OS
 
-- bootloader
-- interrupts
-- scheduler
-- memory manager
-- drivers
+- bootloader;
+- interrupts;
+- scheduler;
+- memory manager;
+- drivers.
 
 ## Rust
 
-Reimplement an earlier C project in Rust and compare ownership/failure models.
+Reimplement a previous C project and compare ownership/failure models.
 
 ## Compilers / Runtimes
 
-Crafting Interpreters / compiler projects.
+- Crafting Interpreters;
+- compiler/VM/GC work.
 
 ## Embedded
 
-Microcontrollers, GPIO, interrupts, UART, SPI, I²C, RTOS.
-
-## Security
-
-Reverse engineering, binary exploitation labs, OS security, embedded security.
+- microcontrollers;
+- GPIO;
+- UART/SPI/I²C;
+- interrupts;
+- RTOS.
 
 ---
 
-# Starting point
+# Immediate next action
 
-Start with **Module 0 — C Fast Start**.
+Start with [`00-c-fast-start/README.md`](00-c-fast-start/README.md).
 
-Do not study weeks of shell/tooling first.
-
-The first objective is simply:
-
-> compile a small C program, understand the minimum syntax, and start the Hash Table project as soon as arrays and structs are available.
+Do not pre-study later modules. The instructor should issue the first exact source assignment and exercise from Unit 0.1.
