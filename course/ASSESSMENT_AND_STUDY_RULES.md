@@ -1,399 +1,157 @@
-# Assessment and Study Rules
+# Правила обучения и проверки
 
-This course is designed for **6–8 hours/week** and should remain comfortable enough to sustain for more than a year.
+Курс рассчитан на устойчивый темп около 6–8 часов в неделю. Он должен быть сложным, но не ощущаться как несколько университетских дисциплин, идущих параллельно.
 
-The course should feel demanding, but it should not feel like three university subjects running in parallel.
-
----
-
-# 1. The unit of learning is a cycle, not a chapter
-
-A normal cycle is:
+## 1. Единица обучения — learning cycle
 
 ```text
-one concept
-   ↓
-retrieval questions
-   ↓
-small focused exercise
-   ↓
-apply concept in current project
-   ↓
-explain what changed and why
+одна концепция
+    ↓
+вопросы на понимание
+    ↓
+небольшое упражнение
+    ↓
+применение в текущем проекте
+    ↓
+объяснение результата
 ```
 
-Do not finish an entire textbook chapter merely because it exists.
+Не нужно сначала «закончить всю теорию», а потом приступать к проекту.
 
-Do not postpone all project work until the theory is "complete".
+## 2. Один большой проект одновременно
 
----
+В модуле могут быть:
 
-# 2. Recommended weekly rhythm
+- **Core milestone** — обязателен;
+- **Guided lab** — выполняется только указанный кусок;
+- **Stretch** — необязательное углубление.
 
-A typical 6–8 hour week can look like this:
+Не держим несколько больших незавершённых milestone одновременно без причины.
 
-## Mobile / metro — ~2.5–3 hours
+## 3. Canonical lesson template
 
-- 2 × 30–45 min theory/video blocks
-- 1 × 30–45 min exercise/quiz block
-- 2 × 10–15 min retrieval/review blocks
+Каждый урок следует [`AUTHORING_STANDARD.md`](AUTHORING_STANDARD.md).
 
-## PC — ~3.5–5 hours
+Ключевое изменение self-contained версии: вместо блока «прочитай внешний источник» урок содержит **полную собственную теорию**.
 
-- 1 × 60–90 min focused lab
-- 1 × 90–150 min project slice
-- 20–30 min review / notes / commit cleanup
+Внешние материалы указываются только в конце как дополнительное чтение.
 
-The exact days do not matter.
+## 4. Lesson readiness
 
-A missed week does not require restarting a module.
+Перед зависимым уроком выполняется 2–5 вопросов prerequisite check.
 
----
+Если обнаружен пробел:
 
-# 3. Only one large project is active at a time
+1. ремонтируем конкретную тему;
+2. делаем одно маленькое упражнение;
+3. возвращаемся к текущему уроку.
 
-A module may contain:
+Не нужно перепроходить весь предыдущий модуль.
 
-- **Core milestone** — must be completed;
-- **Guided lab** — only the specified slice is required;
-- **Stretch project** — optional depth.
+## 5. Exit check урока
 
-Do not keep two large unfinished milestones open unless the course explicitly says so.
+Урок завершён, когда ученик:
 
-This distinction is important: not every project from `project-based-learning` deserves the same weight.
+1. объясняет модель своими словами;
+2. выполняет фокусное упражнение;
+3. применяет идею в project slice, если он есть;
+4. отвечает хотя бы на один новый сценарий «что пойдёт не так, если…?».
 
----
+## 6. Module gate
 
-# 4. Lesson readiness
+Модуль закрывается только при наличии пяти доказательств.
 
-Before a lesson that depends on earlier knowledge, run a 2–5 question prerequisite check.
+### Explain
 
-If a prerequisite is weak:
+Ключевые модели можно объяснить без копирования определения.
 
-- repair only the missing concept;
-- do one small exercise;
-- return to the planned lesson.
+### Build
 
-Do **not** restart an entire previous module.
+Core milestone работает в согласованном объёме.
 
----
+### Transfer
 
-# 5. Canonical lesson template
+Есть хотя бы одно изменение, не скопированное из tutorial/примера.
 
-Every instructor-led lesson should contain these blocks. Short lessons may combine them, but none should disappear without a reason.
+### Debug
 
-## A. Goal and prerequisite check
+Разобран хотя бы один нетривиальный баг с подходящим инструментом.
 
-State one concrete outcome, for example:
+### Review
 
-> After this lesson, explain what a pointer parameter changes about ownership/lifetime reasoning and use one safely in the current project.
+Можно ответить:
 
-Then ask 2–5 prerequisite questions. Do not teach the next layer on top of an unknown gap.
+- из каких компонентов состоит система;
+- где хранится состояние;
+- кто владеет ресурсами;
+- что может сломаться;
+- как это наблюдать;
+- каковы time/memory/resource costs;
+- что изменится при 10× масштабе;
+- какие security assumptions существуют.
 
-## B. Why it matters / industry situation
+## 7. Knowledge states
 
-Give a concrete situation, not motivational filler.
+- **Seen** — узнаю.
+- **Explain** — могу объяснить.
+- **Apply** — использовал самостоятельно.
+- **Transfer** — применяю в новом контексте.
 
-Example:
+Core concepts обычно должны дойти до `Apply`, а defining concepts milestone — до `Transfer`.
 
-> A service reads from a TCP socket and assumes one `recv()` equals one request. Under load, requests become split/coalesced and parsing breaks. The lesson introduces stream framing to prevent that class of bug.
+## 8. Public tests и дополнительные edge cases
 
-This section answers **what engineering problem the concept solves or explains**.
+Публичные тесты и сценарии доступны заранее и служат обратной связью.
 
-## C. Exact source assignment
+Они не являются полным контрактом. На review преподаватель может предложить дополнительные случаи, чтобы проверить понимание, а не способность подогнать реализацию под известные проверки.
 
-Assign an exact video segment, section, chapter fragment, or documentation page.
+## 9. AI policy
 
-Good:
+AI — преподаватель, reviewer и debugging assistant, а не implementation engine.
 
-> Dive into Systems §X.Y–X.Z + 10-minute CS50 short.
-
-Bad:
-
-> Read Dive into Systems.
-
-Normally use one teaching source. Add a companion only if it resolves a specific difficulty.
-
-## D. Causal understanding questions
-
-Prefer questions such as:
-
-- What changes if…?
-- Why does this fail when…?
-- Which invariant is broken?
-- Where does the state live?
-- Which layer owns this behavior?
-
-Avoid making recall-only questions the main assessment.
-
-## E. Focused exercise
-
-10–30 minutes, usually one concept.
-
-It must have explicit self-check criteria:
-
-- expected observable behavior;
-- important edge cases;
-- warnings/errors that must be absent;
-- explanation the learner should be able to give.
-
-## F. Project slice
-
-Use the concept in the current milestone as soon as it is ready.
-
-A project slice must state:
-
-- what behavior changes;
-- which files/components are in scope;
-- what is deliberately **not** being implemented yet;
-- acceptance criteria.
-
-The project slice should be larger than the exercise but small enough to finish/review without a multi-week black box.
-
-## G. Edge cases / debugging checklist
-
-Every lesson that touches code should name at least the important failure modes.
-
-Examples:
-
-- empty input;
-- maximum size;
-- allocation failure;
-- malformed frame;
-- short read/write;
-- descriptor leak;
-- race;
-- integer overflow;
-- use-after-free;
-- partial persistence.
-
-The lesson should also name the first diagnostic tool/action to use.
-
-## H. Exit check
-
-A lesson ends when the learner can:
-
-1. explain the concept;
-2. pass the focused exercise;
-3. integrate the project slice where applicable;
-4. answer at least one unfamiliar "what goes wrong if…?" scenario.
-
-Do not move on merely because the video is finished.
-
----
-
-# 6. Module exit gate
-
-A module is complete only when all five conditions are satisfied.
-
-## A. Explain
-
-Explain the module's core concepts without copying definitions.
-
-## B. Build
-
-The core milestone works for its agreed scope.
-
-## C. Transfer
-
-Implement one change that is **not copied from the tutorial**.
-
-Examples:
-
-- a new operation;
-- different policy;
-- additional failure handling;
-- instrumentation;
-- alternative data representation.
-
-## D. Debug
-
-Diagnose at least one non-trivial bug in the project using the appropriate tools.
-
-This can be a naturally occurring bug or a deliberately seeded one.
-
-## E. Review
-
-Answer the engineering-review questions:
-
-- What are the components and boundaries?
-- What state exists, and who owns it?
-- What is the time/memory/resource cost?
-- What can fail?
-- How is failure observed or tested?
-- What assumptions does the implementation make?
-- What would change at 10× scale?
-- What security concerns exist?
-
-A project can work and still fail the module gate if the learner cannot explain it.
-
----
-
-# 7. Practical self-check rubric
-
-For code/lab work, use four dimensions instead of a vague "done" flag.
-
-| Dimension | Pass condition |
-|---|---|
-| Correctness | agreed normal + boundary cases work |
-| Explanation | learner can explain why the behavior occurs |
-| Diagnostics | warnings/errors are understood; suitable tool was used when needed |
-| Transfer | learner can change the example without copying a ready solution |
-
-For milestone projects add:
-
-| Dimension | Pass condition |
-|---|---|
-| Design | interfaces/state/ownership documented |
-| Failure handling | important failures are explicit and tested/simulated |
-| Evidence | tests/metrics support claims |
-| Trade-offs | alternatives and limitations can be discussed |
-
----
-
-# 8. Knowledge states
-
-Use four simple states when tracking a concept:
-
-- **Seen** — I recognize the concept.
-- **Explain** — I can explain it in my own words.
-- **Apply** — I used it independently in code/problem solving.
-- **Transfer** — I can use it in a new context without following the original example.
-
-The course does not require every concept to reach Transfer immediately.
-
-Core module concepts should normally reach **Apply**; milestone-defining concepts should reach **Transfer**.
-
----
-
-# 9. Retrieval and forgetting
-
-Long courses fail when early knowledge is never revisited.
-
-Use lightweight cumulative review:
-
-- start a PC session with 5–10 minutes of recall from older modules;
-- after every two modules, do a cumulative checkpoint;
-- occasionally explain an old project without opening the source;
-- fix one old bug or make one small modification to an earlier project.
-
-Do not create hundreds of flashcards. Review should stay connected to code and mental models.
-
----
-
-# 10. Difficulty / stuck rule
-
-Being stuck is part of systems programming, but the course should distinguish **productive struggle** from environment friction.
-
-## Productive struggle
-
-Examples:
-
-- pointer/lifetime reasoning;
-- algorithm design;
-- debugging a logical error;
-- understanding a race condition.
-
-Spend time reasoning before asking for a solution.
-
-## Unproductive friction
-
-Examples:
-
-- incompatible tutorial dependency;
-- old API no longer builds;
-- WSL/kernel feature mismatch;
-- package/version issue unrelated to the concept.
-
-Do not waste a study evening on this. Escalate quickly, adapt the lab, and record the environment issue.
-
----
-
-# 11. AI policy
-
-AI is used as tutor, reviewer, and debugger — not as the implementation engine.
-
-## Freely allowed
-
-- concept explanations;
-- documentation navigation;
-- compiler-error explanation;
-- code review;
-- test ideas;
-- architecture discussion;
-- debugging hypotheses;
-- comparison of approaches.
-
-## Hint mode
-
-For current milestone code, use this escalation order:
+Для milestone используется лестница:
 
 ```text
-question
-→ diagnostic direction
-→ small hint
-→ pseudocode
-→ stronger hint
-→ concrete solution only when the learning value is exhausted
+диагностический вопрос
+→ направление
+→ маленький hint
+→ псевдокод
+→ более сильный hint
+→ конкретное решение только если учебная ценность исчерпана
 ```
 
-The learner writes the final milestone implementation.
+Финальный проектный код пишет ученик.
 
----
+## 10. Вспомогательный Python
 
-# 12. Source policy
+Python допустим для:
 
-For any single learning block, normally use:
+- test harness;
+- fixtures;
+- load generation;
+- benchmark analysis;
+- tooling, не являющегося целью конкретного урока.
 
-1. **one teaching source**;
-2. **one reference/alternate explanation** if needed;
-3. the active project specification.
+Если само написание такого инструмента является полезной инженерной задачей, его пишет ученик. Если нет — курс может предоставить готовую инфраструктуру.
 
-Do not complete multiple overlapping courses in parallel.
+## 11. Consolidation
 
-A source is assigned a role:
+После большого milestone или примерно каждые 4–6 недель допускается отдельная сессия/неделя на:
 
-- `PRIMARY`
-- `REFERENCE`
-- `EXERCISES`
-- `CONCEPT_COMPANION`
-- `GUIDED_LAB`
-- `HISTORICAL_REFERENCE`
+- рефакторинг;
+- исправление тестов;
+- повторение;
+- закрытие хвостов;
+- отдых без создания «долга».
 
-If a source is old but pedagogically useful, the course must say so explicitly.
+## 12. Что остаётся после milestone
 
-See [`SOURCE_MATRIX.md`](SOURCE_MATRIX.md) for the current source map.
+- исходный код;
+- тесты;
+- README проекта;
+- transfer feature;
+- debugging story;
+- engineering review;
+- осмысленная Git-история.
 
----
-
-# 13. Consolidation buffer
-
-Heavy systems projects often take longer than estimates.
-
-After a large milestone or approximately every 4–6 weeks, allow a buffer session/week for:
-
-- catching up;
-- refactoring;
-- fixing tests;
-- reviewing old concepts;
-- resting without creating a backlog.
-
-The schedule is a pacing guide, not a deadline system.
-
----
-
-# 14. What evidence should remain after a module
-
-Each core milestone should leave:
-
-- source code;
-- tests;
-- README with design and limitations;
-- a short engineering review;
-- one transfer feature;
-- one debugging story;
-- Git history showing incremental work.
-
-Performance/network/service milestones additionally retain the workload definition and measurements behind performance claims.
-
-The portfolio should demonstrate reasoning, not just completed tutorials.
+Проект должен демонстрировать reasoning, а не только наличие работающего бинарника.
