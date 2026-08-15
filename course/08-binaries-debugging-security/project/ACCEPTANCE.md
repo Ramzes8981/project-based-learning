@@ -1,0 +1,21 @@
+# minidbg-c — Acceptance
+
+- launches target;
+- initial ptrace stop handled;
+- continue to normal exit;
+- signal termination reported;
+- register dump/read;
+- memory word read with correct errno handling;
+- address breakpoint insert/list/remove;
+- breakpoint hit detected;
+- step-over original instruction correctly;
+- repeated breakpoint hits work;
+- instruction single-step;
+- duplicate breakpoint does not corrupt original byte;
+- non-PIE fixture passes;
+- one PIE runtime-address exercise documented;
+- target cleanup/no zombie;
+- no unexplained warnings;
+- sanitizer-clean debugger-owned memory logic;
+- README architecture/state machine/limitations;
+- transfer feature.
