@@ -2,138 +2,145 @@
 
 > High-level map of the learning direction for this fork.
 >
-> **The canonical course is now [`course/README.md`](course/README.md).**
+> **The canonical executable course is [`course/README.md`](course/README.md).**
 >
-> This file intentionally stays concise. The course file defines the actual order of study, lesson format, primary sources, project sequence, and module exit criteria.
+> This file intentionally stays short. Detailed prerequisites, lesson order, sources, exercises, project slices, rubrics and exit gates live under `course/`.
 
 ---
 
 # Goal
 
-Move from an existing Python/data background toward strong systems-engineering and computer-science fundamentals:
+Build a strong systems-engineering and CS foundation from an existing Python background:
 
-- C and explicit memory
-- algorithms and data structures
-- computer architecture
-- Unix / processes
-- operating systems and concurrency
-- networking
-- performance / memory hierarchy
-- storage / database internals
-- binaries / debugging / security
-- system-design / architecture reasoning
+- C and explicit memory;
+- algorithms and data structures;
+- computer architecture and assembly;
+- Unix / processes;
+- virtual memory and performance;
+- networking and concurrency;
+- operating systems and isolation;
+- filesystems and database internals;
+- binaries / debugging / security;
+- system integration / architecture reasoning.
 
-Pace: **6–8 hours/week**.
-
-Learning mode: **mobile-first theory + PC-first project implementation**.
+**Pace:** 6–8 hours/week.  
+**Mode:** mobile-first theory + PC-first implementation.  
+**Expected finite core:** roughly 15–20 months including consolidation buffers.
 
 ---
 
-# Course philosophy
-
-Do not separate theory and projects into long independent phases.
-
-Use the loop:
+# Learning philosophy
 
 ```mermaid
 flowchart LR
-    T[Theory] --> E[Small exercise]
+    T[Exact theory block] --> Q[Understanding check]
+    Q --> E[Focused exercise]
     E --> P[Project slice]
-    P --> N[Next theory block]
-    N --> E2[Exercise]
-    E2 --> P2[Next project slice]
+    P --> R[Debug / review]
+    R --> N[Next needed concept]
 ```
 
-The project should create the reason to learn the next concept.
+Do not finish several theory courses before starting real code.
+
+Do not treat every project tutorial as a modern implementation specification.
 
 ---
 
-# Core course map
+# Audited core map
 
 ```mermaid
 flowchart TD
-    M0[Module 0: C Fast Start] --> M1[Module 1: Data Structures & Memory]
-    M1 --> M2[Module 2: Unix & Processes]
-    M2 --> M3[Module 3: Computer Architecture]
-    M3 --> M4[Module 4: Performance & Memory]
-    M4 --> M5[Module 5: Networking & Concurrency]
-    M5 --> M6[Module 6: Operating Systems & Storage]
-    M6 --> M7[Module 7: Binaries, Debugging & Security]
-    M7 --> ADV[Advanced branches]
+    M0[0 C Fast Start] --> M1[1 Memory & Data Structures]
+    M1 --> M2[2 Unix & Shell]
+    M2 --> M3[3 Computer Architecture]
+    M3 --> M4[4 Virtual Memory & Performance]
+    M4 --> M5[5 Networking & Concurrency]
+    M5 --> M6[6 OS & Isolation]
+    M6 --> M7[7 Filesystems & Databases]
+    M7 --> M8[8 Binaries / Debugging / Security]
+    M8 --> M9[9 Systems Integration / Architecture]
+    M9 --> ADV[Advanced branches]
 ```
 
-The detailed syllabus for these modules lives in [`course/README.md`](course/README.md).
+---
+
+# Project roles
+
+The upstream `project-based-learning` repository is a **catalog of learning assets**, not the syllabus itself.
+
+## Core milestones
+
+Required integration projects:
+
+1. MiniKV → **Hash Table in C**
+2. **Unix Shell**
+3. **small VM / Emulator** + Nand2Tetris 1–6
+4. **Arena Allocator**
+5. **Concurrent KV Server**
+6. **modern Linux isolation / mini-container lab**
+7. **Simple Database**
+8. **Minimal Linux Debugger in C**
+9. **Systems Architecture Capstone**
+
+## Guided labs
+
+Useful, but intentionally partial:
+
+- selected Kilo terminal/raw-mode work;
+- current libfuse 3 `hello`/`passthrough` adaptation;
+- tool/inspection experiments.
+
+## Historical / stretch references
+
+These may still teach valuable ideas but are not copied as-is:
+
+- full Kilo editor;
+- `Memory Allocators 101` `sbrk()` backend;
+- old `Linux Container in 500 Lines of Code` environment/cgroup assumptions;
+- older FUSE 2.x tutorial;
+- full Sy Brand C++/libelfin debugger series.
+
+See [`course/AUDIT_2026-08.md`](course/AUDIT_2026-08.md) for rationale.
 
 ---
 
-# Main milestone projects
+# CS coverage
 
-The original `project-based-learning` repository is treated as a **project catalog**. The course selects milestones from it and uses them as integration projects.
-
-## Early core
-
-1. **Hash Table in C**
-2. **Dynamic Array / Vector in C** — custom mini-project
-3. **Build Your Own Text Editor**
-4. **Write a Shell in C**
-
-## Architecture / performance
-
-5. **Nand2Tetris Projects 1–6**
-6. **VM or CHIP-8 Emulator**
-7. **Memory Allocator**
-
-## Networking / OS / storage
-
-8. **Concurrent Server**
-9. **Linux Container**
-10. **FUSE Filesystem**
-11. **Simple Database**
-
-## Binary / security bridge
-
-12. **Linux Debugger**
-
-Each project is built incrementally while its supporting theory is being learned.
-
----
-
-# Where the CS fundamentals live
-
-The course still includes the full CS foundation, but not as disconnected parallel semesters.
-
-| CS topic | Main course location |
+| Area | Main modules |
 |---|---|
-| Algorithms / complexity | Modules 1 and 5, then just-in-time |
-| Data structures | Module 1 |
-| Discrete math | just-in-time inside algorithms/hashing/graphs/correctness |
-| Computer architecture | Module 3 |
-| Operating systems | Modules 2 and 6 |
-| Concurrency | Modules 5 and 6 |
-| Networking | Module 5 |
-| Storage / DB internals | Module 6 |
-| Binaries / debugging | Module 7 |
-| System design / architecture thinking | engineering review after every milestone |
+| C / software construction | 0–2 |
+| Algorithms / data structures | 1 and 5 |
+| Discrete math / reasoning | just-in-time in 1, 3, 5, 9 |
+| Computer architecture / ABI | 3 |
+| Virtual memory / cache / performance | 4 and 6 |
+| Unix / processes | 2 |
+| Networking | 5 |
+| Concurrency | 5–6 |
+| Operating systems / isolation | 6 |
+| Filesystems / storage | 7 |
+| Database internals | 7 |
+| Binaries / debugger / security | 8 |
+| Architecture / operability | every milestone review + 9 |
 
 ---
 
 # Source policy
 
-Avoid learning from many sources simultaneously.
+Normally use only:
 
-Default rule:
+1. **one teaching source**;
+2. **one optional reference/companion**;
+3. the active project specification.
 
-1. **one primary source** for the current module;
-2. **one optional reference / Russian companion**;
-3. **one active project**.
+Source roles are explicit: `PRIMARY`, `REFERENCE`, `EXERCISES`, `GUIDED LAB`, `HISTORICAL REFERENCE`.
 
-Russian alternatives and their roles are tracked separately in [`SYSTEMS_ENGINEERING_RUSSIAN_RESOURCES.md`](SYSTEMS_ENGINEERING_RUSSIAN_RESOURCES.md).
+Russian alternatives are tracked in [`SYSTEMS_ENGINEERING_RUSSIAN_RESOURCES.md`](SYSTEMS_ENGINEERING_RUSSIAN_RESOURCES.md).
 
 ---
 
 # Advanced branches
 
-After the core, choose based on goals rather than following one linear curriculum:
+After the finite core:
 
 - Security / Reverse Engineering
 - Distributed Systems / Architecture
@@ -145,12 +152,8 @@ After the core, choose based on goals rather than following one linear curriculu
 
 ---
 
-# Progress tracking
+# Progress
 
-Use [`SYSTEMS_ENGINEERING_PROGRESS.md`](SYSTEMS_ENGINEERING_PROGRESS.md) for the current module, completed concepts, project slices, transfer tasks, and engineering reviews.
+Use [`SYSTEMS_ENGINEERING_PROGRESS.md`](SYSTEMS_ENGINEERING_PROGRESS.md).
 
----
-
-# Next action
-
-Start with [`course/README.md`](course/README.md) → **Module 0 — C Fast Start**.
+Start at [`course/00-c-fast-start/README.md`](course/00-c-fast-start/README.md).
