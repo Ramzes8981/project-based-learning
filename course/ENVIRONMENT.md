@@ -1,186 +1,167 @@
 # Course Environment
 
-This file defines the **canonical technical environment** for the Systems Engineering Course.
+Canonical environment нужен для воспроизводимости Linux-specific labs, но setup не является отдельным учебным модулем.
 
-The point is not to study tooling for weeks. The point is to make later labs reproducible and avoid changing environments in the middle of the course.
+## Desktop: Windows + WSL2 + Ubuntu
 
-## Canonical desktop environment
+Для Windows основной path — WSL2/Ubuntu.
 
-For this course, use:
-
-- **Windows + WSL2 + Ubuntu** as the primary desktop environment;
-- VS Code with the WSL extension, or another editor that works inside the Linux filesystem;
-- a normal Linux shell inside WSL;
-- Git inside WSL;
-- GCC or Clang;
-- `make`;
-- GDB;
-- Python 3 for test harnesses and small support scripts.
-
-Official WSL setup documentation:
-
-- https://learn.microsoft.com/windows/wsl/install
-- https://learn.microsoft.com/windows/wsl/setup/environment
-
-A typical fresh Windows setup starts with:
+В PowerShell (администратор), если WSL ещё не установлен:
 
 ```powershell
 wsl --install
 ```
 
-After Ubuntu is available, install the basic development tools inside Linux:
+Проверь версию:
+
+```powershell
+wsl -l -v
+```
+
+Новые установки через `wsl --install` по текущей Microsoft documentation используют WSL 2 по умолчанию. Дополнительная официальная инструкция остаётся optional reference:
+
+- https://learn.microsoft.com/windows/wsl/install
+
+После запуска Ubuntu:
 
 ```bash
 sudo apt update
-sudo apt install build-essential clang gdb git make python3 python3-pip
+sudo apt install build-essential clang gdb git make python3 python3-pip \
+    strace pkg-config
 ```
 
-Do not turn environment setup into a separate course. Once a small C program compiles and runs, start Module 0.
+Некоторые поздние labs добавят packages just-in-time (`libfuse3-dev`, networking/debug tools и т.п.). Не устанавливай огромный toolset заранее.
 
-## Where to store course code
+## Где хранить code
 
-Prefer the Linux filesystem inside WSL, for example:
+Предпочтительно Linux filesystem внутри WSL:
 
 ```text
 ~/systems-course/
 ```
 
-rather than placing Linux projects under `/mnt/c/...`.
+а не `/mnt/c/...`, особенно для labs с permissions, symlinks, Unix sockets и filesystem behavior.
 
-This keeps Linux tooling, permissions, paths, symlinks, and filesystem behavior closer to the environment used by later modules.
+## C profile
 
-## Android / metro environment
-
-Android is a **secondary learning environment**, not the canonical project runtime.
-
-Use Termux for:
-
-- tiny C experiments;
-- shell practice;
-- Git reading / small edits;
-- compiling short examples;
-- reviewing commands.
-
-Use the phone mainly for:
-
-- video lectures;
-- Stepik exercises;
-- mobile HTML books;
-- quizzes and recall;
-- notes.
-
-Do **not** depend on Termux for Linux kernel labs, FUSE, container namespaces, debugger internals, or other platform-sensitive milestones.
-
-## macOS
-
-macOS is fine for most early C, algorithms, architecture, networking, and general programming work.
-
-From Module 2 onward, POSIX details may differ from Linux. Modules involving Linux-specific interfaces (`ptrace`, Linux namespaces, some `/proc` behavior, libfuse/Linux integration) must be run in the canonical Linux environment.
-
-If WSL does not expose a required kernel feature for a specific lab, use an Ubuntu virtual machine or native Linux for that lab. The course should never require replacing the host operating system.
-
----
-
-# Compiler profiles
-
-Do not begin with a complicated build system. Start with a simple compiler command and introduce Make only when repetition becomes annoying.
-
-## Baseline C build
-
-Use C17 for course-owned C code unless a tutorial has a justified compatibility requirement:
+Baseline:
 
 ```bash
-cc -std=c17 -Wall -Wextra -Wpedantic -g main.c -o main
+cc -std=c17 -Wall -Wextra -Wpedantic -g source.c -o program
 ```
 
-Early goal: **zero unexplained compiler warnings**.
-
-## Memory/debug build
-
-From Module 1 onward, regularly use sanitizers for course-owned code:
+Memory/debug profile:
 
 ```bash
 cc -std=c17 -Wall -Wextra -Wpedantic -g \
   -fsanitize=address,undefined -fno-omit-frame-pointer \
-  main.c -o main
+  source.c -o program
 ```
 
-A project is not considered healthy merely because it produces correct output once. Memory errors matter.
+Rule: **zero unexplained warnings**.
 
-## POSIX code
+POSIX features вводятся deliberate feature-test macros only when needed, например:
 
-When a module needs POSIX interfaces, introduce feature-test macros deliberately rather than silently switching the entire course to GNU extensions.
-
-For example:
-
-```bash
+```text
 -D_POSIX_C_SOURCE=200809L
 ```
 
-Some historical tutorials use GNU extensions or old APIs. The course should adapt the tutorial to the current module rather than copy its compiler flags blindly.
+Linux-specific APIs (`ptrace`, namespaces, `/proc`) явно помечаются как Linux-specific.
 
----
+## Rust
 
-# Tools introduced just in time
+Rust Systems Bridge использует stable Rust через `rustup`.
 
-| Tool | Introduced when |
-|---|---|
-| compiler / shell | Module 0 |
-| Git basics | Module 0 |
-| `make` | when the first build command becomes repetitive |
-| GDB | first meaningful crash / Module 1 |
-| AddressSanitizer / UBSan | Module 1 memory work |
-| `strace` | Module 2 system-call work |
-| `readelf`, `objdump`, `nm` | Module 3/8 |
-| Wireshark | Module 5 |
-| profiling tools | Module 4 |
-| libfuse 3 | Module 7 |
+Официально рекомендуемый WSL/Linux installer на текущем сайте Rust:
 
-Do not front-load tools that have no immediate use.
-
----
-
-# Project hygiene
-
-Every active project should have at least:
-
-```text
-project/
-├── README.md
-├── src/
-├── include/        # when headers become useful
-├── tests/
-└── Makefile        # once justified
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-Exact structure may differ for small projects.
+Optional reference:
 
-Rules:
+- https://www.rust-lang.org/tools/install
 
-1. Keep warnings enabled.
-2. Commit after meaningful project slices.
-3. Do not commit generated binaries.
-4. Keep a short project README explaining current behavior and known limitations.
-5. Prefer small, reversible commits over one giant final commit.
-6. When a tutorial uses an outdated API, record the adaptation in the project README.
+После установки:
 
----
+```bash
+rustc --version
+cargo --version
+rustup component add rustfmt clippy
+```
 
-# Platform-sensitive milestone policy
+Основной workflow:
 
-Some upstream project tutorials are historically valuable but no longer suitable as exact modern instructions.
+```text
+cargo check
+cargo fmt
+cargo clippy
+cargo test
+```
 
-The course therefore distinguishes:
+Nightly/Miri/sanitizer-specific Rust tooling вводится только если конкретный lab действительно требует его.
 
-- **concept reference** — useful explanation, but code/API may be old;
-- **current implementation source** — current official docs/examples;
-- **course project spec** — what the learner actually builds.
+## Python
 
-This matters especially for:
+Python 3 — вспомогательный язык курса для:
 
-- Linux containers;
+- test harness;
+- fixtures;
+- load generator;
+- benchmark analysis;
+- tooling, которое не является целью C/Rust урока.
+
+Основной systems implementation не переносится на Python ради удобства.
+
+## Android / метро
+
+Phone — полноценное устройство для **теории курса**, потому что required Markdown находится в repo и написан mobile-first.
+
+Можно использовать GitHub app/browser/offline clone/reader.
+
+Termux optional для:
+
+- tiny C/Rust-ish experiments where practical;
+- shell commands;
+- Git;
+- небольших edits.
+
+Не используй Android как canonical runtime для:
+
+- namespaces/cgroup labs;
 - FUSE;
-- debugger libraries/tooling;
-- old compiler/build instructions.
+- Linux ptrace debugger;
+- platform-sensitive performance tests.
 
-The course project spec wins when an old tutorial conflicts with modern documentation.
+## macOS
+
+Early C/Rust/algorithms/architecture work можно выполнять на macOS, но Linux-specific Modules 2+ должны проверяться в canonical Linux environment.
+
+## Tools just in time
+
+```text
+compiler/Git        Module 0
+ASan/UBSan/GDB      Module 1
+Cargo/clippy        Module 1B
+strace/termios      Module 2
+objdump/readelf     Modules 3/8
+mmap/perf tools     Module 4
+Wireshark/socket    Module 5
+/proc/unshare       Module 6
+libfuse3            Module 7
+ptrace/binutils     Module 8
+load generator      Modules 5/9
+```
+
+## Project hygiene
+
+Каждый milestone оставляет:
+
+- source;
+- tests;
+- README/design notes;
+- transfer feature;
+- debugging story;
+- small meaningful Git commits.
+
+Не коммить generated binaries/huge benchmark artifacts без необходимости.
