@@ -2,7 +2,7 @@
 
 > Companion to [`SYSTEMS_ENGINEERING_ROADMAP.md`](SYSTEMS_ENGINEERING_ROADMAP.md).
 >
-> Update this file as the curriculum evolves. Dates and notes matter more than checking boxes quickly.
+> Track both **knowledge** and **project growth**. A topic is not considered integrated until it has been used in exercises and, where applicable, in a real milestone slice.
 
 ## Current status
 
@@ -10,133 +10,419 @@
 - **Primary programming background:** Python (data/analytics stack)
 - **Mobile device:** Android
 - **Mobile strategy:** Termux + downloadable videos + mobile-friendly HTML
-- **Current level:** Level 0 — Engineering environment
-- **Current milestone:** Not started
+- **Current phase:** Phase 0 — Minimal engineering environment
+- **Current milestone:** Milestone 1 — Hash Table in C (scaffold not started)
+- **Learning rule:** theory -> exercise -> milestone slice -> next theory -> exercise -> next milestone slice
 
 ---
 
-# Progress overview
+# Progress model
 
 ```mermaid
 flowchart LR
-    L0[Level 0 Tooling] --> L1[Level 1 C]
-    L1 --> L2[Level 2 Memory / DS]
-    L2 --> M1[Milestone 1 Hash Table]
-    M1 --> L3[Level 3 Unix / POSIX]
-    L3 --> M2[Milestone 2 Editor]
-    M2 --> M3[Milestone 3 Shell]
-    M3 --> L4[Level 4 Architecture]
-    L4 --> M4[Milestone 4 VM / Emulator]
-    M4 --> L5[Level 5 Performance]
-    L5 --> M5[Milestone 5 Allocator]
-    M5 --> L6[Level 6 Networking]
-    L6 --> M6[Milestone 6 Concurrent Server]
-    M6 --> L7[Level 7 OS / Concurrency]
-    L7 --> M7[Milestone 7 Container]
-    M7 --> M8[Milestone 8 FUSE]
-    M8 --> L8[Level 8 DB Internals]
-    L8 --> M9[Milestone 9 Database]
-    M9 --> L9[Level 9 Binaries / Debugging]
-    L9 --> M10[Milestone 10 Linux Debugger]
+    T[Theory block] --> E[Exercises]
+    E --> P[Project slice]
+    P --> K[Knowledge check / review]
+    K --> N[Next block]
+    N --> T
 ```
 
+For each phase, track:
+
+1. **Theory understood**
+2. **Exercises completed independently**
+3. **Relevant milestone slice implemented**
+4. **Concept explained back without notes**
+5. **Engineering implications discussed**
+
 ---
 
-# Level checklist
+# Core CS threads
 
-## Level 0 — Engineering environment
+These threads are mandatory parts of the finite core.
 
-- [ ] Understand terminal vs shell
-- [ ] Navigate filesystem confidently from CLI
-- [ ] Understand stdin / stdout / stderr
-- [ ] Use pipes and redirection
-- [ ] Explain source → compiler → object → linker → executable
+## C / Software Construction
+
+- [ ] Types / representation
+- [ ] Arrays / strings
+- [ ] Structs / modules
+- [ ] Pointers
+- [ ] Dynamic memory / ownership
+- [ ] Error handling
+- [ ] Build/link model
+- [ ] Debugging/testing
+- [ ] POSIX/system APIs
+
+## Algorithms & Data Structures
+
+- [ ] Complexity intuition
+- [ ] Linear / binary search
+- [ ] Elementary sorting
+- [ ] Dynamic arrays
+- [ ] Linked lists
+- [ ] Stacks / queues
+- [ ] Hash tables
+- [ ] Trees / heaps
+- [ ] Graphs / BFS / DFS
+- [ ] Shortest paths
+- [ ] Dynamic programming fundamentals
+
+## Discrete Math / Reasoning
+
+Learn just in time:
+
+- [ ] Functions / growth rates
+- [ ] Logarithms
+- [ ] Sums
+- [ ] Logic
+- [ ] Sets / relations
+- [ ] Invariants
+- [ ] Induction
+- [ ] Modular arithmetic
+- [ ] Probability intuition
+- [ ] Recurrence intuition
+- [ ] Graph terminology
+
+## Computer Architecture
+
+- [ ] Binary / hexadecimal
+- [ ] Integer representation
+- [ ] Logic gates / Boolean arithmetic
+- [ ] ALU
+- [ ] Registers / memory
+- [ ] CPU / instruction cycle
+- [ ] Machine language
+- [ ] Assembly
+- [ ] Stack frames / ABI
+- [ ] Cache / memory hierarchy
+
+## Operating Systems / Concurrency
+
+- [ ] Syscalls / user vs kernel
+- [ ] Processes / threads
+- [ ] Scheduling / context switching
+- [ ] Virtual memory / paging / TLB
+- [ ] IPC
+- [ ] Synchronization
+- [ ] Races / deadlocks
+- [ ] Devices / I/O
+- [ ] Filesystems
+- [ ] Isolation
+
+## Networking
+
+- [ ] Ethernet / MAC
+- [ ] ARP
+- [ ] IP / subnetting / routing
+- [ ] ICMP
+- [ ] UDP
+- [ ] TCP
+- [ ] DNS basics
+- [ ] Socket API
+- [ ] Concurrent network services
+
+## Storage / Database Internals
+
+- [ ] Storage-cost intuition
+- [ ] Pages / records
+- [ ] Serialization
+- [ ] B-trees / indexes
+- [ ] Buffer/cache
+- [ ] Query execution basics
+- [ ] Transactions
+- [ ] WAL / recovery concepts
+
+## Binaries / Debugging / Security Bridge
+
+- [ ] ELF / executable structure
+- [ ] Symbols / debug info
+- [ ] Registers / stack frames
+- [ ] Breakpoints / signals
+- [ ] Process memory
+- [ ] Memory corruption concepts
+- [ ] Reverse-engineering bridge
+
+## System Design / Architecture Thinking
+
+Repeated after every milestone:
+
+- [ ] Component boundaries
+- [ ] State / ownership
+- [ ] Complexity / resource cost
+- [ ] Failure modes
+- [ ] Stable interfaces
+- [ ] Testing / observability
+- [ ] Security considerations
+- [ ] 10x-scale thought experiment
+- [ ] Trade-offs documented
+
+---
+
+# Phase 0 — Minimal engineering environment
+
+## Cycle 0.1
+
+### Theory
+
+- [ ] Terminal vs shell
+- [ ] Current directory / paths
+- [ ] `cd`, `ls`, `mkdir`
+- [ ] Source file vs executable
+- [ ] Compiler role
+- [ ] Run a compiled program
+- [ ] Exit code
+
+### Exercises
+
 - [ ] Compile a minimal C program manually
-- [ ] Enable compiler warnings
-- [ ] Use basic Git workflow
-- [ ] Create a basic Makefile
-- [ ] Inspect/debug a simple failure
-- [ ] Pass Level 0 knowledge check
+- [ ] Run it from the terminal
+- [ ] Change it, rebuild it, rerun it
+- [ ] Trigger/read a simple compiler diagnostic
 
-**Notes:**
+### Project slice — Hash Table scaffold
 
-- _Add notes here._
+- [ ] Create project workspace
+- [ ] Create placeholder source/header/test structure
+- [ ] Compile a smoke-test executable
+
+### Gate
+
+- [ ] Explain `source -> compiler -> executable -> process`
 
 ---
 
-## Level 1 — C fundamentals
+# Phase 1 — C fundamentals
 
-- [ ] Primitive types and `sizeof`
-- [ ] Signed / unsigned integers
-- [ ] Control flow
-- [ ] Functions and scope
-- [ ] Arrays
-- [ ] C strings
-- [ ] `struct`
-- [ ] `enum`
-- [ ] Headers and translation units
-- [ ] Preprocessor basics
-- [ ] `argc` / `argv`
-- [ ] Basic file I/O
-- [ ] Big O / Ω / Θ basics
+## Cycle 1.1 — Types and representation
+
+### Theory
+
+- [ ] Primitive types
+- [ ] `sizeof`
+- [ ] Signed / unsigned
+- [ ] Integer range / overflow intuition
+- [ ] Scope basics
+
+### Exercises
+
+- [ ] Inspect type sizes
+- [ ] Compare C integer behavior with Python
+- [ ] Write small numeric functions
+
+### Hash Table slice
+
+- [ ] Sketch public API
+- [ ] Create fixed-capacity placeholder storage
+- [ ] Add smoke test
+
+---
+
+## Cycle 1.2 — Control flow / functions
+
+### Theory
+
+- [ ] Control flow fast pass
+- [ ] Functions
+- [ ] Declarations vs definitions
+- [ ] Return/error conventions basics
+
+### Exercises
+
+- [ ] Small functions
+- [ ] Input validation / return codes
+
+### Hash Table slice
+
+- [ ] Basic create/get-style stubs
+- [ ] Define initial error conventions
+
+---
+
+## Cycle 1.3 — Arrays / strings + Algorithms I
+
+### Theory
+
+- [ ] Fixed arrays
+- [ ] `char` arrays
+- [ ] C strings / null terminator
+- [ ] Bounds responsibility
+
+### Algorithms
+
+- [ ] Linear search
 - [ ] Binary search
 - [ ] Elementary sorting
-- [ ] Recursion basics
-- [ ] Discrete math: logic / sets / functions
-- [ ] Discrete math: proof intuition / induction
-- [ ] Pass Level 1 knowledge check
+- [ ] Big-O intuition
 
-**Notes:**
+### Math just-in-time
 
-- _Add notes here._
+- [ ] Functions / growth
+- [ ] Logarithm intuition
+- [ ] Simple loop-cost sums
+
+### Exercises
+
+- [ ] Search fixed arrays
+- [ ] Sort fixed arrays
+- [ ] Write basic string operations
+
+### Hash Table slice
+
+- [ ] Fixed-capacity key/value entries
+- [ ] Linear key lookup
 
 ---
 
-## Level 2 — Memory and data structures
+## Cycle 1.4 — Structs / modules
 
-- [ ] Addresses and pointers
-- [ ] Dereferencing
-- [ ] Pointer arithmetic
+### Theory
+
+- [ ] `struct`
+- [ ] `enum`
+- [ ] `.h` / `.c`
+- [ ] Translation units
+- [ ] Preprocessor basics
+- [ ] Linker introduced here
+
+### Exercises
+
+- [ ] Model records with structs
+- [ ] Split small program across files
+
+### Hash Table slice
+
+- [ ] Explicit entry/table structs
+- [ ] Public interface separated from implementation
+
+### Phase gate
+
+- [ ] Explain core Python-vs-C differences encountered so far
+
+---
+
+# Phase 2A — Representation and pointers
+
+## Cycle 2A.1
+
+- [ ] Understand byte / address
+- [ ] `&` / `*`
+- [ ] Pointer types
+- [ ] Dereference
+- [ ] `NULL`
+- [ ] Exercise: value vs pointer parameters
+- [ ] Hash Table: functions operate on table pointers
+- [ ] Explain every current pointer target/lifetime
+
+## Cycle 2A.2
+
 - [ ] Arrays vs pointers
-- [ ] Stack vs heap
-- [ ] Object lifetime
+- [ ] Pointer arithmetic
+- [ ] Strings via pointers
+- [ ] Pointer-to-struct syntax
+- [ ] Exercises with indexed vs pointer traversal
+- [ ] Hash Table: pointer-based entry traversal
+
+---
+
+# Phase 2B — Dynamic memory and ownership
+
+## Cycle 2B.1 — stack / lifetime
+
+- [ ] Stack lifetime concept
+- [ ] Safe/unsafe returned pointers
+- [ ] Dangling-pointer concept
+- [ ] Lifetime exercises
+- [ ] Hash Table: ownership rules documented
+
+## Cycle 2B.2 — heap
+
 - [ ] `malloc`
 - [ ] `calloc`
 - [ ] `realloc`
 - [ ] `free`
-- [ ] `NULL`
+- [ ] Allocation failure
+- [ ] Exercise: allocate/free arrays/structs
+- [ ] Exercise: grow allocation
+- [ ] Hash Table: dynamic table/entry allocation
+- [ ] Hash Table: cleanup/destructor path
+
+## Cycle 2B.3 — failure modes
+
 - [ ] Memory leaks
-- [ ] Dangling pointers
-- [ ] Double-free / use-after-free concepts
+- [ ] Double free
+- [ ] Use-after-free concept
 - [ ] Buffer overflow concept
-- [ ] Dynamic array
-- [ ] Linked list
-- [ ] Stack data structure
-- [ ] Queue
-- [ ] Binary search tree
-- [ ] Pass Level 2 knowledge check
-
-**Notes:**
-
-- _Add notes here._
+- [ ] Compiler warnings / sanitizer / debugger intro
+- [ ] Diagnose intentional memory bugs
+- [ ] Hash Table: cleanup/error-path tests
 
 ---
 
-# Milestones
+# Phase 2C — Core DS / algorithms
 
-## Milestone 1 — Hash Table in C
+## Cycle 2C.1 — Dynamic Array mini-milestone
+
+- [ ] Size vs capacity
+- [ ] Geometric growth
+- [ ] Amortized-growth intuition
+- [ ] Build Vector: create/free
+- [ ] Build Vector: get/set
+- [ ] Build Vector: push
+- [ ] Build Vector: resize
+- [ ] Engineering comparison: vector vs fixed array
+
+## Cycle 2C.2 — Linked structures
+
+- [ ] Linked list
+- [ ] Stack
+- [ ] Queue
+- [ ] Node ownership
+- [ ] Implement small linked list
+- [ ] Implement stack/queue
+- [ ] Compare contiguous vs linked representation
+
+## Cycle 2C.3 — Hashing
+
+- [ ] Hash function role
+- [ ] Buckets
+- [ ] Collision concept
+- [ ] Chaining/open-addressing concept
+- [ ] Load factor
+- [ ] Average vs worst-case complexity
+- [ ] Modular arithmetic basics
+- [ ] Probability intuition
+- [ ] Hash Table: hash -> bucket
+- [ ] Hash Table: collision handling
+
+## Cycle 2C.4 — Resizing
+
+- [ ] Load-factor threshold
+- [ ] Rehashing
+- [ ] Amortized resize cost
+- [ ] Hash Table: automatic resize
+- [ ] Hash Table: rehash entries
+- [ ] Add tests/statistics
+
+---
+
+# Milestone 1 — Hash Table in C
 
 **Status:** Not started
 
-- [ ] Complete guided implementation
-- [ ] Explain hashing and collision handling
-- [ ] Explain average vs worst-case complexity
-- [ ] Explain load factor
-- [ ] Identify every allocation / ownership relationship
-- [ ] Complete transfer task
-- [ ] Complete engineering review
+- [ ] All incremental slices completed
+- [ ] Guided tutorial/project completed with understanding
+- [ ] Transfer task selected
+- [ ] Transfer task implemented independently
+- [ ] Explain representation / ownership
+- [ ] Explain average / worst-case complexity
+- [ ] Explain load factor / resize
+- [ ] Review failure paths / memory
+- [ ] Review API/design trade-offs
+- [ ] Testing review
+- [ ] Security review
+- [ ] 10x/100x scale thought experiment
 
-**Transfer task:** _TBD when milestone starts._
+**Transfer task:** _TBD when milestone nears completion._
 
 **Engineering review notes:**
 
@@ -149,144 +435,169 @@ flowchart LR
 - Security:
 - Testing:
 - Trade-offs:
+- Scale:
 
 ---
 
-## Level 3 — Unix / POSIX and processes
+# Phase 3 — Unix / POSIX
+
+Theory and projects are interleaved.
+
+## CS topics
 
 - [ ] Kernel vs user space
-- [ ] System calls
+- [ ] Syscall concept
 - [ ] File descriptors
 - [ ] `open/read/write/close`
-- [ ] Processes / PID
+- [ ] Process / PID
 - [ ] `fork`
 - [ ] `exec`
 - [ ] `wait`
-- [ ] Environment variables
-- [ ] Pipes
+- [ ] Environment
+- [ ] Pipes / redirection
 - [ ] Signals
-- [ ] Terminal / TTY basics
-- [ ] Pass Level 3 knowledge check
+- [ ] Terminal / TTY
 
----
+## Milestone 2 — Text Editor slices
 
-## Milestone 2 — Text Editor
+- [ ] Terminal I/O
+- [ ] Raw mode
+- [ ] Editable buffer
+- [ ] Load/save
+- [ ] Cursor/status
+- [ ] Transfer feature
+- [ ] Engineering review
 
-**Status:** Not started
+## Milestone 3 — Unix Shell slices
 
-- [ ] Guided implementation
-- [ ] Transfer task
+- [ ] Parser
+- [ ] Launch one command
+- [ ] `fork/exec/wait`
+- [ ] Built-in `cd`
+- [ ] Redirection
+- [ ] Pipeline
+- [ ] Transfer feature
 - [ ] Engineering review
 
 ---
 
-## Milestone 3 — Unix Shell
+# Phase 4 — Computer architecture / assembly
 
-**Status:** Not started
-
-- [ ] Guided implementation
-- [ ] Explain process lifecycle
-- [ ] Explain `fork` / `exec` / `wait`
-- [ ] Explain file descriptor behavior
-- [ ] Transfer task
-- [ ] Engineering review
-
----
-
-## Level 4 — Computer architecture
+## CS topics
 
 - [ ] Binary / hexadecimal
 - [ ] Bitwise operations
-- [ ] Integer representation
+- [ ] Signed representation
 - [ ] Endianness
-- [ ] Registers
-- [ ] Machine instructions
-- [ ] Program counter / instruction pointer
-- [ ] Stack pointer
-- [ ] Calls and returns
-- [ ] Stack frames
-- [ ] Calling conventions
-- [ ] Nand2Tetris Project 1
-- [ ] Nand2Tetris Project 2
-- [ ] Nand2Tetris Project 3
-- [ ] Nand2Tetris Project 4
-- [ ] Nand2Tetris Project 5
-- [ ] Nand2Tetris Project 6
-- [ ] Pass Level 4 knowledge check
+- [ ] Boolean logic
+- [ ] ALU
+- [ ] Registers / memory
+- [ ] CPU instruction cycle
+- [ ] Machine code
+- [ ] Assembly basics
+- [ ] PC/IP / stack pointer
+- [ ] Calls / returns / stack frames
+- [ ] Calling convention / ABI
 
----
+## Nand2Tetris
 
-## Milestone 4 — VM / Emulator
+- [ ] Project 1 — Boolean Logic
+- [ ] Project 2 — Boolean Arithmetic
+- [ ] Project 3 — Memory
+- [ ] Project 4 — Machine Language
+- [ ] Project 5 — Computer Architecture
+- [ ] Project 6 — Assembler
 
-**Chosen project:** _TBD_
+## Milestone 4 — VM / Emulator slices
 
-- [ ] Guided implementation
-- [ ] Explain fetch → decode → execute
-- [ ] Transfer task
+- [ ] Machine-state representation
+- [ ] Registers / PC
+- [ ] Decode instructions
+- [ ] Arithmetic/load/store
+- [ ] Control flow
+- [ ] I/O
+- [ ] Transfer/debug feature
 - [ ] Engineering review
 
 ---
 
-## Level 5 — Performance and memory hierarchy
+# Phase 5 — Performance / memory hierarchy
 
 - [ ] Registers / cache / RAM hierarchy
 - [ ] Cache lines
 - [ ] Temporal locality
 - [ ] Spatial locality
-- [ ] Cache hits / misses
-- [ ] Contiguous memory
-- [ ] Connect concepts to NumPy / array layout
-- [ ] Pass Level 5 knowledge check
+- [ ] Cache hits/misses
+- [ ] Contiguous vs scattered memory
+- [ ] Branch behavior basics
+- [ ] Profiling basics
+- [ ] Connect to NumPy / array layout
 
----
+## Milestone 5 — Memory Allocator slices
 
-## Milestone 5 — Memory Allocator
-
-- [ ] Guided implementation
-- [ ] Explain allocator metadata
-- [ ] Explain fragmentation
-- [ ] Explain free-list strategy
-- [ ] Transfer task
+- [ ] Linear/bump allocation concept
+- [ ] Block metadata
+- [ ] Free list
+- [ ] Reuse blocks
+- [ ] Split/coalesce
+- [ ] Fragmentation statistics
+- [ ] Transfer allocation policy comparison
 - [ ] Engineering review
 
 ---
 
-## Level 6 — Networking
+# Phase 6 — Networking / servers
 
-- [ ] Ethernet
+## Networking CS
+
+- [ ] Ethernet / frames
 - [ ] MAC
 - [ ] ARP
-- [ ] IPv4
-- [ ] Subnetting
+- [ ] IPv4 / subnetting
 - [ ] Routing
 - [ ] ICMP
 - [ ] UDP
 - [ ] TCP
 - [ ] Ports
 - [ ] DNS basics
-- [ ] Socket API
 - [ ] Byte order
-- [ ] TCP echo server/client
+- [ ] Socket API
+
+## Project growth
+
+- [ ] TCP echo client/server
+- [ ] Simple application protocol
 - [ ] Minimal HTTP-like server
 - [ ] Multi-client server
-- [ ] MIT 6.006 selections as needed
-- [ ] Pass Level 6 knowledge check
 
----
+## Concurrency begins
+
+- [ ] Blocking vs non-blocking
+- [ ] Thread concept
+- [ ] Event-driven I/O
+- [ ] Event loop
 
 ## Milestone 6 — Concurrent Server
 
-- [ ] Guided implementation
-- [ ] Compare blocking, threaded, and event-driven designs
+- [ ] Build threaded/blocking version
+- [ ] Build or study event-driven version
+- [ ] Compare designs
 - [ ] Transfer task
 - [ ] Engineering review
 
+## MIT 6.006 deeper selections
+
+- [ ] Balanced trees / heaps as needed
+- [ ] BFS / DFS
+- [ ] Shortest paths
+- [ ] Dynamic programming fundamentals
+
 ---
 
-## Level 7 — Operating systems and concurrency
+# Phase 7 — Operating systems / concurrency
 
-- [ ] Processes vs threads
-- [ ] Context switching
+- [ ] Process vs thread
+- [ ] Context switch
 - [ ] Scheduling
 - [ ] Virtual memory
 - [ ] Pages / page tables
@@ -297,77 +608,77 @@ flowchart LR
 - [ ] Semaphores
 - [ ] Condition variables
 - [ ] Deadlocks
-- [ ] Filesystem concepts
 - [ ] Devices / I/O
-- [ ] Pass Level 7 knowledge check
+- [ ] Filesystem concepts
 
----
+## Milestone 7 — Linux Container slices
 
-## Milestone 7 — Linux Container
+- [ ] Process creation
+- [ ] Namespaces
+- [ ] Mount/filesystem isolation
+- [ ] Isolation/resource model
+- [ ] Transfer feature
+- [ ] Engineering review
 
-- [ ] Guided implementation
-- [ ] Explain namespaces / isolation
-- [ ] Transfer task
+## Milestone 8 — FUSE Filesystem slices
+
+- [ ] Filesystem interface
+- [ ] Path lookup
+- [ ] Metadata
+- [ ] File operations
+- [ ] Persistence behavior
+- [ ] Transfer feature
 - [ ] Engineering review
 
 ---
 
-## Milestone 8 — FUSE Filesystem
+# Phase 8 — Storage / database internals
 
-- [ ] Guided implementation
-- [ ] Explain core filesystem abstractions
-- [ ] Transfer task
-- [ ] Engineering review
-
----
-
-## Level 8 — Database internals
-
-- [ ] Storage characteristics
+- [ ] Storage-cost intuition
 - [ ] Pages
 - [ ] Records
 - [ ] Serialization
 - [ ] B-trees
 - [ ] Indexes
-- [ ] Buffer/cache concepts
+- [ ] Buffer/cache
 - [ ] Query execution basics
-- [ ] Transactions conceptually
-- [ ] WAL conceptually
-- [ ] Pass Level 8 knowledge check
+- [ ] Transactions
+- [ ] WAL/recovery
 
----
+## Milestone 9 — Simple Database slices
 
-## Milestone 9 — Simple Database
-
-- [ ] Guided implementation
-- [ ] Explain parser → execution → B-tree → page → storage path
-- [ ] Transfer task
+- [ ] REPL / parsing
+- [ ] Row serialization
+- [ ] Page representation
+- [ ] Table scan
+- [ ] B-tree/index
+- [ ] Page splitting
+- [ ] Persistence
+- [ ] Transfer: instrumentation/secondary index/etc.
 - [ ] Engineering review
 
 ---
 
-## Level 9 — Binaries / debugging / security bridge
+# Phase 9 — Binaries / debugging / security bridge
 
 - [ ] ELF basics
 - [ ] Sections / symbols
 - [ ] Debug information
+- [ ] Registers
+- [ ] Stack frames / ABI deeper
 - [ ] Breakpoints
 - [ ] Signals
-- [ ] Stack frames
-- [ ] Calling conventions deeper
 - [ ] Process memory
 - [ ] Memory-corruption concepts
-- [ ] Pass Level 9 knowledge check
 
----
+## Milestone 10 — Linux Debugger slices
 
-## Milestone 10 — Linux Debugger
-
+- [ ] Process control
 - [ ] Breakpoints
-- [ ] Registers and memory
-- [ ] ELF / DWARF
-- [ ] Signals
-- [ ] Source-level stepping
+- [ ] Registers/memory
+- [ ] ELF/DWARF
+- [ ] Stepping
+- [ ] Source-level breakpoints
 - [ ] Stack unwinding
 - [ ] Variables
 - [ ] Transfer task
@@ -377,40 +688,44 @@ flowchart LR
 
 # Advanced-track backlog
 
-These are not part of the finite core. Promote them when goals justify it.
+Not part of the finite core; promote when goals justify it.
 
-## Security / reverse engineering
+## Security / Reverse Engineering
 
-- [ ] Ghidra
 - [ ] x86-64 deeper
 - [ ] ELF deeper
+- [ ] Ghidra
 - [ ] Reverse engineering
 - [ ] Memory corruption / exploitation fundamentals
 - [ ] OS security
 
-## Distributed systems / architecture
+## Distributed Systems / Architecture
 
 - [ ] Replication
-- [ ] Partitioning
+- [ ] Partitioning / sharding
 - [ ] Consistency models
 - [ ] Consensus
 - [ ] Failure detection
-- [ ] Queues
+- [ ] Retries / idempotency
+- [ ] Queues / streams
 - [ ] Distributed storage
-- [ ] Reliability
+- [ ] Caching
 - [ ] Observability
-- [ ] System design case studies
+- [ ] Reliability / SLOs
+- [ ] Capacity / bottleneck reasoning
+- [ ] System-design case studies
+- [ ] Build a running distributed-system project incrementally
 
 ## Kernel / OS
 
 - [ ] Bootloader
-- [ ] Kernel fundamentals
 - [ ] Interrupts
 - [ ] Scheduler
 - [ ] Memory manager
+- [ ] Filesystems
 - [ ] Drivers
 
-## Compilers / runtimes
+## Compilers / Runtimes
 
 - [ ] Lexer
 - [ ] Parser
@@ -422,17 +737,17 @@ These are not part of the finite core. Promote them when goals justify it.
 - [ ] Crafting Interpreters milestone
 - [ ] C compiler milestone
 
-## Performance
+## Performance Engineering
 
 - [ ] Profiling deeper
-- [ ] SIMD basics
+- [ ] SIMD fundamentals
 - [ ] Parallelism
 - [ ] Synchronization overhead
 - [ ] High-performance matrix multiplication milestone
 
-## Embedded
+## Embedded / Hardware
 
-- [ ] Microcontroller basics
+- [ ] Microcontrollers
 - [ ] GPIO
 - [ ] Interrupts
 - [ ] UART
@@ -445,21 +760,38 @@ These are not part of the finite core. Promote them when goals justify it.
 - [ ] Ownership
 - [ ] Borrowing
 - [ ] Lifetimes
-- [ ] Reimplement one C milestone in Rust
-- [ ] Compare memory model and failure modes with C
+- [ ] Reimplement one earlier C milestone
+- [ ] Compare memory model / failure modes / ergonomics
+
+---
+
+# AI learning rule
+
+- [ ] AI used primarily as tutor/reviewer/debugging guide
+- [ ] Milestone code remains learner-written
+- [ ] Debugging escalates from hypothesis -> diagnostic -> hint before solution
+- [ ] Transfer tasks completed without AI generating the tested feature
 
 ---
 
 # Learning log
 
-Use this table for meaningful changes, not every study session.
-
 | Date | Change / finding | Why it matters | Roadmap adjustment |
 |---|---|---|---|
-| 2026-08-15 | Initial roadmap created | Need a durable systems-engineering track instead of a chat-only plan | Core levels, milestones, mobile strategy, and advanced tracks recorded |
+| 2026-08-15 | Initial roadmap created | Need durable systems-engineering track | Core levels and milestones recorded |
+| 2026-08-15 | Switched from theory-first to incremental project learning | Isolated exercises do not provide enough real-development practice | Every theory block now feeds exercises and a live milestone project slice; CS threads made explicit core requirements |
 
 ---
 
 # Current next action
 
-**Level 0, Lesson 1:** understand the path from C source code to a running process and set up a minimal C toolchain on PC + Android/Termux.
+**First cycle:**
+
+```text
+compiler / executable / process basics
+-> compile tiny C program
+-> learn primitive types and sizeof
+-> exercises
+-> create first Hash Table scaffold
+-> continue C theory
+```
