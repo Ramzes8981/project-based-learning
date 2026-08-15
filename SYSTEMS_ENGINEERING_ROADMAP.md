@@ -2,382 +2,730 @@
 
 > Personal learning track built around the project milestones from this repository.
 >
-> **Goal:** move from Python/data work toward strong computer-science and systems-engineering fundamentals: C, algorithms, memory, computer architecture, Unix/POSIX, networking, operating systems, databases, binaries, debugging, security, distributed systems, and architecture.
+> **Goal:** move from Python/data work toward strong computer-science and systems-engineering fundamentals: C, algorithms, data structures, discrete mathematics, computer architecture, Unix/POSIX, networking, operating systems, concurrency, databases/storage, binaries/debugging, security, distributed systems, and system architecture.
 >
 > **Current pace:** 6–8 hours/week.
 >
-> **Learning mode:** mobile-first theory on Android + PC-first implementation. Project tutorials are milestones, not the curriculum itself.
+> **Learning mode:** mobile-first theory on Android + PC-first implementation. Project tutorials are not rewards at the end of theory; they are long-running integration projects that grow together with the theory.
 
 ---
 
-## How to use this roadmap
+# 1. Fundamental learning rule
 
-Each level follows the same loop:
+The whole roadmap follows one invariant:
 
 ```mermaid
 flowchart LR
-    A[Theory] --> B[Small exercises]
-    B --> C[Knowledge check]
-    C --> D[Milestone project]
-    D --> E[Transfer task]
-    E --> F[Engineering review]
-    F --> G[Next level]
+    T1[Small theory block] --> E1[Exercises]
+    E1 --> P1[Milestone project slice]
+    P1 --> T2[Next theory block]
+    T2 --> E2[Exercises]
+    E2 --> P2[Next milestone slice]
+    P2 --> R[Review / explanation]
+    R --> T1
 ```
 
-A milestone is **not complete** just because the tutorial works. Completion means:
+**Do not do this:**
 
-1. I can explain the core concepts without copying definitions.
-2. I can implement the guided project.
-3. I can extend it with a new task not present in the tutorial.
-4. I can discuss correctness, complexity, memory, performance, failure modes, security, testing, and trade-offs.
+```text
+8 weeks theory -> many isolated exercises -> finally start a project
+```
 
-Use [`SYSTEMS_ENGINEERING_PROGRESS.md`](SYSTEMS_ENGINEERING_PROGRESS.md) to track progress.
+**Do this instead:**
+
+```text
+theory -> exercise -> real project slice -> theory -> exercise -> next project slice
+```
+
+Exercises verify one concept. The milestone verifies whether several concepts can be combined into real software.
+
+A milestone may therefore stay **in progress for multiple levels**.
+
+## Milestone completion criteria
+
+A milestone is complete only when all four conditions are met:
+
+1. **Understanding** — explain the important concepts without copying definitions.
+2. **Implementation** — build the guided project and understand the code being written.
+3. **Transfer** — add a feature/change not present in the tutorial.
+4. **Engineering review** — reason about correctness, complexity, memory, performance, failure modes, security, testing, and trade-offs.
+
+Tutorial completion alone does **not** complete a milestone.
+
+Use [`SYSTEMS_ENGINEERING_PROGRESS.md`](SYSTEMS_ENGINEERING_PROGRESS.md) as the source of truth for current progress.
 
 ---
 
-# Big picture
+# 2. Core CS threads
+
+The roadmap is not merely a C curriculum. These threads are part of the **core** and must be learned deeply enough to support engineering decisions.
 
 ```mermaid
 flowchart TD
-    P[Python / existing programming experience] --> T[Level 0: Tooling & Unix basics]
-    T --> C1[Level 1: C fundamentals]
-    C1 --> M[Level 2: Memory & data structures]
-    M --> H[Milestone 1: Hash table in C]
-    H --> U[Level 3: Unix / POSIX / processes]
-    U --> TE[Milestone 2: Text editor]
-    TE --> SH[Milestone 3: Unix shell]
-    SH --> CA[Level 4: Computer architecture]
-    CA --> VM[Milestone 4: VM / emulator]
-    VM --> PERF[Level 5: Performance & memory hierarchy]
-    PERF --> ALLOC[Milestone 5: Memory allocator]
-    ALLOC --> NET[Level 6: Networking]
-    NET --> CSRV[Milestone 6: Concurrent server]
-    CSRV --> OS[Level 7: Operating systems & concurrency]
-    OS --> CONT[Milestone 7: Linux container]
-    CONT --> FUSE[Milestone 8: FUSE filesystem]
-    FUSE --> DB[Level 8: Database internals]
-    DB --> SDB[Milestone 9: Simple database]
-    SDB --> BIN[Level 9: Binaries / debugging / security bridge]
-    BIN --> DBG[Milestone 10: Linux debugger]
-    DBG --> ADV[Advanced tracks]
-    ADV --> SEC[Security / reverse engineering]
-    ADV --> DIST[Distributed systems]
-    ADV --> KERN[Kernel / OS]
-    ADV --> LANG[Compilers / language runtimes]
-    ADV --> PRF[Performance]
-    ADV --> EMB[Embedded]
-    ADV --> RUST[Rust]
+    ENG[Systems Engineering Core]
+    ENG --> C[C / Software Construction]
+    ENG --> ADS[Algorithms & Data Structures]
+    ENG --> DM[Discrete Math / Reasoning]
+    ENG --> ARCH[Computer Architecture]
+    ENG --> OS[Operating Systems & Concurrency]
+    ENG --> NET[Networking]
+    ENG --> STORE[Storage / Database Internals]
+    ENG --> BIN[Binaries / Debugging / Security]
+    ENG --> SD[System Design / Architecture Thinking]
+```
+
+## Thread A — C and software construction
+
+Learn explicit representation, memory, compilation, interfaces, modules, error handling, debugging, testing, and low-level APIs.
+
+## Thread B — Algorithms and data structures
+
+Learn how data is represented and what operations cost:
+
+- arrays / dynamic arrays
+- linked structures
+- stacks / queues
+- hash tables
+- trees / heaps
+- graphs
+- searching / sorting
+- traversal
+- shortest paths
+- dynamic programming fundamentals
+- asymptotic analysis
+
+## Thread C — Discrete mathematics and reasoning
+
+Math is taught **just in time**, attached to CS problems rather than as a disconnected semester-long course.
+
+Examples:
+
+- Big-O -> functions, logarithms, sums
+- hashing -> modular arithmetic and probability intuition
+- trees -> logarithms and recurrences
+- graphs -> sets, relations, graph terminology
+- correctness -> logic, invariants, induction
+- distributed systems -> probability and reasoning about states/failures
+
+Primary source: selected material from **MIT Mathematics for Computer Science (6.042J)**.
+
+## Thread D — Computer architecture
+
+Understand the machine below C:
+
+- binary / hexadecimal
+- integer representation
+- logic gates
+- ALU
+- registers
+- CPU
+- machine instructions
+- assembly
+- calling conventions / ABI
+- caches and memory hierarchy
+
+Primary sources: **Dive into Systems** + **Nand2Tetris Projects 1–6**.
+
+## Thread E — Operating systems and concurrency
+
+Understand processes, threads, virtual memory, scheduling, synchronization, filesystems, devices, syscalls, and isolation.
+
+Primary source: **OSTEP**, selected just-in-time chapters.
+
+## Thread F — Networking
+
+Understand Ethernet -> ARP -> IP -> routing -> TCP/UDP -> sockets -> application protocols.
+
+Primary sources: **Beej's Networking Concepts** and **Beej's Network Programming**.
+
+## Thread G — Storage and database internals
+
+Understand pages, indexes, B-trees, caching, persistence, transactions, WAL, and query execution rather than treating SQL as a black box.
+
+## Thread H — Binaries, debugging, and security fundamentals
+
+Understand executable formats, process memory, symbols, stack frames, debugging state, memory corruption, and the bridge to reverse engineering/security.
+
+## Thread I — System design / architecture thinking
+
+This is present throughout the roadmap. Every milestone ends with questions such as:
+
+- Where are the boundaries/components?
+- What state exists and who owns it?
+- What fails and how?
+- What is the complexity and resource cost?
+- Which interface is stable?
+- Which trade-off was chosen?
+- How would the design change at 10x scale?
+- What should be measured/observed?
+
+Advanced distributed systems comes later, but architectural reasoning starts from the first projects.
+
+---
+
+# 3. Study rhythm
+
+At **6–8 h/week**:
+
+- **2.5–4 h/week — phone / metro:** lecture/video with subtitles, mobile HTML books, conceptual drills, flash review, short algorithm/math exercises, occasional tiny C programs.
+- **3–4 h/week — PC:** implementation, debugger, profiling, Git, tests, milestone project slices, engineering reviews.
+
+Recommended Android setup:
+
+- **Termux**, without replacing Android or installing another OS
+- `clang`, `git`, `make`, editor; debugging tools where practical
+- downloaded videos/subtitles
+- downloadable/single-page HTML books where available
+
+The phone is for learning and tiny experiments. Serious milestone implementation stays PC-first.
+
+---
+
+# 4. Core resources and their roles
+
+| Resource | Role | Mobile/offline |
+|---|---|---|
+| [CS50x](https://cs50.harvard.edu/x/) | Guided introduction to C, memory, algorithms, data structures | Excellent; video/subtitles |
+| [Dive into Systems](https://diveintosystems.org/) | Main systems textbook; Python -> C -> machine | Excellent HTML |
+| [Beej's Guide to C](https://beej.us/guide/bgc/) | C reference and alternative explanations | Excellent HTML/downloadable |
+| [MIT Missing Semester](https://missing.csail.mit.edu/) | Shell, Git, debugging, tooling | Excellent video/text |
+| [MIT Mathematics for Computer Science](https://ocw.mit.edu/courses/6-042j-mathematics-for-computer-science-spring-2015/) | Discrete math, selected just-in-time | Video/offline friendly |
+| [MIT 6.006 Introduction to Algorithms](https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/) | Deeper algorithms/DS after foundations | Video/offline friendly |
+| [Nand2Tetris](https://www.nand2tetris.org/) | Architecture from gates to machine language | Theory mobile; projects PC |
+| [OSTEP](https://pages.cs.wisc.edu/~remzi/OSTEP/) | Operating systems | Free; larger screen preferred |
+| [Beej's Networking Concepts](https://beej.us/guide/bgnet0/) | Networking fundamentals | Excellent HTML/offline |
+| [Beej's Network Programming](https://beej.us/guide/bgnet/) | Socket programming | Excellent HTML/offline |
+| [Crafting Interpreters](https://craftinginterpreters.com/) | Interpreter/VM/runtime advanced track | Excellent mobile HTML |
+
+Resource rule: **do not collect resources without a defined role**. One primary source + one alternate/reference is usually enough.
+
+---
+
+# 5. Big-picture route
+
+```mermaid
+flowchart TD
+    P[Existing Python experience] --> L0[Phase 0: Minimal tooling]
+    L0 --> L1[Phase 1: C fundamentals]
+    L1 --> L2A[Phase 2A: Representation & pointers]
+    L2A --> L2B[Phase 2B: Dynamic memory & ownership]
+    L2B --> L2C[Phase 2C: Core data structures]
+    L2C --> HM[Milestone 1 complete: Hash Table]
+    HM --> L3[Phase 3: Unix / POSIX]
+    L3 --> SH[Milestones: Editor + Shell]
+    SH --> L4[Phase 4: Architecture / Assembly]
+    L4 --> VM[Milestone: VM / Emulator]
+    VM --> L5[Phase 5: Performance / Memory hierarchy]
+    L5 --> MA[Milestone: Allocator]
+    MA --> L6[Phase 6: Networking]
+    L6 --> SRV[Milestone: Concurrent Server]
+    SRV --> L7[Phase 7: OS / Concurrency]
+    L7 --> ISO[Milestones: Container + FUSE]
+    ISO --> L8[Phase 8: Storage / DB Internals]
+    L8 --> DB[Milestone: Simple Database]
+    DB --> L9[Phase 9: Binaries / Debugging]
+    L9 --> DBG[Milestone: Linux Debugger]
+    DBG --> ADV[Advanced branches]
 ```
 
 ---
 
-# Study rhythm
+# PHASE 0 — Minimal engineering environment
 
-At 6–8 h/week:
+**Target:** start programming immediately while understanding the minimum toolchain.
 
-- **2.5–4 h/week — phone / metro:** videos, subtitles, HTML books, conceptual drills, short quizzes, occasional tiny C programs in Termux.
-- **3–4 h/week — PC:** implementation, debugging, profiling, labs, milestone projects, transfer tasks.
+**Expected duration:** a few sessions, not a two-week prerequisite wall.
 
-Recommended mobile setup:
+## Theory block 0.1
 
-- Android + **Termux** (no alternative OS required)
-- `clang`, `git`, `make`, editor, debugger where practical
-- offline-downloaded lecture videos and HTML books
-
----
-
-# Core resources
-
-| Resource | Main role | Mobile/offline suitability |
-|---|---|---|
-| [CS50x](https://cs50.harvard.edu/x/) | C, memory, algorithms, data structures | Excellent; videos/subtitles downloadable |
-| [Dive into Systems](https://diveintosystems.org/) | Main systems textbook, especially good for Python → C | Excellent HTML |
-| [Beej's Guide to C](https://beej.us/guide/bgc/) | C reference / deeper explanations | Excellent HTML, downloadable |
-| [MIT Missing Semester](https://missing.csail.mit.edu/) | Shell, Git, debugging, development tools | Excellent video/text |
-| [MIT Mathematics for Computer Science](https://ocw.mit.edu/courses/6-042j-mathematics-for-computer-science-spring-2015/) | Discrete mathematics | Good video/offline |
-| [MIT 6.006 Introduction to Algorithms](https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/) | Algorithms & data structures | Good video/offline |
-| [Nand2Tetris](https://www.nand2tetris.org/) | Computer architecture from first principles | Good for theory; projects on PC |
-| [OSTEP](https://pages.cs.wisc.edu/~remzi/OSTEP/) | Operating systems | Better on larger screen, free |
-| [Beej's Networking Concepts](https://beej.us/guide/bgnet0/) | Networking fundamentals | Excellent HTML/offline |
-| [Beej's Network Programming](https://beej.us/guide/bgnet/) | Sockets and network programming | Excellent HTML/offline |
-| [Crafting Interpreters](https://craftinginterpreters.com/) | Interpreters, VMs, runtimes | Excellent mobile HTML |
-
----
-
-# Level 0 — Engineering environment
-
-**Target:** understand how source code becomes a running process and become comfortable with the command line.
-
-**Estimated time:** ~2 weeks.
-
-## Learn
+Learn:
 
 - terminal vs shell
-- filesystem, paths, permissions
-- stdin / stdout / stderr
-- pipes and redirection
-- source → compiler → object file → linker → executable
-- exit codes
-- Git basics
-- Make basics
-- debugger basics
+- current directory / paths
+- `cd`, `ls`, `mkdir`
+- source file
+- compiler
+- executable
+- running a program
+- exit code
 
-## Primary sources
+### Exercise
 
-- MIT Missing Semester: shell, command-line environment, tools, debugging, Git
-- Dive into Systems: introductory compilation model as needed
+Compile and run a minimal C program manually with `clang` or `gcc`.
 
-## Practice
+### Real-project slice
 
-- compile a minimal C program manually
-- compile with warnings enabled
-- read command-line arguments
-- read/write a file
-- create a minimal Makefile
-- inspect/debug a simple crash
+Create the repository/workspace that will contain the early C exercises and the first long-running milestone.
 
-## Gate
+## Theory block 0.2 — just-in-time tooling
 
-Be able to explain:
+Do **not** front-load all tooling. Introduce these when needed:
 
-- source file vs object file vs executable
-- compiler vs linker
-- terminal vs shell
-- program vs process
-- what an exit code is
+- object files / linker when multiple translation units appear
+- Git workflow when the first project evolves
+- Make when build commands become repetitive
+- debugger when the first meaningful crash appears
+- pipes/redirection when Unix/POSIX work starts
+
+### Gate
+
+Explain at a basic level:
+
+```text
+source code -> compiler -> executable -> running process
+```
 
 ---
 
-# Level 1 — C fundamentals
+# PHASE 1 — C fundamentals
 
-**Target:** learn C as a language without drowning in C++ or advanced systems concepts yet.
+**Target:** become productive in C without repeating beginner programming concepts already known from Python.
 
-**Estimated time:** ~5–6 weeks.
+**Expected duration:** ~4–6 weeks depending on pace.
 
-## Learn
+## Primary material
 
-- primitive types and `sizeof`
-- signed / unsigned integers
-- operators and control flow
-- functions and scope
-- arrays and strings
-- `struct`, `enum`
-- headers and `.c` / `.h` separation
-- preprocessor basics
-- `argc` / `argv`
-- basic file I/O
+1. CS50x — Week 1 C, Week 2 Arrays, selected Week 3 material
+2. Dive into Systems — C introduction
+3. Beej's Guide to C — reference
 
-## Sources
+## Cycle 1.1 — types and representation
 
-1. **CS50x** — Week 1: C; Week 2: Arrays; selected Week 3 material
-2. **Dive into Systems — Chapter 1**
-3. **Beej's Guide to C** as reference
-4. Optional short mobile drills: browser-based C exercises / compiler
+### Theory
 
-## Parallel CS thread — Algorithms I
+- primitive types
+- `sizeof`
+- signed / unsigned
+- integer ranges / overflow intuition
+- variables and scope
+
+### Exercises
+
+- inspect sizes of types
+- simple numeric operations
+- compare C's fixed types with Python integers
+
+### Milestone 1 slice — Hash Table scaffold
+
+Do **not** implement hashing yet.
+
+- create project structure
+- define a tiny public API on paper/README
+- create a fixed-capacity placeholder container
+- compile and run a smoke test
+
+Goal: start a real project before knowing enough to finish it.
+
+## Cycle 1.2 — control flow and functions
+
+### Theory
+
+- `if`, `switch`, loops (fast pass; concepts already known)
+- functions
+- declarations / definitions
+- return values and error handling basics
+
+### Exercises
+
+- small functions
+- simple input validation
+
+### Milestone slice
+
+- implement basic create/get-style stubs with fixed storage
+- establish error/result conventions for the project
+
+## Cycle 1.3 — arrays and strings
+
+### Theory
+
+- fixed arrays
+- `char` arrays
+- C strings and terminators
+- indexing
+- bounds responsibility
+
+### Algorithms / DS thread
 
 - linear search
 - binary search
 - elementary sorting
-- recursion
-- Big O / Ω / Θ intuition
+- Big-O intuition
 
-## Parallel math thread — Discrete Math I
+### Math just-in-time
 
-Selected MIT Mathematics for Computer Science topics:
+- functions and growth
+- logarithm intuition for binary search
+- simple sums for loop-cost reasoning
 
-- logic
-- sets
-- functions
-- relations
-- proof intuition
-- induction
-- sums and logarithms
-- basic combinatorics
+### Exercises
+
+- search and sort fixed arrays
+- implement string operations without immediately hiding behind library calls
+
+### Milestone slice
+
+- store fixed-capacity key/value entries
+- linear lookup by key
+- no dynamic allocation yet
+
+## Cycle 1.4 — structs, enums, modules
+
+### Theory
+
+- `struct`
+- `enum`
+- `.c` / `.h`
+- translation units
+- preprocessor basics
+- linker introduced here, not before
+
+### Exercises
+
+- model records using structs
+- split a small program across files
+
+### Milestone slice
+
+- replace temporary representation with explicit entry/table structs
+- split public interface and implementation
+
+### Phase 1 gate
+
+Explain the important Python-vs-C differences encountered so far: type representation, fixed arrays, string representation, compilation, and explicit interfaces.
 
 ---
 
-# Level 2 — Memory and data structures
+# PHASE 2A — Representation and pointers
 
-**Target:** understand the biggest conceptual difference between Python and C: explicit memory and representation.
+**Target:** understand addresses and indirection before dynamic allocation.
 
-**Estimated time:** ~7–9 weeks.
+**Expected duration:** ~2–3 weeks.
 
-## Learn
+## Cycle 2A.1
 
-- byte and address
-- pointers and dereferencing
-- pointer arithmetic
-- arrays vs pointers
-- stack vs heap
-- object lifetime
-- `malloc`, `calloc`, `realloc`, `free`
+### Theory
+
+- byte / address
+- `&` and `*`
+- pointer types
+- dereferencing
 - `NULL`
-- dangling pointers
+
+### Exercises
+
+- inspect addresses
+- pass values vs pointers to functions
+- modify caller-owned data safely
+
+### Milestone slice
+
+- change table functions to work through pointers to explicit structs
+- explain what each pointer points to and how long the pointed object lives
+
+## Cycle 2A.2
+
+### Theory
+
+- arrays and pointers: relationship and important differences
+- pointer arithmetic
+- strings through pointers
+- pointer-to-struct syntax
+
+### Exercises
+
+- traverse arrays using indexing and pointer arithmetic
+- reason about string memory
+
+### Milestone slice
+
+- implement lookup over entry storage using pointer-based traversal
+
+---
+
+# PHASE 2B — Stack, heap, dynamic memory, ownership
+
+**Target:** understand the biggest conceptual difference from Python: explicit lifetime and ownership.
+
+**Expected duration:** ~3–4 weeks.
+
+## Cycle 2B.1 — stack and lifetime
+
+### Theory
+
+- stack frames conceptually
+- local lifetime
+- returning pointers: safe vs unsafe cases
+- dangling pointer concept
+
+### Exercises
+
+- predict object lifetimes
+- diagnose simple lifetime bugs
+
+### Milestone slice
+
+- document ownership rules for table, entries, keys, and values before introducing heap allocation
+
+## Cycle 2B.2 — heap allocation
+
+### Theory
+
+- `malloc`
+- `calloc`
+- `realloc`
+- `free`
+- allocation failure
+
+### Exercises
+
+- allocate/free arrays and structs
+- grow an allocation
+- deliberately create and then fix a leak
+
+### Milestone slice
+
+- table allocated dynamically
+- entries allocated/owned explicitly
+- destructor/free path implemented
+
+## Cycle 2B.3 — failure modes
+
+### Theory
+
 - memory leaks
-- double free / use-after-free concepts
-- buffer overflows
-- linked structures
+- dangling pointers
+- double free
+- use-after-free concept
+- buffer overflow concept
+- sanitizers/debugger introduced here
 
-## Sources
+### Exercises
 
-1. CS50x Week 4 — Memory
-2. CS50x Week 5 — Data Structures
-3. Dive into Systems — Chapter 2
-4. Beej's Guide to C — matching sections
+- find bugs with compiler warnings/sanitizers/debugger
 
-## Algorithms / DS II
+### Milestone slice
 
-Implement and understand:
+- test allocation failure/error paths
+- verify cleanup and ownership rules
 
-- dynamic array
+---
+
+# PHASE 2C — Core data structures and algorithms
+
+**Target:** connect memory representation to abstract data structures and complexity.
+
+**Expected duration:** ~4–6 weeks.
+
+## Cycle 2C.1 — dynamic array
+
+### Theory
+
+- size vs capacity
+- amortized growth intuition
+- contiguous storage
+
+### Exercises
+
+- reason about growth costs
+
+### Mini-milestone — Vector/Dynamic Array in C
+
+Build a small vector-like structure:
+
+- create/free
+- get/set
+- push
+- grow capacity
+
+This is a small independent integration project before the hash table becomes complex.
+
+### Math just-in-time
+
+- geometric growth
+- amortized-analysis intuition
+
+## Cycle 2C.2 — linked structures
+
+### Theory
+
 - linked list
 - stack
 - queue
-- hash table
-- binary search tree
+- ownership in linked nodes
+
+### Exercises
+
+Implement small versions and compare memory/layout trade-offs with arrays.
+
+### Architecture-thinking checkpoint
+
+Discuss:
+
+- contiguous vs pointer-heavy layout
+- cache implications (intro only)
+- insertion/search costs
+- API trade-offs
+
+## Cycle 2C.3 — hashing
+
+### Theory
+
+- hash function role
+- buckets
+- collisions
+- chaining/open addressing concept
+- load factor
+- average vs worst-case complexity
+
+### Math just-in-time
+
+- modulo arithmetic basics
+- probability intuition behind expected distribution
+
+### Milestone slice
+
+- implement hash function
+- map hash -> bucket
+- implement collision handling
+
+## Cycle 2C.4 — resizing
+
+### Theory
+
+- load factor thresholds
+- rehashing
+- amortized cost
+
+### Milestone slice
+
+- automatic resize
+- rehash existing entries
+- add tests/statistics
 
 ---
 
-# Milestone 1 — Hash Table in C
+# MILESTONE 1 — Hash Table in C (completion gate)
 
 Repository tutorial: [Write a hash table in C](https://github.com/jamesroutley/write-a-hash-table)
 
-## Concepts reinforced
+At this point the project has already been built incrementally across Phases 1–2.
 
-- structs
-- pointers
-- arrays
-- strings
-- manual allocation
-- hashing
-- collision handling
-- time complexity
+## Transfer task
 
-## Transfer task ideas
+Choose at milestone time, for example:
 
-- add automatic resizing
-- expose configurable load factor
-- collect collision statistics
-- implement a second collision strategy and compare
+- configurable load factor
+- second collision strategy
+- collision/probe statistics
+- iterator API
+- persistence experiment
 
-## Must explain after completion
+## Engineering review
 
-- why average lookup can be O(1)
-- why worst-case lookup can become O(n)
-- what load factor means
-- why resizing is expensive
-- where allocation occurs
-- who owns and frees each allocation
+Must explain:
+
+- representation and ownership
+- average/worst-case operation cost
+- load factor and resizing
+- failure paths
+- memory behavior
+- testing strategy
+- why this API/design was chosen
+- what changes at 10x/100x data size
 
 ---
 
-# Level 3 — Unix / POSIX and processes
+# PHASE 3 — Unix / POSIX and processes
 
 **Target:** understand how C programs interact with the operating system.
 
-**Estimated time:** ~6 weeks.
+**Expected duration:** ~6–8 weeks including projects.
 
-## Learn
+## Theory sequence
 
-- kernel vs user space
-- system calls
-- file descriptors
-- `open`, `read`, `write`, `close`
-- processes and PIDs
-- `fork`, `exec`, `wait`
-- environment variables
-- pipes
-- signals
-- terminal / TTY basics
+Learn incrementally:
 
-## Sources
+1. kernel vs user space; syscall idea
+2. file descriptors; `open/read/write/close`
+3. processes / PID
+4. `fork`
+5. `exec`
+6. `wait`
+7. environment
+8. pipes / redirection
+9. signals
+10. terminal / TTY
 
-- Dive into Systems — relevant OS / Unix sections
-- OSTEP — Processes, Process API, Address Spaces (selected)
-- man pages as primary API documentation
+Primary sources:
 
----
+- Dive into Systems — relevant Unix/OS sections
+- OSTEP — selected Process / Process API chapters
+- man pages for API details
 
-# Milestone 2 — Text Editor
+## Milestone 2 — Text Editor, built in slices
 
 Repository tutorial: [Build Your Own Text Editor](http://viewsourcecode.org/snaptoken/kilo/)
 
-## Reinforces
+Suggested progression:
 
-- terminal I/O
+- terminal input/output
 - raw mode
-- buffers
-- files
-- strings and memory
-- escape sequences
+- editable buffer
+- file load/save
+- cursor/status
+- search or line numbers as transfer feature
 
-## Transfer task ideas
-
-- line numbers
-- simple search
-- status bar information
-- syntax-highlight subset
-
----
-
-# Milestone 3 — Unix Shell
+## Milestone 3 — Unix Shell, built in slices
 
 Repository tutorial: [Write a Shell in C](https://brennan.io/2015/01/16/write-a-shell-in-c/)
 
-**Core milestone — do not skip.**
+Suggested progression:
 
-## Reinforces
-
-- process lifecycle
-- parsing
-- `fork` / `exec` / `wait`
-- file descriptors
-- pipes
-- environment
-
-## Transfer task ideas
-
-- pipelines `A | B`
-- redirection `>` / `<`
+- command parser
+- launch one command
+- `fork/exec/wait`
 - built-in `cd`
-- environment variable expansion
+- redirection
+- pipeline `A | B`
+- environment expansion / signals as transfer work
+
+**Core milestone — do not skip.**
 
 ---
 
-# Level 4 — Computer architecture
+# PHASE 4 — Computer architecture and assembly
 
 **Target:** understand what exists below C.
 
-**Estimated time:** ~8–10 weeks.
+**Expected duration:** ~8–10 weeks.
 
-## Learn
+## CS architecture thread
 
-- binary and hexadecimal
-- bits and bitwise operations
-- integer representation
+Learn:
+
+- binary / hexadecimal
+- bitwise operations
+- signed integer representation
 - endianness
-- CPU basics
-- registers
-- instructions and machine code
+- Boolean logic
+- ALU
+- registers / memory
+- CPU and instruction execution
 - program counter / instruction pointer
+- machine code
+- assembly basics
 - stack pointer
-- calls, returns, stack frames
-- calling conventions
-- memory hierarchy introduction
+- calls / returns / stack frames
+- calling conventions / ABI
 
 ## Sources
 
 ### Dive into Systems
 
-Use the chapters on:
+Use data representation, assembly, architecture, and later memory-hierarchy chapters.
 
-- data representation
-- assembly
-- architecture
-- memory hierarchy
-
-### Nand2Tetris — Projects 1–6
+### Nand2Tetris Projects 1–6
 
 1. Boolean Logic
 2. Boolean Arithmetic
@@ -386,166 +734,157 @@ Use the chapters on:
 5. Computer Architecture
 6. Assembler
 
-These projects create the chain:
-
 ```mermaid
 flowchart LR
-    N[NAND] --> G[Logic gates]
-    G --> A[ALU]
-    A --> R[Registers / Memory]
-    R --> CPU[CPU]
+    NAND[NAND] --> G[Logic gates]
+    G --> ALU[ALU]
+    ALU --> MEM[Registers / Memory]
+    MEM --> CPU[CPU]
     CPU --> ML[Machine language]
     ML --> ASM[Assembler]
 ```
 
----
-
-# Milestone 4 — Virtual Machine / Emulator
+## Milestone 4 — VM / Emulator, built in slices
 
 Choose one initially:
 
 - [Write Your Own Virtual Machine](https://justinmeiners.github.io/lc3-vm/)
 - [Building a CHIP-8 Emulator](https://austinmorlan.com/posts/chip8_emulator/)
 
-## Reinforces
+Progression:
 
-- registers
-- opcodes
-- program counter
-- memory
-- fetch → decode → execute
+- machine state / memory representation
+- registers / program counter
+- instruction decoding
+- arithmetic/load/store instructions
+- control flow
+- I/O
+- debugging/inspection feature as transfer task
 
 ---
 
-# Level 5 — Performance and memory hierarchy
+# PHASE 5 — Performance and memory hierarchy
 
-**Target:** connect algorithmic complexity to actual hardware behavior.
+**Target:** connect algorithmic complexity to actual hardware costs.
 
-**Estimated time:** ~4 weeks.
+**Expected duration:** ~4–6 weeks including allocator slices.
 
 ## Learn
 
 - registers
-- L1 / L2 / L3 cache
+- L1/L2/L3 cache
 - RAM
 - cache lines
-- locality
-- cache hit / miss
-- contiguous memory
+- spatial/temporal locality
+- cache hit/miss
+- contiguous vs scattered memory
 - branch behavior basics
-- why equal-Big-O algorithms may perform very differently
+- profiling basics
 
-## Source
+## Bridge to existing Python/NumPy knowledge
 
-- Dive into Systems — memory hierarchy / performance chapters
-
-## Practical bridge
-
-Relate these concepts back to Python/NumPy:
+Explain:
 
 - contiguous arrays
-- vectorization
+- vectorized kernels
 - access patterns
-- why Python loops and NumPy kernels behave differently
+- why two O(n) loops can have very different runtime
 
----
-
-# Milestone 5 — Memory Allocator
+## Milestone 5 — Memory Allocator, built in slices
 
 Repository tutorial: [Memory Allocators 101](https://arjunsreedharan.org/post/148675821737/memory-allocators-101-write-a-simple-memory)
 
-## Reinforces
+Progression:
 
-- heap management
-- allocator metadata
-- free lists
-- alignment
-- fragmentation
-- allocation policy
-
-## Transfer task ideas
-
-- add coalescing
-- add statistics
-- compare first-fit vs another policy
+- bump/linear allocation concept
+- block metadata
+- free list
+- reuse blocks
+- splitting/coalescing
+- fragmentation statistics
+- compare allocation policies as transfer task
 
 ---
 
-# Level 6 — Networking
+# PHASE 6 — Networking and concurrent servers
 
 **Target:** understand networking below HTTP libraries.
 
-**Estimated time:** ~7–9 weeks.
+**Expected duration:** ~7–10 weeks.
 
-## Learn
+## Networking CS thread
 
-- Ethernet
-- MAC addresses
+Learn incrementally:
+
+- Ethernet / frames
+- MAC
 - ARP
-- IPv4
-- subnetting
+- IPv4 / subnetting
 - routing
 - ICMP
 - UDP
-- TCP
+- TCP / handshake / reliability
 - ports
 - DNS basics
-- socket API
 - byte order
-- client/server architecture
+- socket API
 
-## Sources
+Sources:
 
 1. Beej's Networking Concepts
 2. Beej's Network Programming
-3. Wireshark experiments alongside theory
+3. Wireshark experiments
 
-## Small projects
+## Project slices
 
-- TCP echo server/client
+- TCP echo client/server
+- simple application protocol
 - minimal HTTP-like server
-- multi-client server
+- multiple clients
 
----
+## Concurrency CS thread starts here
 
-# Milestone 6 — Concurrent Server
+Learn:
+
+- blocking vs non-blocking
+- threads conceptually
+- event-driven I/O
+- event loop
+
+## Milestone 6 — Concurrent Server
 
 Repository series: **Programming concurrent servers**.
 
-## Learn / reinforce
+Transfer/review should compare at least two designs, e.g. thread-per-client vs event-driven.
 
-- threads
-- blocking vs non-blocking I/O
-- event-driven design
-- event loops
-- concurrency trade-offs
+## Algorithms III — MIT 6.006 selections begin as needed
 
-## Algorithms III — MIT 6.006 selections
-
-Add as needed:
+Introduce deeper topics when projects make them useful:
 
 - hashing deeper
 - balanced trees
 - heaps
 - BFS / DFS
 - shortest paths
-- dynamic programming
+- dynamic programming fundamentals
 
 ---
 
-# Level 7 — Operating systems and concurrency
+# PHASE 7 — Operating systems and concurrency
 
-**Target:** build a coherent model of processes, memory, scheduling, synchronization, and persistence.
+**Target:** build a coherent model of processes, memory, scheduling, synchronization, persistence, and isolation.
 
-**Estimated time:** ~8 weeks.
+**Expected duration:** ~8–10 weeks.
 
-## Learn
+## OS CS thread
 
-- processes and threads
-- context switching
+Learn:
+
+- process vs thread
+- context switch
 - scheduling
 - virtual memory
-- pages and page tables
+- pages / page tables
 - TLB
 - IPC
 - race conditions
@@ -553,56 +892,52 @@ Add as needed:
 - semaphores
 - condition variables
 - deadlocks
-- devices and I/O
+- devices / I/O
 - filesystem concepts
 
-## Sources
+Sources:
 
-1. Dive into Systems — OS / parallelism chapters
-2. OSTEP — selected chapters from:
-   - Virtualization
-   - Concurrency
-   - Persistence
+1. Dive into Systems — OS / parallelism sections
+2. OSTEP — selected Virtualization / Concurrency / Persistence chapters
 
----
-
-# Milestone 7 — Linux Container
+## Milestone 7 — Linux Container, built in slices
 
 Repository tutorial: **Linux Container in 500 Lines of Code**.
 
-## Reinforces
+Progression:
 
-- processes
+- process creation
 - namespaces
-- isolation
-- filesystem / mount behavior
-- Linux internals
+- filesystem/mount isolation
+- resource/isolation model
+- transfer: add/inspect another isolation mechanism
 
----
-
-# Milestone 8 — FUSE Filesystem
+## Milestone 8 — FUSE Filesystem, built in slices
 
 Repository tutorial: **Write a FUSE Filesystem**.
 
-## Reinforces
+Progression:
 
-- filesystem abstractions
+- basic filesystem interface
 - path lookup
 - metadata
 - file operations
-- user/kernel boundary
+- persistence behavior
+- transfer feature
 
 ---
 
-# Level 8 — Database internals
+# PHASE 8 — Storage and database internals
 
 **Target:** stop treating a database as a black-box SQL endpoint.
 
-**Estimated time:** ~5–7 weeks.
+**Expected duration:** ~6–8 weeks.
 
-## Learn
+## Storage CS thread
 
-- storage characteristics
+Learn:
+
+- SSD/disk cost intuition
 - pages
 - records
 - serialization
@@ -610,73 +945,81 @@ Repository tutorial: **Write a FUSE Filesystem**.
 - indexes
 - buffer/cache concepts
 - query execution basics
-- transactions conceptually
-- WAL conceptually
-
----
-
-# Milestone 9 — Simple Database
-
-Repository tutorial: [Let's Build a Simple Database](https://cstack.github.io/db_tutorial/)
-
-## Desired mental model
+- transactions
+- WAL / recovery concepts
 
 ```mermaid
 flowchart LR
-    SQL[SQL / command] --> PARSE[Parser]
+    CMD[SQL / command] --> PARSE[Parser]
     PARSE --> EXEC[Execution]
     EXEC --> IDX[Index / B-tree]
     IDX --> PAGE[Pages]
-    PAGE --> CACHE[Buffer / cache]
-    CACHE --> STORAGE[Filesystem / storage]
+    PAGE --> CACHE[Buffer/cache]
+    CACHE --> STORAGE[Filesystem/storage]
 ```
 
-## Transfer task ideas
+## Milestone 9 — Simple Database, built in slices
 
-- add a new command
-- add a simple secondary index
-- instrument page reads/writes
-- document failure/recovery limitations
+Repository tutorial: [Let's Build a Simple Database](https://cstack.github.io/db_tutorial/)
+
+Progression:
+
+- REPL/command parsing
+- row serialization
+- page representation
+- table scan
+- B-tree/index
+- splitting pages
+- persistence
+- instrumentation or secondary index as transfer work
+
+## Architecture checkpoint
+
+Discuss:
+
+- memory vs storage trade-offs
+- indexes vs write cost
+- failure/recovery limitations
+- what changes when the database becomes a network service
 
 ---
 
-# Level 9 — Binaries, debugging, and security bridge
+# PHASE 9 — Binaries, debugging, and security bridge
 
-**Target:** understand executable programs as binary structures and running machine state.
+**Target:** understand programs as executable binary structures and mutable running machine state.
 
-**Estimated time:** ~6–8 weeks.
+**Expected duration:** ~6–8 weeks.
 
-## Learn
+## Binary/security CS thread
 
-- ELF basics
+Learn:
+
+- executable format basics (ELF on Linux)
 - sections / symbols
 - debug information
 - registers
+- stack frames / calling convention deeper
 - breakpoints
 - signals
-- stack frames
-- calling conventions
 - process memory
 - memory corruption concepts
 
----
-
-# Milestone 10 — Linux Debugger
+## Milestone 10 — Linux Debugger, built in slices
 
 Repository series: **Writing a Linux Debugger**.
 
-Topics include:
+Progression:
 
+- attach/control process
 - breakpoints
-- registers and memory
-- ELF / DWARF
-- signals
+- registers/memory
+- ELF/DWARF
 - stepping
 - source-level breakpoints
 - stack unwinding
 - variables
 
-This milestone is the bridge into:
+This is the bridge into:
 
 - reverse engineering
 - binary exploitation
@@ -685,19 +1028,19 @@ This milestone is the bridge into:
 
 ---
 
-# Core-track completion criteria
+# CORE completion criteria
 
-The core track is complete when I can reason through this vertical stack:
+The core is complete when the learner can reason vertically through this system:
 
 ```mermaid
 flowchart TD
-    APP[Application] --> ALG[Algorithms & Data Structures]
-    ALG --> C[C]
+    APP[Application] --> ADS[Algorithms / Data Structures]
+    ADS --> C[C / Runtime interfaces]
     C --> ABI[Assembly / ABI]
-    ABI --> PROC[Process]
+    ABI --> PROC[Process / Threads]
     PROC --> OS[Operating System]
-    OS --> VMEM[Virtual Memory / Filesystem]
-    VMEM --> HW[CPU / Cache / RAM]
+    OS --> VMEM[Virtual memory / Filesystem]
+    VMEM --> HW[CPU / Cache / RAM / Storage]
 
     APP --> SOCK[Socket API]
     SOCK --> TCP[TCP/IP]
@@ -705,19 +1048,19 @@ flowchart TD
 
     APP --> DB[Database]
     DB --> BT[B-tree / Index]
-    BT --> PG[Pages]
+    BT --> PG[Pages / Buffer cache]
     PG --> ST[Storage]
 ```
 
-The goal is not mastery of every layer; it is enough depth to understand interfaces, costs, failure modes, and architecture trade-offs.
+The goal is **not mastery of every layer**. The goal is sufficient depth to understand interfaces, costs, failure modes, debugging paths, and architectural trade-offs.
 
 ---
 
-# Advanced tracks
+# Advanced branches
 
-After the core, stop following one linear route. Choose according to goals and projects.
+After the finite core, stop following one linear route.
 
-## A. Security / Reverse Engineering
+## A — Security / Reverse Engineering
 
 - x86-64 deeper
 - ELF deeper
@@ -727,26 +1070,29 @@ After the core, stop following one linear route. Choose according to goals and p
 - exploitation fundamentals
 - OS security
 
-Suggested repository milestones:
+## B — Distributed Systems and Architecture
 
-- Linux debugger extensions
-- compiler / VM projects
-- OS / kernel work
+This is the main next step for the long-term **engineer / architect** goal.
 
-## B. Distributed Systems
+Learn:
 
 - replication
-- partitioning
+- partitioning / sharding
 - consistency models
 - consensus
 - failure detection
-- queues
+- retries / idempotency
+- queues / streams
 - distributed storage
-- observability and reliability
+- caching
+- observability
+- reliability / SLO thinking
+- capacity and bottleneck reasoning
+- system design case studies
 
-This is the main bridge from **systems engineer** to **system architect**.
+The same learning rule applies: each concept must feed a running distributed-system project rather than exist only as interview theory.
 
-## C. Kernel / OS
+## C — Kernel / OS
 
 - bootloader
 - interrupts
@@ -761,7 +1107,7 @@ Repository options:
 - Let's Write a Kernel
 - Write an OS from Scratch
 
-## D. Compilers / Language Runtimes
+## D — Compilers / Language Runtimes
 
 - lexer
 - parser
@@ -771,29 +1117,23 @@ Repository options:
 - code generation
 - garbage collection
 
-Primary source:
+Sources/projects:
 
 - Crafting Interpreters
-
-Repository milestones:
-
 - Build an Interpreter
 - Write a C Compiler
 
-## E. Performance Engineering
+## E — Performance Engineering
 
-- profiling
+- profiling deeper
 - cache behavior
 - SIMD fundamentals
 - parallelism
 - synchronization overhead
 - memory layout
+- high-performance matrix multiplication milestone
 
-Repository milestone:
-
-- High-Performance Matrix Multiplication
-
-## F. Embedded / Hardware
+## F — Embedded / Hardware
 
 - microcontrollers
 - GPIO
@@ -803,59 +1143,61 @@ Repository milestone:
 - I²C
 - RTOS fundamentals
 
-This track connects naturally with security hardware / pentesting devices.
+This branch connects naturally with security hardware and pentesting devices.
 
-## G. Rust
+## G — Rust
 
-Rust comes **after enough C to understand why ownership exists**.
+Rust comes after enough C to understand the problems ownership solves.
 
 Suggested method:
 
 1. Learn ownership / borrowing / lifetimes.
 2. Reimplement one earlier C milestone in Rust.
-3. Compare memory model and failure modes explicitly.
+3. Compare memory model, ergonomics, performance assumptions, and failure modes.
 
-Good candidates:
+Candidates:
 
-- hash table
+- vector/hash table
 - TCP server
 - VM
 
 ---
 
-# AI usage policy for this track
+# AI usage policy
 
-AI is allowed for:
+AI is a tutor/reviewer/tool, not a substitute for the milestone.
 
-- concept explanations
+## Green — use freely
+
+- explanations
 - documentation lookup
-- debugging guidance
+- conceptual questions
 - compiler-error interpretation
 - code review
 - architecture discussion
-- testing ideas
+- testing/edge-case ideas
+- debugging strategy
 
-AI should **not** replace the learning milestone by writing the whole solution.
+## Yellow — use as hints
 
-Preferred debugging request:
+- syntax reminders
+- API signatures
+- pseudocode
+- small examples unrelated to the exact milestone solution
 
-> "Here is my code and the failure. Help me identify the likely cause and give me the next diagnostic step, but do not rewrite the solution for me."
+## Red — avoid during milestone implementation
 
----
+- "write the project for me"
+- replacing a whole broken implementation with working code
+- generating a feature whose purpose is to test the concept currently being learned
 
-# Approximate first 4–5 months
+Preferred debugging progression:
 
-| Weeks | Focus |
-|---|---|
-| 1–2 | Environment, shell, compiler, Git, debugger basics |
-| 3–5 | C fundamentals |
-| 6–7 | Arrays, strings, compilation model |
-| 8–9 | Algorithms basics + complexity |
-| 10–13 | Pointers, stack, heap |
-| 14–16 | Dynamic memory + linked structures |
-| 17–19 | **Milestone 1 — Hash Table in C** |
+```text
+symptom -> hypothesis -> diagnostic step -> hint -> stronger hint -> solution only if learning value is exhausted
+```
 
-Discrete mathematics runs in small parallel blocks throughout.
+The learner should write the final milestone code.
 
 ---
 
@@ -865,27 +1207,37 @@ This roadmap is expected to change.
 
 Update it when:
 
-- a milestone turns out to require missing prerequisites;
-- a source is outdated, inaccessible, or poor on mobile;
-- a concept proves already mastered and can be compressed;
+- a project exposes a missing prerequisite;
+- theory appears too early or too late;
+- a source is inaccessible/outdated/poor on mobile;
+- a concept is already mastered and can be compressed;
+- a project is too tutorial-driven and needs a stronger transfer task;
 - a new engineering/security goal changes priorities;
-- a completed project exposes an important knowledge gap;
 - weekly capacity changes materially.
 
 When changing the roadmap:
 
 1. Record the reason in the progress log.
-2. Prefer changing prerequisites/order over merely adding more material.
-3. Keep milestones tied to concepts they validate.
-4. Avoid collecting resources without a clear role.
-5. Keep the **core** finite; move optional depth to Advanced Tracks.
+2. Prefer changing prerequisites/order over simply adding more resources.
+3. Keep every major theory topic connected to exercises **and a project slice**.
+4. Keep core CS threads explicit.
+5. Keep the core finite; optional depth belongs in Advanced.
 
 ---
 
-# Next action
+# Immediate next action
 
-Start with **Level 0 — Engineering environment**.
+Start **Phase 0 -> Phase 1**, but begin writing C immediately.
 
-The first learning objective is:
+First learning cycle:
 
-> Understand the complete path from a C source file to a running process, and be able to compile and inspect a minimal program manually on both the main computer and Android/Termux.
+```text
+what compiler/executable/process are
+-> compile a tiny C program
+-> types and sizeof
+-> small exercises
+-> create the Hash Table milestone scaffold
+-> next C theory block
+```
+
+This project will then grow incrementally through arrays, structs, pointers, dynamic memory, hashing, collision handling, and resizing.
