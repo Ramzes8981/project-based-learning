@@ -1,47 +1,25 @@
-# SimpleDB — рабочий README
+# SimpleDB — page-oriented storage project
 
-## Status / Build
+Build a small persistent database to connect filesystem durability, explicit binary format, pager and disk index.
 
-Executable name, `make`, `make test`, create/open command.
+## Milestones
 
-## File format
+1. **Format** — exact header/page/record bytes from [`FORMAT.md`](FORMAT.md).
+2. **Pager** — checked page offsets, complete/truncated/error distinction.
+3. **Records** — insert/scan/reopen.
+4. **Index** — B-tree-family lookup/split within project variant.
+5. **Measurement** — page visits/cache/query evidence.
+6. **Crash boundary** — document what current implementation does **not** guarantee in [`RECOVERY_LIMITATIONS.md`](RECOVERY_LIMITATIONS.md).
 
-[`FORMAT.md`](FORMAT.md) — fixed contract. Документируй выбранный internal-page separator variant A/B и любые разрешённые limits.
+## Deliberate non-goals of core
 
-## Pager
+- full SQL parser/planner;
+- MVCC;
+- concurrent transactions;
+- production WAL/ACID;
+- cross-platform arbitrary struct persistence;
+- mmap-everything shortcut without durability model.
 
-Who owns page buffers? Cache policy? Dirty state? Robust `pread/pwrite` loops? Page-number/offset overflow checks?
+Lesson 7.7 teaches WAL concepts; implementation is optional extension, not hidden acceptance requirement.
 
-## Tree invariants
-
-- keys sorted within node;
-- separator invariant chosen once;
-- child/parent references valid;
-- leaves same depth;
-- leaf chain ordered/no cycles;
-- cell_count fits page capacity;
-- every reachable record appears exactly once.
-
-## Serialization
-
-List encode/decode helpers; no raw struct persistence. Reserved bytes deterministic.
-
-## Tests
-
-- `TESTS.md`;
-- reopen/persistence;
-- split boundary cases;
-- corruption fixtures;
-- `tools/inspect_db.py` independent header/page inspection;
-- sanitizer run.
-
-## Metrics
-
-Page reads/writes/cache hits/splits/tree height or other chosen counters.
-
-## Recovery/durability
-
-Complete [`RECOVERY_LIMITATIONS.md`](RECOVERY_LIMITATIONS.md). Core v1 has no WAL/transaction/crash-atomic multi-page commit.
-
-## Known limitations / transfer / debugging story
-
+Docs: [`SPEC.md`](SPEC.md) · [`ACCEPTANCE.md`](ACCEPTANCE.md) · [`TESTS.md`](TESTS.md) · [`HINTS.md`](HINTS.md) · [`FORMAT.md`](FORMAT.md).

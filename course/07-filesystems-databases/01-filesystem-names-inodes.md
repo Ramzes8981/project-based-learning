@@ -1,123 +1,66 @@
-# 7.1 — Pathnames, directory entries, inodes и open-file state
+# 7.1 — Почему имя файла и сам файл — разные сущности
 
-**Теория:** ~75 мин  
-**Lab:** ~60 мин  
-**С телефона:** теория — да
+**Теория:** ~80 мин · **Лаб:** ~70 мин · **С телефона:** теория — да
 
 ← [`README`](README.md) · → [`02-page-cache-durability.md`](02-page-cache-durability.md)
 
-## Цель
+## Проблема
 
-Перестать считать filename самим file object и понять identity/link/open-handle модель Unix-like filesystem.
+Beginner model:
 
-## Pathname — способ найти object
+> `/tmp/a.txt` — это файл.
 
-Строка:
-
-```text
-/home/user/data.txt
-```
-
-не является «файлом внутри kernel». Pathname resolution проходит components directory tree и находит filesystem object.
-
-Упрощённо:
-
-```text
-pathname component
-  ↓ directory lookup
-name -> inode-like object identifier
-  ↓
-metadata + file data mapping
-```
-
-Точные on-disk structures зависят от filesystem; inode — удобная Unix abstraction, а не требование ко всем файловым системам мира.
+Но one filesystem object can have multiple hard-link names, and a name can disappear while already-open fd still accesses object. So path string is not object identity.
 
 ## Directory entry
 
-Directory связывает **name** с object/inode identity.
+A directory maps a name to filesystem object identifier. On common Unix filesystems that object is represented by an **inode**.
 
-Следовательно, один object может иметь несколько names через hard links.
+Useful mental model:
 
 ```text
-a.txt ─┐
-       ├─> inode 123
-b.txt ─┘
+directory path/name
+→ directory entry
+→ inode-like file object metadata
+→ data blocks/extents
 ```
 
-Удаление одного name (`unlink`) не обязано уничтожать file data, если существуют другие links или открытые references.
+Exact on-disk implementation differs by filesystem; Linux VFS exposes inode abstraction even if storage details vary.
 
 ## Hard link
 
-Hard link — ещё одна directory entry на тот же inode-like object.
+Hard link creates another directory entry referring to same underlying inode/object.
 
-Обычно нельзя hard-link directory обычным пользователем; hard links также не пересекают filesystem boundaries.
+```text
+a.txt ─┐
+      ├→ inode X → data
+b.txt ─┘
+```
 
-## Symbolic link
+Deleting one name decreases link count; object can remain while another link or open reference exists.
 
-Symlink — отдельный filesystem object, содержимое которого задаёт pathname target.
+## Open fd survives unlink
 
-Он может быть dangling, если target исчез.
+If process opens file then pathname is unlinked, fd may continue referring to open file description/object until last relevant reference closes. This is why temp-file patterns can safely unlink after open on Unix-like systems.
 
-Hard link и symlink — принципиально разные semantics.
+## Symlink differs
+
+Symbolic link stores a path-like reference resolved later; it is a different filesystem object, not another hard-link name to same inode.
 
 ## Metadata
 
-Inode-like metadata содержит, например:
+Mode/owner/timestamps/size/link count are metadata. Do not assume inode number is globally unique forever or across filesystems; it is context-dependent identifier.
 
-- file type;
-- permissions;
-- owner/group;
-- size;
-- timestamps;
-- link count;
-- data-block mapping information.
+## Practice
 
-Имя обычно хранится в directory, а не «в inode как единственное имя».
+On disposable directory:
 
-## Open file state
-
-`open()` создаёт descriptor reference на open-file state. После:
-
-```text
-open("data") -> fd
-unlink("data")
-```
-
-process всё ещё может читать/писать через уже открытый fd, пока underlying object жив благодаря open reference. Name исчез из directory namespace, но object не обязан исчезнуть немедленно.
-
-Это важный pattern для temp files/atomic replacement.
-
-## File offset
-
-Sequential `read/write` используют current file offset в open-file description. `dup`/`fork` могут привести descriptors к shared offset state.
-
-`pread/pwrite` conceptually работают по explicit offset и не двигают shared current offset — полезно для pager.
-
-## Permissions
-
-Permissions участвуют в pathname/open/access checks, но authorization сложнее mode bits: ACLs, capabilities, mount options и LSM могут добавлять policy.
-
-Core требует понимать `rwx` + owner/group/other и directory execute/search semantics.
-
-## Lab
-
-На отдельной test directory:
-
-1. создай file;
-2. `stat`/`ls -li`;
-3. создай hard link;
-4. сравни inode numbers/link count;
-5. создай symlink;
-6. открой file маленькой программой, затем unlink pathname и продолжи чтение через fd;
-7. inspect `/proc/<pid>/fd` при необходимости.
-
-## Causal questions
-
-1. Почему два pathnames могут быть одним file object?
-2. Почему unlink открытого file не обязан немедленно освобождать data?
-3. Чем symlink отличается от hard link при удалении target?
-4. Почему pathname не является стабильным object identity?
+1. create file;
+2. make hard link and symlink;
+3. compare `stat` results;
+4. open fd, unlink original name, read via fd;
+5. explain which references keep object reachable.
 
 ## Exit check
 
-Объясни цепочку `path -> directory entry -> inode/object -> open fd`, не называя все четыре одним «файлом».
+Why can “path no longer exists” and “process can still read the opened file” both be true?

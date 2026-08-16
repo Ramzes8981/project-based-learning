@@ -1,113 +1,57 @@
-# 7.6 — B+tree-like index, fan-out и splits
+# 7.5 — Как искать запись на диске, не сканируя весь файл
 
-**Теория:** ~100 мин  
-**Project slice:** ~12–20 часов  
-**С телефона:** теория — да
+**Теория:** ~100 мин · **Практика/project:** ~5–7 часов · **С телефона:** теория — да
 
 ← [`05-pager-records-cursor.md`](05-pager-records-cursor.md) · → [`07-buffering-query-costs.md`](07-buffering-query-costs.md)
 
-## Цель
+## Проблема
 
-Реализовать multi-level balanced page tree и понять, почему high fan-out уменьшает storage I/O depth.
+Sorted in-memory BST lesson assumed pointer-rich nodes. On disk every random page read is expensive, so tree should have **high fanout**: many keys/children per page, reducing height.
 
-## Почему не ordinary BST
+## B-tree family intuition
 
-Pointer BST node может хранить 1 key + 2 pointers. На disk это ужасно: traversal мог бы требовать отдельный page/I/O на каждый level и fan-out 2 даёт большую height.
-
-B-tree family node хранит **много keys/children в одной page**.
+A **B-tree** stores many sorted keys per node/page and child ranges between them.
 
 ```text
-[ k1 | k2 | k3 | ... ]
- /    |    |    \
-children page numbers
+[key 10 | key 30 | key 70]
+ child0  child1  child2  child3
 ```
 
-## B-tree vs B+tree
+Search first finds position within page, then follows one child page.
 
-В B-tree family details различаются. Course SimpleDB использует B+tree-like idea:
+Height roughly logarithmic with large branching factor, often very small compared with binary tree for same record count.
 
-- internal pages: separator keys + child page numbers;
-- leaf pages: actual key/value records;
-- all records at leaves;
-- leaves may have `next_leaf` pointer for scan.
+## Page invariant
 
-Это собственная упрощённая спецификация, не SQLite exact format.
+Each node page must maintain:
 
-## Search invariant
+- keys sorted;
+- child/key count relation according to chosen variant;
+- occupancy bounds (except special root rules);
+- all children in correct key ranges;
+- page references valid.
 
-Internal keys partition key space. Для key выбирается exactly one child range.
+Exact SimpleDB variant is defined by project format/spec, not generic “all B-trees are identical”.
 
-Leaf keys sorted. Внутри page binary search уменьшает CPU comparisons; главный storage benefit — fan-out/depth.
+## Split
 
-## Fan-out
+When target page full, insert may split node into two and promote separator to parent. Parent itself may overflow, propagating split upward; root split increases height.
 
-Если internal page примерно имеет `b` children, balanced tree height порядка:
+Commit order matters for crash consistency. Core SimpleDB without WAL cannot claim atomic multi-page split under power loss; [`RECOVERY_LIMITATIONS.md`](project/RECOVERY_LIMITATIONS.md) must say so.
+
+## Search cost
+
+Big-O comparisons matter, but disk/cache pages matter more:
 
 ```text
-log_b(N)
+height → number of page visits
+in-page binary/linear search → CPU/cache work
 ```
-
-Чем больше b, тем меньше page levels/I/O для lookup.
-
-## Leaf split
-
-Когда leaf full:
-
-1. create new leaf page;
-2. merge/redistribute old + new record sorted;
-3. left/right halves;
-4. update leaf links if used;
-5. propagate separator key to parent.
-
-## Root split
-
-Если root leaf splits, нельзя просто «потерять root page number». Course policy может:
-
-- allocate two child pages and convert root to internal;
-- либо allocate new root and update file header.
-
-Выбери один contract in FORMAT/SPEC; tests expect documented course choice.
-
-## Internal split
-
-Когда parent full, split propagates upward recursively. Balanced property сохраняется: all leaves same depth.
-
-## Parent pointers
-
-Можно хранить parent page number для easier upward propagation, либо maintain path stack during descent. Course allows either if format documented.
-
-Не store raw pointer.
-
-## Duplicate keys
-
-Core SimpleDB keys unique. Insert duplicate returns explicit status/update policy according to SPEC; нельзя создавать ambiguous duplicates silently.
-
-## Crash caveat
-
-Multi-page split modifies several pages. Without WAL/transaction protocol crash mid-operation может corrupt tree. **Core project принимает этот limitation**, а Lesson 7.8 объясняет, как real DB addresses it.
 
 ## Project slice
 
-Последовательно:
-
-1. leaf binary search;
-2. leaf insert;
-3. leaf split;
-4. root becomes internal;
-5. internal search;
-6. insert through internal node;
-7. internal split/height >2;
-8. scan through leaves.
-
-После каждого stage сохраняй on-disk validation/invariant tests.
-
-## Causal questions
-
-1. Почему high fan-out особенно важен на storage?
-2. Что separator key гарантирует?
-3. Почему split должен propagate parent?
-4. Почему multi-page split без transaction protocol crash-unsafe?
+Implement leaf/index stage exactly within project scope. Tests force split at smallest threshold and verify all old/new keys, boundaries and reopen behavior.
 
 ## Exit check
 
-Для миллиона keys оцени qualitatively разницу depth binary tree vs page B+tree с fanout 100.
+Why is a high-fanout tree generally better disk index than pointer-based binary search tree even though both are “trees”?
