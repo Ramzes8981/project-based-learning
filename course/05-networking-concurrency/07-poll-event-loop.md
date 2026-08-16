@@ -1,79 +1,66 @@
-# 5.7 — Non-blocking I/O, `poll` и event loop
+# 5.8 — Как один thread ждёт много sockets без thread-per-connection
 
-**Теория:** ~90 мин  
-**Guided lab:** ~3–5 часов  
-**С телефона:** теория — да
+**Теория:** ~90 мин · **Практика:** ~100 мин · **С телефона:** теория — да
 
-← [`06-thread-pool-backpressure.md`](06-thread-pool-backpressure.md) · → [`08-graphs-bfs-dijkstra.md`](08-graphs-bfs-dijkstra.md)
+← [`06-thread-pool-backpressure.md`](06-thread-pool-backpressure.md) · → [`09-load-testing-metrics.md`](09-load-testing-metrics.md)
 
-## Цель
+## Проблема
 
-Понять альтернативную concurrency model: один/few event-loop threads + explicit per-connection state.
+Many connections spend most time waiting for bytes. One blocking `recv` cannot service others, while one thread per idle connection has resource/scheduling cost.
 
-## Blocking vs nonblocking
+Need wait until **any** fd becomes ready.
 
-Blocking `recv` может остановить worker до progress.
+## Readiness API
 
-При `O_NONBLOCK` operation должна вернуть без обычного ожидания: если сейчас нельзя прочитать/записать, появляется `EAGAIN`/`EWOULDBLOCK` как **нормальное состояние**, а не broken connection.
+`poll()` lets process provide fd set/events and sleep until at least one becomes ready or timeout/signal occurs.
 
-## Readiness
-
-`poll` получает array descriptors + requested events и возвращает descriptors с событиями/readiness/error/hangup indications.
-
-Readiness означает «попытка соответствующей операции может сделать progress или обнаружить состояние». Она **не** означает:
-
-- полный application frame готов;
-- whole response запишется за один `send`;
-- после readiness невозможно получить error/EOF.
-
-## Per-connection state machine
-
-Blocking code:
+Core mental model:
 
 ```text
-read_exact prefix
-read_exact body
-process
-write_all
+many nonblocking fds
+↓ poll
+ready subset
+↓
+perform only operations that can make progress
+↓
+update per-connection parser/output state
+↓ poll again
 ```
 
-Event loop:
+This style is an **event loop**.
+
+## Nonblocking mode
+
+On nonblocking socket, operation that would block returns failure such as `EAGAIN/EWOULDBLOCK`. That means “no progress now; wait for readiness”, not fatal protocol error.
+
+Still handle short reads/writes after readiness; readiness is not guarantee entire frame/buffer fits.
+
+## Per-connection state
+
+Framing parser must survive across events:
 
 ```text
-READ_PREFIX have 0..4
-READ_BODY   have 0..body_len
-PROCESS
-WRITE_RESP  sent 0..response_len
-CLOSING
+header bytes accumulated
+expected payload len
+payload bytes accumulated
+pending output offset
+closing/error state
 ```
 
-State хранит input/output buffers, offsets и protocol phase между iterations.
+Event-driven code trades threads for explicit state machines.
 
-## `pollfd` lifecycle
+## `POLLHUP` / errors
 
-У каждого fd requested `events`, returned `revents`. Error/hangup bits надо рассматривать независимо от желаемого state; stale/closed descriptor нельзя оставлять в active set.
+Readiness flags can coexist; peer close may still leave readable buffered bytes. Do not interpret one flag with simplistic `else if` chain without API contract.
 
-## Writable readiness и backpressure
+## `poll` vs scalable APIs
 
-Если output не помещается kernel send buffer, сохранить unsent suffix и ждать future write readiness. Busy-loop повторный `send` после `EAGAIN` сжигает CPU.
+Linux `epoll`, BSD/macOS `kqueue`, io_uring/async runtimes scale/differ in semantics. Core uses `poll` because model is portable enough and transparent. Advanced optimization starts only after measurement.
 
-## Level vs edge preview
+## Практика
 
-Linux `epoll` добавляет более scalable registration API и level/edge-triggered modes. Core использует `poll`, пока readiness/state model не стала прозрачной. Переход к `epoll` без state machine не устраняет protocol complexity.
-
-## Guided lab
-
-Multi-client nonblocking echo через `poll`:
-
-- fixed maximum clients;
-- per-client receive/send state;
-- partial reads/writes;
-- EOF/error cleanup;
-- no busy loops;
-- one slow client не блокирует progress других.
-
-Не переписывай весь KV milestone второй раз: lab нужен для сравнения architectural models.
+Implement tiny multi-client echo or protocol reader with nonblocking sockets and `poll`, no thread pool. Compare state complexity/resources to thread-pool version.
 
 ## Exit check
 
-Нарисуй один connection, где 4-byte prefix приходит 2+1+1 bytes, body двумя reads, response двумя writes с `EAGAIN` между ними.
+Why does readiness not mean “one full frame can now be read”, and what state must survive between `poll` iterations?

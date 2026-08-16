@@ -1,97 +1,76 @@
-# 5.4 — Framing и binary application protocol
+# 5.4 — Как поверх TCP восстановить границы сообщений
 
-**Теория:** ~90 мин  
-**Project slice:** ~4–7 часов  
-**С телефона:** теория — да
+**Теория:** ~90 мин · **Практика/project:** ~4–6 часов · **С телефона:** теория — да
 
 ← [`03-socket-api-getaddrinfo.md`](03-socket-api-getaddrinfo.md) · → [`05-threads-races-sync.md`](05-threads-races-sync.md)
 
-## Цель
+## Проблема
 
-Спроектировать bounded length-prefixed KV protocol и parser state machine, корректный при произвольном TCP chunking.
+TCP gives ordered bytes, not records. Server needs know where one request ends before decoding command/key/value.
 
-## Frame envelope
+This requires **framing**: protocol rule for message boundaries.
 
-Course protocol v1 подробно зафиксирован в [`project/PROTOCOL.md`](project/PROTOCOL.md). Общий envelope:
+## Length-prefixed frame
 
-```text
-u32 body_len (big-endian; bytes after prefix)
-u8  version
-u8  opcode
-u16 flags/status
-operation-specific payload
-```
-
-Никакой raw `send(struct Request)`: C padding, host endianness, ABI layout и pointer fields делают такой wire format непереносимым.
-
-## Bounds before allocation
-
-Для untrusted `body_len`:
+Course protocol uses explicit fixed-width length field:
 
 ```text
-read exactly 4-byte prefix
-parse u32
-validate MIN <= body_len <= MAX_FRAME
-only then allocate/read body
++----------------+-------------------+
+| payload_len    | payload bytes     |
++----------------+-------------------+
 ```
 
-Даже 4-byte prefix может прийти несколькими `recv` calls.
+Exact fields are normative in [`project/PROTOCOL.md`](project/PROTOCOL.md).
 
-## Integer arithmetic
+## Parser state machine
 
-Нельзя сначала бездумно вычислить:
+Receiver cannot assume header arrives at once.
 
 ```text
-header + key_len + value_len
+NEED_HEADER
+  accumulate until complete
+  decode length
+  validate length <= MAX_FRAME
+  allocate/prepare payload safely
+↓
+NEED_PAYLOAD
+  accumulate until payload_len bytes
+↓
+PROCESS_FRAME
+↓
+NEED_HEADER
 ```
 
-на untrusted lengths и только потом проверить. Используй checked/add-subtract-from-remaining logic:
+EOF in `NEED_PAYLOAD` means truncated/incomplete frame, not valid shorter message.
+
+## Validate before arithmetic/allocation
+
+Untrusted length can cause overflow or memory exhaustion.
+
+Order:
 
 ```text
-remaining >= key_len
-remaining - key_len >= value_len
+decode fixed-width unsigned length
+→ compare against protocol MAX_FRAME
+→ convert to size_t only if representable/allowed
+→ check any header+payload arithmetic before addition
+→ allocate/read
 ```
 
-и protocol-specific maximums.
+Never allocate arbitrary peer-provided length first and reject later.
 
-## Parser phases
+## Endianness
 
-```text
-READ_PREFIX
-VALIDATE_LENGTH
-READ_BODY
-PARSE_FIXED_HEADER
-VALIDATE_VERSION/OPCODE/FLAGS
-PARSE_LENGTH FIELDS
-VALIDATE PAYLOAD BOUNDS
-EXECUTE
-ENCODE RESPONSE
-```
+Wire format chooses byte order independently of host. Encode/decode field bytes explicitly. Do not send raw C struct: padding/layout/endianness are not wire contract.
 
-Blocking helper `read_exact` может скрыть transport chunks, но обязан корректно обрабатывать EOF/error. Event loop позже сохранит эти phases как persistent connection state.
+## Error response policy
 
-## Bytes vs text
+Malformed/oversized/truncated input needs deterministic policy: send error if enough state remains safe, or close connection. Avoid protocol parser trying to “resynchronize” arbitrary corrupted stream unless format explicitly supports it.
 
-Wire payload — bytes. Если project contract определяет keys/values как UTF-8 text, validation выполняется **после** structural lengths. C core server может считать payload arbitrary bytes до NUL-free/string conversion policy; exact project v1 contract описан в `PROTOCOL.md`.
+## Project stage 1
 
-## Security/error cases
-
-- overlarge frame;
-- too-small body;
-- unknown version/opcode;
-- reserved flags nonzero;
-- inconsistent lengths;
-- EOF mid-prefix/body;
-- allocation failure;
-- slow peer;
-- response length overflow.
-
-## Project slice
-
-Сначала sequential single-client KV protocol на собственной Hash Table. Concurrency добавляется только после deterministic protocol tests.
-
-Course-provided `tools/client.py` — reference peer для wire contract, не server solution.
+Implement protocol codec/parser and single-client server before concurrency. Tests must feed every frame split at many byte boundaries and multiple frames concatenated in one read.
 
 ## Exit check
 
-Почему transport `recv` result нельзя напрямую трактовать как one request или C struct?
+Why is a parser that only passes “one full frame per read” tests not actually a TCP parser?

@@ -1,131 +1,84 @@
-# 5.1 — Ethernet, ARP, IP, subnet и routing
+# 5.1 — Как packet выбирает следующий шаг к другой машине
 
-**Теория:** ~75 мин  
-**Lab:** ~45–60 мин  
-**С телефона:** теория — да
+**Теория:** ~75 мин · **Практика:** ~70 мин · **С телефона:** теория — да
 
 ← [`README`](README.md) · → [`02-udp-tcp-stream.md`](02-udp-tcp-stream.md)
 
-## Цель
+## Проблема
 
-Понять путь данных от local link frame до routed IP packet и уметь объяснить решение host: destination local или нужен gateway.
+Process on one host has bytes for another host. A cable/Wi-Fi link only reaches a local network segment; the destination may be many networks away.
 
-## Layering без зубрёжки OSI
-
-Практическая цепочка:
+Need answer two different questions:
 
 ```text
-application data
-↓ transport (TCP/UDP)
-↓ IP packet
-↓ link frame (например Ethernet/Wi-Fi-like link)
-↓ physical/network medium
+who is the next local receiver?
+where should an IP packet go next toward its final destination?
 ```
 
-Layers имеют разные addressing/contract scopes.
+## Link layer first
 
-## Ethernet frame
+A local network technology such as Ethernet moves frames between interfaces on the same link. It has its own local addressing/format. Core does not implement Ethernet; we only need boundary: local delivery is not global routing.
 
-На Ethernet-like local network frame содержит source/destination MAC addresses и payload type/data.
+## IP address identifies network-layer destination
 
-MAC address используется в пределах link/local segment; router не маршрутизирует Internet «по MAC адресам от source до destination».
+Internet Protocol (IP) gives packets source/destination addresses and allows routers to forward them across networks.
 
-## IP address
+An **IP packet** is a network-layer unit. It is not a TCP message and not an application record.
 
-IPv4 address — 32-bit logical network address. Prefix length определяет network/subnet часть.
+## Prefix and route
 
-Например:
+A route says roughly:
 
 ```text
-192.168.1.23/24
+for destination prefix P
+→ send via interface / next hop
 ```
 
-`/24` означает 24 high-order bits network prefix.
+Routers choose the most specific matching prefix (longest-prefix match) among available routes.
 
-## Local-subnet decision
-
-Host сравнивает destination prefix со своим connected route/prefix.
-
-Если destination считается on-link:
+Example mental model:
 
 ```text
-host должен узнать link-layer address destination
+app bytes
+↓
+transport later
+↓
+IP packet: destination 203.0.113.7
+↓ route lookup
+next hop / interface
+↓ local link delivery
 ```
 
-Если off-link:
+## Default route
 
-```text
-host отправляет frame к next-hop/default gateway MAC,
-но IP destination остаётся конечным remote host
-```
+If no more-specific route matches, a default route may select gateway/next hop. It is not “the Internet address”; it is fallback routing policy.
 
-Это ключевой conceptual distinction.
+## TTL / hop limit
 
-## ARP
+Packets need a bound against routing loops. IPv4 TTL / IPv6 Hop Limit is decremented by routers; reaching zero prevents infinite forwarding.
 
-Для IPv4 Ethernet ARP сопоставляет local IPv4 address → MAC address.
+## Graph connection
 
-Conceptually:
+Routing topology can be modeled as graph. BFS/Dijkstra intuition was introduced in Module 1; networking now supplies a real use case. Real routing protocols have policy/state details beyond simple shortest-path exercise.
 
-```text
-Who has 192.168.1.50?
-→ owner replies with MAC
-→ sender caches mapping temporarily
-```
+## Observe, do not memorize commands
 
-ARP не работает как global Internet directory.
+On Linux use tools available in environment such as:
 
-## Routing table
-
-Routing decision выбирает route с наиболее специфичным подходящим prefix (longest-prefix match concept).
-
-Route может задавать:
-
-- destination prefix;
-- next hop;
-- interface;
-- metric.
-
-## TTL
-
-IPv4 TTL уменьшается routers; при исчерпании packet удаляется. Это предотвращает вечную циркуляцию routing loops.
-
-## ICMP
-
-ICMP передаёт control/error information: echo request/reply, destination-related errors, time exceeded и др.
-
-`ping` использует ICMP echo, но «ping не проходит» не означает автоматически «TCP service недоступен»: firewalls/policies могут отличаться.
-
-## NAT preview
-
-NAT меняет address/port mappings на network boundary. Он важен practically, но не является свойством базовой end-to-end IP model. Detailed NAT/firewall work позже в security/sysadmin tracks.
-
-## Lab
-
-На Linux:
-
-```text
+```bash
 ip addr
 ip route
-ip neigh
 ```
 
-Выбери один destination в local subnet и один remote. До любого packet capture ответь:
+Before reading output, predict which interface/default route should exist. Commands are observation tools, not the lesson itself.
 
-- какой route будет выбран;
-- кому нужен ARP/neighbor resolution;
-- какой MAC будет destination первого Ethernet frame;
-- какой IP останется final destination.
+## Практика
 
-При возможности проверь packet capture.
-
-## Causal questions
-
-1. Почему frame к default gateway всё ещё содержит IP remote server?
-2. Зачем TTL?
-3. Почему ARP не нужен для поиска MAC remote Internet server?
-4. Что изменится, если prefix mask настроен неправильно?
+1. Pick one destination from your test environment.
+2. Read `ip route` and identify matching route/default.
+3. Draw host → next hop → hypothetical later routers.
+4. Explain why local MAC/link address and final IP address answer different questions.
 
 ## Exit check
 
-Нарисуй local host → router → remote host и подпиши link-layer vs IP destination на каждом hop.
+Why can a host know final IP destination while still sending the next frame only to a local router?

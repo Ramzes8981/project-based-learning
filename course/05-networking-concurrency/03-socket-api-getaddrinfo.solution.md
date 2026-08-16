@@ -1,21 +1,14 @@
 # Разбор 5.3
 
-Server resource sequence:
+A correct implementation should visibly separate ownership:
 
 ```text
-getaddrinfo -> candidates
-for candidate:
-  socket
-  bind
-  if fail close
-selected listening fd
-listen
-loop:
-  accept -> client fd
-  echo using robust recv/send
-  close client fd
-close listen fd on shutdown
-freeaddrinfo when no longer needed
+addrinfo list: freeaddrinfo exactly once
+candidate socket: close on failed connect/bind attempt
+listening fd: stays open while accepting
+accepted fd: close after that client is done
 ```
 
-Ключевой skill — cleanup при каждой частичной failure, а не запоминание exact boilerplate.
+Do not return first `getaddrinfo` candidate assumption as universal truth. Iterate candidates until one succeeds or list exhausted.
+
+For each length passed to allocation/serialization, validate arithmetic before multiplication/addition; socket API does not make buffer math safe automatically.

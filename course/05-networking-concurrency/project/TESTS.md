@@ -1,30 +1,45 @@
-# Concurrent KV Server — public scenarios
+# Concurrent KV Server — test plan
 
-## Protocol
+## Codec/framing
 
-1. SET then GET round-trip;
-2. update existing key;
-3. GET missing -> NOT_FOUND;
-4. minimum/maximum documented key/value;
-5. prefix split across multiple sends;
-6. body split at every interesting boundary;
-7. two frames in one TCP send;
-8. EOF mid-prefix/body;
-9. unknown version/opcode/nonzero flags;
-10. inconsistent key/value lengths;
-11. frame > MAX_FRAME rejected before body allocation.
+1. encode/decode smallest valid frame;
+2. maximum allowed frame;
+3. one-byte-too-large length rejected before allocation;
+4. split header at every byte;
+5. split payload at many boundaries;
+6. two+ frames concatenated in one stream chunk;
+7. EOF after partial header/payload;
+8. invalid opcode/status/length fixtures per protocol.
 
-## Concurrency
+## KV semantics
 
-12. many clients read/write distinct keys;
-13. same-key concurrent updates produce valid whole value, never torn/corrupt state;
-14. bounded queue reaches capacity under slow workers;
-15. full-queue policy observable/metric consistent;
-16. disconnect during response doesn't kill process;
-17. graceful shutdown wakes waiting workers and terminates;
-18. repeated connect/disconnect does not leak descriptors/tasks.
+9. SET/GET/DELETE/update;
+10. forced hash collisions inherited from table tests;
+11. concurrent same-key update workload with allowed final-state oracle;
+12. concurrent independent keys preserve all values/count invariants.
 
-## Metrics
+## Resources
 
-19. accepted/completed/error counters reconcile for controlled run;
-20. latency samples produce p50/p95/p99 from harness with clearly documented population.
+13. connect/disconnect loop, stable fd/memory baseline;
+14. client abort mid-frame;
+15. client abort before response;
+16. server shutdown with idle connections;
+17. shutdown while workers wait on empty queue;
+18. shutdown with queued work according to documented drain/reject policy.
+
+## Overload
+
+19. fill queue deterministically;
+20. next client/work gets exact full policy;
+21. no fd leak on enqueue rejection;
+22. burst does not create >configured workers;
+23. queue high-water never exceeds capacity.
+
+## Metrics/tooling
+
+24. protocol client regression tests;
+25. latency summary monotonic (`p50 <= p95 <= p99`);
+26. load report includes sample count/errors/rejections/workload;
+27. closed-loop driver limitation documented.
+
+Timeouts guard hangs; they do not substitute for a semantic oracle.
