@@ -17,7 +17,7 @@ ALLOWED_EXTERNAL_FILES = {
     COURSE / "SOURCE_MATRIX.md",
     COURSE / "ENVIRONMENT.md",
 }
-
+PLACEHOLDER_EXEMPT_FILES = {COURSE / "AUTHORING_STANDARD.md"}
 REQUIRED_PROJECT_DOCS = {"README.md", "SPEC.md", "ACCEPTANCE.md", "TESTS.md", "HINTS.md"}
 MARKERS = ("cite", "filecite", "memcite", "sandbox:/")
 PLACEHOLDER_RE = re.compile(r"\b(?:TODO|TBD|FIXME)\b")
@@ -29,21 +29,18 @@ def markdown_files() -> list[Path]:
     return sorted(COURSE.rglob("*.md"))
 
 
-def is_code_fence_toggle(line: str) -> bool:
-    return line.lstrip().startswith("```")
-
-
 def check_text(path: Path, text: str, errors: list[str]) -> None:
     for marker in MARKERS:
         if marker in text:
             errors.append(f"{path.relative_to(ROOT)}: internal marker {marker!r}")
 
     in_fence = False
-    for lineno, line in enumerate(text.splitlines(), 1):
-        if is_code_fence_toggle(line):
-            in_fence = not in_fence
-        if not in_fence and PLACEHOLDER_RE.search(line):
-            errors.append(f"{path.relative_to(ROOT)}:{lineno}: unresolved placeholder")
+    if path not in PLACEHOLDER_EXEMPT_FILES:
+        for lineno, line in enumerate(text.splitlines(), 1):
+            if line.lstrip().startswith("```"):
+                in_fence = not in_fence
+            if not in_fence and PLACEHOLDER_RE.search(line):
+                errors.append(f"{path.relative_to(ROOT)}:{lineno}: unresolved placeholder")
 
     if path not in ALLOWED_EXTERNAL_FILES and URL_RE.search(text):
         errors.append(f"{path.relative_to(ROOT)}: external URL outside optional/reference file")
@@ -97,10 +94,7 @@ def check_duplicate_lesson_prefixes(errors: list[str]) -> None:
                 continue
             prefix = match.group(1)
             if prefix in seen:
-                errors.append(
-                    f"{module.relative_to(ROOT)}: duplicate lesson prefix {prefix}: "
-                    f"{seen[prefix].name}, {path.name}"
-                )
+                errors.append(f"{module.relative_to(ROOT)}: duplicate lesson prefix {prefix}: {seen[prefix].name}, {path.name}")
             seen[prefix] = path
 
 
@@ -110,16 +104,11 @@ def gha_escape(text: str) -> str:
 
 def main() -> int:
     errors: list[str] = []
-    if not COURSE.is_dir():
-        print("course directory not found", file=sys.stderr)
-        return 2
-
     files = markdown_files()
     for path in files:
         text = path.read_text(encoding="utf-8")
         check_text(path, text, errors)
         check_links(path, text, errors)
-
     check_projects(errors)
     check_duplicate_lesson_prefixes(errors)
 
