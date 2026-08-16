@@ -1,6 +1,6 @@
 # 8.1 — ELF: headers, sections, segments и symbols
 
-**Теория:** ~90 мин  
+**Теория:** ~95 мин  
 **Lab:** ~90 мин  
 **С телефона:** теория — да
 
@@ -8,108 +8,76 @@
 
 ## Цель
 
-Понимать ELF одновременно как link-time object structure и как input loader'у, не смешивая sections и runtime segments.
+Понимать ELF одновременно как link/tool representation и как input loader'у, не смешивая sections с runtime segments.
 
-## ELF family
+## ELF roles
 
-Linux commonly uses ELF for:
+На Linux ELF используется для relocatable objects, executables, shared objects и ряда других object-file forms.
 
-- relocatable object `.o`;
-- executable;
-- shared object `.so`;
-- core-like files.
+ELF header задаёт class (32/64), byte order, object type, machine architecture и offsets/counts основных tables. Любой parser сначала проверяет magic/class/endianness/table bounds до чтения variable structures.
 
-ELF header identifies class (32/64-bit), byte order, type, machine architecture and offsets/counts tables.
+## Sections: link/tool view
 
-## Sections
-
-Sections в основном организуют information для linker/debug/tools:
+Типичные sections:
 
 ```text
-.text      machine code
+.text      instructions
 .rodata    read-only constants
 .data      initialized writable data
-.bss       zero-initialized storage description
-.symtab    symbols (when present)
-.strtab    strings for symbol names
-.debug_*   debug information (when emitted)
+.bss       zero-initialized storage (SHT_NOBITS-style concept)
+.symtab    full/static symbol table when present
+.dynsym    dynamic symbols when needed
+.strtab    associated strings
+.debug_*   debug information when emitted
 ```
 
-Sections имеют names/metadata through section header table.
+Section header table описывает file ranges/metadata. Не каждая section обязана быть mapped в process.
 
-## Segments / program headers
+## Segments: loader/runtime view
 
-Loader использует **program header table** executable/shared object, чтобы создать runtime mappings. Один loadable segment может включать несколько sections с compatible permissions/layout.
+Executable/shared-object **program header table** описывает segments, которые loader использует для создания process image. `PT_LOAD` segment задаёт file offset, virtual address, file/memory sizes, permissions и alignment.
 
 ```text
-ELF file
-sections: link/tool view
-segments: load/runtime view
+sections -> удобно linker/debug/tools
+segments -> удобно loader/runtime mappings
 ```
 
-ELF gABI определяет program headers как descriptions segments, нужных для подготовки program к execution. citeturn857293search2
+Один loadable segment может содержать несколько sections с совместимыми permissions/layout.
 
-## `.bss`
+## `p_filesz` vs `p_memsz`
 
-Large zero-initialized global array не обязан занимать столько же bytes в file: format может описать memory size > file bytes, loader supplies zero-filled memory.
-
-Это distinction file size vs memory size.
+Loadable segment может требовать больше bytes в memory, чем занимает в file. Область `p_memsz > p_filesz` инициализируется согласно ELF loading rules; это одна из причин большого `.bss` не обязан раздувать executable file тем же объёмом.
 
 ## Symbols
 
-Symbol associates name with value/address-like information, size/binding/type/section.
+Symbol table entry связывает name с value/address-like data, size, binding/type и section relation.
 
-- local/global;
-- defined/undefined;
-- function/object.
-
-Linker resolves undefined references against definitions/libraries.
-
-Stripped executable может не иметь rich normal symbol table, но machine code остаётся executable. Dynamic symbols needed for dynamic linking may still exist depending binary.
+Undefined symbol в `.o` — нормально до link, если definition придёт из другого object/library. Stripping обычной `.symtab` не удаляет machine instructions; dynamic linking data может оставаться отдельно.
 
 ## Relocations
 
-Relocation говорит linker/loader: поле machine code/data должно быть adjusted once final address known.
+Relocation описывает место, которое должно быть скорректировано после выбора final addresses/symbol values. Это bridge `separately compiled objects -> final layout` и основа части PIC/dynamic-link logic.
 
-Это bridge между separately compiled objects и position-independent code.
+## Lab tools
 
-Core не требует вручную писать relocation processor.
-
-## Tools
+Для **собственного/доверенного** binary:
 
 ```text
 file
-readelf -h/-S/-l/-s
+readelf -h
+readelf -S
+readelf -l
+readelf -s
 objdump -d
 nm
-ldd   # только trusted binaries; не как security analyzer untrusted files
 ```
+
+Сопоставь sections с `PT_LOAD` ranges и permissions. Не запускай untrusted binary ради анализа; static tools тоже следует использовать в изолированной среде для truly hostile samples.
 
 ## Lab
 
-Собери маленький C program:
-
-- global initialized variable;
-- global zero array;
-- const string;
-- function call.
-
-Сравни:
-
-```text
-cc -g -O0
-cc -s/-strip equivalent copy
-```
-
-Найди `.text/.data/.bss`, program headers, symbols, disassembly. Нарисуй, какие sections входят в loadable segments.
-
-## Causal questions
-
-1. Почему sections и segments не являются синонимами?
-2. Почему `.bss` может занимать много runtime memory при маленьком file footprint?
-3. Почему stripping symbols не удаляет instructions?
-4. Где relocation появляется в source→object→link chain?
+Собери C fixture с initialized global, zero array, const string и function call; сравни normal `-g -O0` и stripped copy. Покажи `.text/.data/.bss`, program headers, symbols, disassembly.
 
 ## Exit check
 
-Объясни, какие ELF structures нужны linker/tools, а какие loader для mappings.
+Если спрашивают «где `.text` в памяти», ты должен сначала перейти от section view к loadable segment/mapping, а не считать section header прямой runtime page-table инструкцией.
