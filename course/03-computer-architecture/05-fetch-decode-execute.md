@@ -1,105 +1,47 @@
-# 3.5 — Fetch → Decode → Execute
+# 3.6 — Как CPU шаг за шагом исполняет machine code
 
-**Теория:** ~65 мин  
-**Project slice:** ~4–6 часов  
-**С телефона:** теория — да
+**Теория:** ~75 мин · **Практика/project:** ~2–3 часа · **С телефона:** теория — да
 
 ← [`04-isa-machine-code.md`](04-isa-machine-code.md) · → [`06-assembler.md`](06-assembler.md)
 
-## Цель
+## Проблема
 
-Построить emulator loop, который явно разделяет machine state, instruction decode и state mutation.
+We have state and encoded instructions. Need repeated transition rule that turns program bytes into behavior.
 
-## Architectural state
+## Fetch → decode → execute
 
-Tiny16 emulator хранит:
-
-```text
-registers
-PC
-memory
-halted/error state
-```
-
-## Fetch
+Toy single-step model:
 
 ```text
-instruction = memory/code[PC]
+FETCH:   instruction = memory[PC]
+DECODE:  extract opcode/fields
+EXECUTE: compute effects
+COMMIT:  update registers/memory/PC
+REPEAT
 ```
 
-Перед fetch проверяется valid PC range согласно machine model.
+Real CPUs overlap/reorder internally but must preserve ISA-observable behavior subject to architecture rules. Tiny16 intentionally executes sequentially.
 
-## Decode
+## PC discipline
 
-Bit fields извлекаются masks/shifts:
+Define whether PC counts bytes or instruction words. Tiny16 spec must be explicit. Branch offset must be relative to documented base (e.g. next instruction), not guessed by assembler/emulator independently.
+
+A strong emulator computes candidate target in a wider/checked host type, validates target is within program memory/range, then commits PC. Toy-machine wrap should happen only where ISA explicitly says wrap.
+
+## State transition debugging
+
+Add optional trace:
 
 ```text
-opcode = ...
-dst = ...
-src = ...
-imm = ...
+PC | instruction | decoded op | registers changed | memory changed
 ```
 
-Decode не должен случайно менять machine state.
-
-## Execute
-
-На основании decoded instruction:
-
-- read operands;
-- compute ALU result;
-- update destination/memory/PC;
-- handle errors/halt.
-
-## PC policy
-
-Удобная model:
-
-```text
-next_pc = PC + 1 by default
-branch instruction overrides next_pc
-commit next_pc
-```
-
-Так branch logic становится явной.
-
-## Invalid instructions
-
-Не превращай unknown opcode в silent no-op. Emulator должен иметь controlled error: адрес, raw word, opcode.
-
-## Trace mode
-
-Для debugging сделай optional trace:
-
-```text
-PC=0003 WORD=0x... OP=ADD R0=...
-```
-
-Это важнее красивого UI.
+Trace is observability, not correctness itself, but makes wrong decode/PC update visible.
 
 ## Project slice
 
-Реализуй emulator stages постепенно:
-
-1. machine state init;
-2. fetch;
-3. decode;
-4. `LOADI`;
-5. arithmetic;
-6. memory load/store;
-7. branch;
-8. halt/error;
-9. trace.
-
-После каждой новой instruction добавляй маленький machine-code test program.
-
-## Causal questions
-
-1. Почему decode лучше отделять от mutation?
-2. Что должен делать invalid PC?
-3. Почему trace содержит raw word и PC?
-4. Где именно branch меняет normal sequential flow?
+Implement emulator step for a small subset first: HALT, LOADI, ADD/SUB, then memory, then branches. Test each instruction before full programs.
 
 ## Exit check
 
-Вручную пройди 5 instruction steps и сравни с trace emulator.
+Why should invalid branch target be detected before changing emulator PC?

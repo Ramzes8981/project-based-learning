@@ -1,116 +1,55 @@
-# 3.7 — Bridge: C → x86-64 → ABI
+# 3.8 — Как отдельно скомпилированные функции договариваются о calls
 
-**Теория:** ~80 мин  
-**Lab:** ~90 мин  
-**С телефона:** теория — частично
+**Теория:** ~90 мин · **Лаб:** ~90 мин · **С телефона:** theory — да
 
 ← [`06-assembler.md`](06-assembler.md) · → [`08-module-checkpoint.md`](08-module-checkpoint.md)
 
-## Цель
+## Проблема
 
-Связать учебный Tiny16 с реальным Linux/x86-64: registers, stack, call/return и System V-style calling convention basics.
-
-## Architectural registers
-
-x86-64 имеет general-purpose registers вроде:
+C compiler compiles `caller.c` and `callee.c` separately, linker joins them. But machine code still must agree:
 
 ```text
-RAX RBX RCX RDX
-RSI RDI RBP RSP
-R8..R15
-RIP
+where arguments are?
+where return value goes?
+which registers callee must preserve?
+how stack is aligned?
+how function returns?
 ```
 
-`RIP` — instruction pointer, `RSP` — stack pointer.
+That shared binary calling contract is part of an **Application Binary Interface (ABI)**.
 
-Subregister names (`EAX`, `AX`, `AL`) адресуют части register с особыми semantics записи, которые будем углублять в debugger/security module.
+## ISA vs ABI
 
-## Stack
+ISA says what instructions/registers mean. ABI says how software components use them together: calling convention, type/layout details, object format conventions and more.
 
-Stack memory используется для:
+Same ISA can support multiple ABIs.
 
-- return addresses;
-- spilled temporaries;
-- locals, не помещённых/не оставленных в registers;
-- saved registers;
-- alignment/call convention needs.
+## x86-64 System V course target
 
-Но compiler не обязан создавать классический frame для каждой C-функции.
+On typical Linux x86-64 SysV ABI, first integer/pointer args use registers such as `RDI, RSI, RDX, RCX, R8, R9`; integer return uses `RAX`. Some registers are caller-saved, others callee-saved; stack alignment has specific rules.
 
-## `call` / `ret`
+These are target-specific facts, not universal “x86-64 language rules”. Course lab verifies current target with compiler-generated assembly and debugger.
 
-Упрощённо `call` сохраняет return address и передаёт control target function. `ret` восстанавливает next instruction address со stack согласно architecture semantics.
+## Call stack now becomes concrete
 
-## ABI
+Earlier call stack was lifetime mental model. ABI now explains one target-level mechanism: calls may use stack for return address, spilled registers, locals, extra arguments, alignment.
 
-ABI — бинарный contract между compiled components:
+Compiler may optimize frames away/in-line functions; source-level local variable ≠ guaranteed stack slot.
 
-- где аргументы;
-- где return value;
-- какие registers caller/callee должны сохранять;
-- stack alignment;
-- object/binary conventions.
+## Observe, do not memorize blindly
 
-Для обычного Linux x86-64 первые integer/pointer arguments в System V ABI идут через register sequence типа `RDI, RSI, RDX, RCX, R8, R9`; return часто через `RAX`.
+Compile small C functions with debug/no-optimization and inspect:
 
-Это рабочая model; exact edge cases (aggregates, vector args, variadic functions) остаются outside core.
-
-## Caller-saved vs callee-saved
-
-Если caller хочет сохранить значение в caller-saved register через call — он должен сохранить его сам.
-
-Callee-saved register, если callee использует/меняет его, должен быть восстановлен перед return согласно ABI.
-
-## Optimizer
-
-С `-O0` assembly проще для обучения, но не считай её «истинной формой C». С `-O2` compiler может inline, eliminate, reorder, vectorize.
-
-Architectural semantics остаются, source-to-assembly mapping становится сложнее.
-
-## Lab
-
-Создай C:
-
-```c
-long add3(long a, long b, long c) {
-    return a + b + c;
-}
+```bash
+cc -std=c17 -O0 -g -S sample.c -o sample.s
 ```
 
-Собери assembly output (`-S`) и executable с debug symbols.
+Then compare to optimized build. Ask which differences preserve same C/ABI observable behavior.
 
-Найди:
+## FFI connection
 
-- function label;
-- argument registers;
-- arithmetic;
-- return register;
-- `ret`.
-
-Затем функция с >6 integer args покажет stack involvement.
-
-В GDB:
-
-- breakpoint function;
-- inspect registers;
-- `disassemble`;
-- step instructions.
-
-## Causal questions
-
-1. Почему ABI не является ISA?
-2. Почему compiled C components должны договориться о register preservation?
-3. Почему `-O0` stack frame нельзя считать обязательным языковым свойством C?
-4. Чем Tiny16 calling convention отличается от того, что он вообще не обязан иметь call stack, если ISA этого не задаёт?
+Rust `extern "C"` asks for C ABI calling convention/layout contract on target. That is why FFI correctness depends on ABI-compatible types and `repr(C)`.
 
 ## Exit check
 
-Объясни vertical chain:
-
-```text
-C call
-→ compiler follows ABI
-→ machine instructions
-→ registers/stack
-→ call/ret state changes
-```
+Why can two source files both compile correctly yet still interoperate incorrectly if they disagree on ABI signature/layout?

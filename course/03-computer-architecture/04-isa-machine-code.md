@@ -1,102 +1,50 @@
-# 3.4 — ISA и machine code
+# 3.5 — Как договориться, что конкретные bits означают конкретную инструкцию
 
-**Теория:** ~70 мин  
-**Упражнение:** ~60 мин  
-**Project slice:** ~2–3 часа  
-**С телефона:** да
+**Теория:** ~75 мин · **Практика:** ~70 мин · **С телефона:** теория — да
 
 ← [`03-state-registers-memory.md`](03-state-registers-memory.md) · → [`05-fetch-decode-execute.md`](05-fetch-decode-execute.md)
 
-## Цель
+## Проблема
 
-Понять Instruction Set Architecture как контракт между software и machine implementation.
+Memory contains bits. CPU needs deterministic rule: which bits select operation, registers, immediate value or address?
 
 ## ISA
 
-ISA определяет programmer-visible machine model:
+**Instruction Set Architecture (ISA)** is contract between software-visible machine code and processor implementation: available instructions, registers, encoding, visible state/behavior.
 
-- registers;
-- instruction encodings;
-- operations;
-- memory/addressing semantics;
-- branch behavior;
-- sometimes privilege/system state.
-
-Microarchitecture определяет, **как** конкретный CPU реализует ISA internally.
-
-Два CPUs могут исполнять одну ISA разными pipelines/caches.
+Tiny16 course ISA is specified in [`project/ISA.md`](project/ISA.md).
 
 ## Instruction encoding
 
-Tiny16 instruction — 16-bit word. Курс задаёт exact format в [`project/ISA.md`](project/ISA.md).
-
-Например conceptually:
+Toy fixed-width example:
 
 ```text
-[ opcode | dst | src | immediate/unused ]
+15          12 11                 0
++-------------+--------------------+
+| opcode 4bit | operands/immediate |
++-------------+--------------------+
 ```
 
-Bits — просто representation. Meaning появляется из ISA spec.
+The same 16 bits mean one instruction only because ISA defines field interpretation.
 
-## Opcode
+## Machine code
 
-Opcode выбирает operation. Остальные fields могут выбирать registers/immediate/address.
+Encoded instruction words/bytes that CPU decodes are **machine code**.
 
-## Immediate
+Assembly text is human representation introduced later; it is not what decoder directly executes.
 
-Immediate — literal value encoded прямо в instruction, например `LOADI R0, 7`.
+## Signed immediates
 
-Ширина field ограничивает range. Если immediate 8 bits — нельзя просто представить произвольный 16-bit value без другого instruction/design.
+If immediate field is signed two's-complement, decoder must sign-extend it to working width correctly. Do not rely on implementation-defined C shifts/casts accidentally reproducing desired target semantics; implement decode with unsigned masks and explicit sign extension logic.
 
-## Load/store
+## Illegal encodings
 
-Tiny16 использует простую load/store model:
+ISA should define behavior: invalid opcode/truncated program/out-of-range memory. Emulator must reject/trap deterministically rather than indexing arbitrary host memory.
 
-```text
-LOAD  Rd, [address/register]
-STORE Rs, [address/register]
-```
+## Практика
 
-ALU primarily operates registers.
-
-## Branch
-
-Branch меняет PC при condition.
-
-Не обязательно иметь complex flags: course ISA может использовать compare/zero semantics, главное — specification deterministic.
-
-## Machine code vs assembly
-
-Machine code:
-
-```text
-binary/hex words
-```
-
-Assembly:
-
-```text
-LOADI R0, 5
-ADD R0, R1
-```
-
-Assembler переводит symbolic representation в words.
-
-## Exercise
-
-Прочитай [`project/ISA.md`](project/ISA.md) и вручную encode/decode минимум 8 instructions.
-
-Проверь:
-
-- register fields;
-- immediate range;
-- invalid opcode;
-- branch target representation.
-
-## Project slice
-
-Создай parser/data structures будущего assembler, но **не пиши весь assembler сразу**. Сначала функция/модуль, который умеет encode одну уже распарсенную instruction structure.
+Using Tiny16 ISA, encode/decode several instructions by hand including negative immediate and branch offset. Verify exact bits with a small helper only after manual prediction.
 
 ## Exit check
 
-Объясни разницу ISA vs assembly syntax vs emulator implementation.
+Why is machine code meaningless without an ISA contract, and why is ISA not identical to one physical CPU implementation?

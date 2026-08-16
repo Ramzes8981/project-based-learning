@@ -1,87 +1,98 @@
-# Tiny16 ISA v1
+# Tiny16 ISA — normative contract
 
-Собственная учебная 16-bit ISA курса. Она специально небольшая, чтобы focus был на encoding/state, а не на огромной instruction manual.
+Tiny16 is a course toy ISA. Emulator and assembler must implement **this file**, not infer behavior from sample code.
 
-## Machine
-
-- word: 16 bits;
-- 8 general registers: `R0..R7`, каждый 16-bit;
-- `PC`: 16-bit instruction index/address;
-- memory: 65536 words conceptually, но emulator может конфигурировать меньший test size, если documented;
-- arithmetic wraps modulo `2^16` на ISA-level.
-
-## Instruction word formats
-
-### R-format
+## Machine state
 
 ```text
-15..12 opcode
-11..9  rd
-8..6   rs
-5..3   rt
-2..0   000/reserved
+8 general registers R0..R7, each 16-bit unsigned storage
+PC: index of next 16-bit instruction word
+memory: 4096 words of 16 bits
+halted flag
 ```
 
-### I-format
+Arithmetic instructions wrap modulo `2^16` because this is explicit Tiny16 ISA semantics. Host C code must implement wrap through unsigned fixed-width operations, not signed overflow.
 
-```text
-15..12 opcode
-11..9  rd
-8..0   imm9
-```
+## Instruction word
 
-`imm9` semantics зависят от instruction: unsigned or signed two's complement according to table.
+16 bits. Top 4 bits opcode. Remaining fields depend on opcode.
 
 ## Opcodes
 
 ```text
-0x0 NOP
-0x1 ADD   rd, rs, rt
-0x2 SUB   rd, rs, rt
-0x3 AND   rd, rs, rt
-0x4 OR    rd, rs, rt
-0x5 XOR   rd, rs, rt
-0x6 LOADI rd, imm9       ; sign-extended imm9
-0x7 LOAD  rd, [rs]       ; rd = mem[rs]
-0x8 STORE rd, [rs]       ; mem[rs] = rd
-0x9 JZ    rd, imm9       ; if rd==0 PC = PC + signext(imm9), else next
-0xA JMP   imm12 variant  ; see below
-0xF HALT
+0x0 HALT
+0x1 LOADI rd, imm9
+0x2 ADD   rd, ra, rb
+0x3 SUB   rd, ra, rb
+0x4 LOAD  rd, [ra]
+0x5 STORE rs, [ra]
+0x6 JZ    rs, rel9
+0x7 JMP   addr12
 ```
 
-## JMP special format
+Unused encodings/opcodes are invalid and emulator must fail/trap deterministically.
+
+## Fields
+
+### LOADI
 
 ```text
-15..12 = 0xA
-11..0  = absolute 12-bit code address
+[15:12]=1 [11:9]=rd [8:0]=signed imm9
 ```
 
-Это ограничивает assembler-visible `JMP` target диапазоном `0..4095`: assembler обязан отклонять label/address, который не представим в 12 bits. Emulator после decode дополнительно проверяет, что encoded target попадает в configured instruction memory.
+`imm9` representable range: **-256..255**. Emulator sign-extends then stores low 16-bit two's-complement value in register.
 
-## PC semantics
-
-Обычная instruction:
+### ADD/SUB
 
 ```text
-next_pc = PC + 1
+[15:12]=op [11:9]=rd [8:6]=ra [5:3]=rb [2:0]=0
 ```
 
-`JZ` offset считается относительно **next instruction PC** (`PC + 1`).
+Reserved low bits must be zero; assembler emits zero, emulator may reject nonzero reserved bits according to project strict-mode policy (policy must be consistent/tests explicit).
 
-`JMP` устанавливает absolute target.
+### LOAD/STORE
 
-`HALT` останавливает machine без дальнейшего fetch.
+Address comes from low 12 bits of address register value. Canonical policy: if full register value is >= 4096, treat as invalid address rather than silently masking. This makes bounds failure visible. `LOAD rd,[ra]`; `STORE rs,[ra]`.
 
-## Invalid encoding
-
-Unknown opcode или reserved-field violation (если implementation решит проверять strict reserved bits) должен давать controlled emulator error, не UB host program.
-
-## Assembly syntax
+### JZ
 
 ```text
-label:
-MNEMONIC operand, operand
-; comment
+[15:12]=6 [11:9]=rs [8:0]=signed rel9
 ```
 
-Registers `R0..R7`, integer literals decimal или `0x` hex. Labels разрешены для `JMP/JZ` targets; assembler вычисляет offset/range.
+If `R[rs] == 0`, target is:
+
+```text
+next_pc + sign_extend(rel9)
+```
+
+where `next_pc` is PC after fetching current instruction. `rel9` range **-256..255**.
+
+Assembler must reject label offset outside range. Emulator computes target in a wider signed host type, validates `0 <= target < program_word_count` (or documented executable memory limit if program model differs), then commits PC. Host signed overflow must not be possible.
+
+### JMP
+
+```text
+[15:12]=7 [11:0]=absolute addr12
+```
+
+Encoded field range **0..4095**. Assembler rejects label/address outside field. Emulator also validates target against loaded program/executable memory policy before commit.
+
+## Fetch rule
+
+Before fetch, PC must identify a loaded executable instruction word. Fetch obtains word at PC, then default `next_pc = PC + 1` using checked host arithmetic. Branch/JMP may replace next PC after target validation.
+
+## HALT
+
+Sets halted state. Re-stepping halted emulator is either no-op/status or explicit error; choose one documented API contract.
+
+## Errors
+
+At minimum deterministic error for:
+
+- fetch outside loaded program;
+- invalid opcode/encoding according to strict policy;
+- invalid memory address;
+- invalid jump target.
+
+No invalid guest program may index host arrays out of bounds.

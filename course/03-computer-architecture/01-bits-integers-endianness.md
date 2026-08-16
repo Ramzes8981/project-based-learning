@@ -1,98 +1,91 @@
-# 3.1 — Bits, integers и endianness
+# 3.1 — Как одни и те же bits становятся числами и bytes в памяти
 
-**Теория:** ~55 мин  
-**Упражнения:** ~45 мин  
-**С телефона:** да
+**Теория:** ~70 мин · **Практика:** ~65 мин · **С телефона:** теория — да
 
 ← [`README`](README.md) · → [`01b-floating-point-ieee754.md`](01b-floating-point-ieee754.md)
 
-## Цель
+## Проблема
 
-Уметь переводить значения между binary/hex, объяснять two's complement и отличать numeric value от byte order в памяти.
+Hardware хранит/передаёт finite bit patterns. Но source code говорит `42`, `-1`, `uint32_t`, characters. Нужен договор интерпретации.
 
-## Bits и hex
-
-Один hex digit кодирует 4 bits:
+## Bit pattern не несёт смысл сам
 
 ```text
-0x0 = 0000
-0xF = 1111
-0x2A = 0010 1010
+11111111
 ```
 
-Hex удобен для addresses, masks, opcodes и raw bytes, потому что компактно сохраняет bit boundaries.
+может быть:
 
-## Unsigned N-bit integer
+- unsigned 255;
+- часть signed integer representation;
+- byte UTF-8/binary file;
+- opcode fragment;
+- flags.
 
-Для N bits диапазон:
+Meaning приходит из type/format/ISA contract.
+
+## Unsigned binary
+
+For N bits unsigned range:
 
 ```text
 0 .. 2^N - 1
 ```
 
-Binary value:
+Bits have positional weights powers of two.
+
+## Signed target representation
+
+На canonical x86-64/Linux target signed integers представляются two's complement. Например 8-bit pattern `11111111` represents `-1` in that hardware interpretation.
+
+Но курс отделяет **C language rules** от hardware representation: C17 signed overflow всё равно UB even on two's-complement CPU. Hardware wrap instruction behavior не лицензирует source-level overflow.
+
+## Bytes and endianness
+
+Multi-byte integer must choose memory byte order.
+
+Example value `0x12345678`:
 
 ```text
-b_(N-1)*2^(N-1) + ... + b_1*2 + b_0
+big-endian byte order:    12 34 56 78
+little-endian byte order: 78 56 34 12
 ```
 
-## Two's complement
+**Endianness** describes byte order of multi-byte representation. It does not reverse bits inside each byte.
 
-Для signed N-bit representation старший bit имеет weight `-2^(N-1)`, остальные обычные положительные weights.
+## Observe safely in C
 
-Диапазон:
+Character types may inspect object representation. For target experiment:
 
-```text
--2^(N-1) .. 2^(N-1)-1
+```c
+#include <stdint.h>
+#include <stdio.h>
+
+int main(void)
+{
+    uint32_t x = UINT32_C(0x12345678);
+    const unsigned char *p = (const unsigned char *)&x;
+
+    for (size_t i = 0; i < sizeof x; ++i) {
+        printf("%02x\n", p[i]);
+    }
+}
 ```
 
-Например 8-bit:
+This observes host representation; it does not define a portable file/network format.
 
-```text
-11111111 = -1
-10000000 = -128
-01111111 = 127
-```
+## Serialization rule
 
-Two's complement объясняет hardware representation, но **не меняет правило C**, что signed integer overflow — UB.
+External format must choose byte order explicitly and encode/decode fields. Never dump raw C struct and assume stable cross-machine format: padding, alignment, endianness and type sizes can differ.
 
-## Shifts
+## Практика
 
-Unsigned left/right shifts удобны для masks/field extraction. Не переносим автоматически те же assumptions на signed negative values.
-
-## Endianness
-
-Endianness описывает **порядок bytes multi-byte value в памяти**, а не порядок bits внутри byte.
-
-Для `uint32_t x = 0x12345678`:
-
-```text
-little-endian memory addresses increasing:
-78 56 34 12
-
-big-endian:
-12 34 56 78
-```
-
-Numeric value всё равно `0x12345678`.
-
-## Network byte order preview
-
-Network protocols часто задают multi-byte integers в big-endian/network order. Host representation может отличаться, поэтому serialization должна быть explicit.
-
-## Object bytes
-
-В C можно исследовать bytes объекта через `unsigned char *`. Character types имеют специальную роль для наблюдения object representation; не делай из этого общего разрешения alias arbitrary objects через любой pointer type.
-
-## Exercise
-
-1. Переведи `0xA7`, `0x1234` в binary.
-2. Представь `-1`, `-2`, `127`, `-128` в 8-bit two's complement.
-3. Напиши C-программу, которая выводит bytes `uint32_t 0x12345678` через `const unsigned char *`.
-4. Объясни observed endianness.
+1. Convert several small unsigned values between decimal/hex/binary manually.
+2. Inspect host bytes of `uint32_t`.
+3. Write tiny explicit big-endian encode/decode for 32-bit unsigned value using shifts/masks with checked valid shift counts.
 
 Разбор: [`01-bits-integers-endianness.solution.md`](01-bits-integers-endianness.solution.md).
 
 ## Exit check
 
-Объясни, почему `0x12345678` как value и byte sequence `78 56 34 12` не противоречат друг другу.
+Why does knowing host is little-endian not justify writing raw `struct` as a stable file format?
