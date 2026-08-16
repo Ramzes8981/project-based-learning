@@ -18,53 +18,70 @@
 ## Модель обучения
 
 ```text
-теория внутри урока
-    ↓
-causal questions
-    ↓
-небольшое упражнение
-    ↓
-кусок реального проекта
-    ↓
-debug/review
-    ↓
-следующий урок
+self-contained theory
+↓
+causal/situational questions
+↓
+small focused exercise
+↓
+active project slice when concept is ready
+↓
+tests / debugging / engineering review
+↓
+next cycle
 ```
 
-Внешняя книга или курс никогда не должны быть обязательны для выполнения следующего шага. Они перечисляются отдельно как optional deep dive.
+Внешняя книга/курс никогда не являются prerequisite следующего обязательного шага. Они перечисляются как optional deep dive/reference.
 
 ## Core path
 
 ```text
-0. C Fast Start
-   ↓
-1. Memory, Pointers & Data Structures
-   ↓
+0.  C Fast Start
+    ↓
+1.  Memory, Pointers, Algorithms & Data Structures
+    ↓
 1B. Rust Systems Bridge
-   ↓
-2. Unix, Processes & Shell
-   ↓
-3. Computer Architecture & Machine Code
-   ↓
-4. Virtual Memory, Performance & Allocators
-   ↓
-5. Networking & Concurrency
-   ↓
-6. Operating Systems & Isolation
-   ↓
-7. Filesystems & Database Internals
-   ↓
-8. Binaries, Debugging & Security
-   ↓
-9. Systems Integration & Architecture
+    ↓
+1C. Testing Engineering
+    ↓
+2.  Unix, Processes & Shell
+    ↓
+3.  Computer Architecture & Machine Code
+    ↓
+4.  Virtual Memory, Performance & Allocators
+    ↓
+5.  Networking & Concurrency
+    ↓
+6.  Operating Systems & Isolation
+    ↓
+7.  Filesystems & Database Internals
+    ↓
+8.  Binaries, Debugging & Security
+    ↓
+9.  Systems Integration & Architecture
 ```
 
-Rust bridge обязателен, но не удваивает курс. Основные low-level milestone остаются C-first, а Rust используется для понимания ownership/borrowing/safety и для сравнительных labs.
+## Milestones
 
-## Проекты
+```text
+MiniKV v0
+→ Vector + Hash Table C
+→ Rust MiniKV
+→ Unix Shell
+→ Tiny16 Assembler/Emulator
+→ Arena Allocator
+→ Concurrent KV Server
+→ Linux Isolation Lab
+→ SimpleDB
+→ minidbg-c
+→ Persistent KV Service capstone
+```
 
-Код каждого проекта создаётся учеником в `project/` соответствующего модуля. Курс предоставляет спецификацию, acceptance criteria, public tests и hints, но не готовую milestone implementation.
+Код milestone пишет ученик. Курс предоставляет SPEC/acceptance/scenarios/hints и инфраструктуру (fixtures, controlled targets, client/load/test tools), только когда она не раскрывает проверяемую project logic.
 
-## Внешние материалы
+## Self-contained policy
 
-Полезные книги и курсы не запрещены. Они находятся в [`OPTIONAL_READING.md`](OPTIONAL_READING.md) и используются только для углубления.
+- обязательная теория — в lesson `.md`;
+- official documentation — reference для platform/version detail, а не teaching dependency;
+- external books/courses — [`OPTIONAL_READING.md`](OPTIONAL_READING.md);
+- learner path валидируется `scripts/course_audit.py` в CI.
