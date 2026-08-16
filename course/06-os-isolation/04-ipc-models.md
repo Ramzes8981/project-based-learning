@@ -1,95 +1,48 @@
-# 6.4 — IPC: pipes, sockets, shared memory и signals
+# 6.4 — Как процессы обмениваются данными, не разделяя всё адресное пространство
 
-**Теория:** ~65 мин  
-**Упражнение:** ~50 мин  
-**С телефона:** да
+**Теория:** ~75 мин · **Практика:** ~65 мин · **С телефона:** теория — да
 
 ← [`03-deadlocks-semaphores-condvars.md`](03-deadlocks-semaphores-condvars.md) · → [`05-proc-process-inspection.md`](05-proc-process-inspection.md)
 
-## Цель
+## Проблема
 
-Выбирать IPC по semantics/failure boundaries, а не по одному критерию «быстрее».
+Processes are isolated by default address spaces, yet systems need cooperation. IPC chooses what to share and what failure/backpressure semantics follow.
 
-## Pipe
+**Inter-process communication (IPC)** is umbrella term, not one mechanism.
 
-Хорош для byte-stream composition related processes.
+## Compare by contract
 
-Плюсы:
+### Pipe
 
-- простой;
-- kernel buffering;
-- fd inheritance.
+Byte stream, typically related processes, fd lifetime/EOF rules already known.
 
-Минусы:
+### Unix domain socket
 
-- byte stream framing нужен application;
-- обычно local;
-- topology ограничена descriptors/process relation.
+Socket-style local IPC: stream or datagram semantics, filesystem/abstract naming depending platform, credentials/features possible. Still kernel-mediated message/byte transfer rather than shared pointers.
 
-## Unix domain socket
+### Shared memory
 
-Local socket даёт bidirectional stream/datagram semantics, independent connection model и может передавать credentials/descriptors on supporting systems.
+Map same physical/backing pages into multiple processes. Very fast data sharing can avoid copying, but now synchronization/data layout/crash recovery become application responsibility.
 
-Полезен для client/server components на одном host.
+### Signals
 
-## TCP socket
+Tiny asynchronous notifications, not bulk data transport.
 
-IPC становится network-transparent, но добавляет serialization, network failures, latency и security exposure.
-
-## Shared memory
-
-Processes map same memory pages.
-
-Плюс: можно избежать repeated large payload copies через kernel socket path depending design.
-
-Минусы:
-
-- synchronization сложнее;
-- lifetime coordination;
-- corruption shared state;
-- pointers внутри shared region нельзя бездумно интерпретировать в разных address spaces, если они absolute process virtual addresses.
-
-Обычно shared structures используют offsets/relative references или controlled identical mapping assumptions.
-
-## Signals
-
-Маленький asynchronous notification channel, не transport для complex payloads.
-
-## Files
-
-File-based coordination persistent/simple, но locking/atomic update/crash semantics важны. Не использовать «оба процесса просто пишут JSON» без protocol.
-
-## Serialization cost
-
-IPC performance включает:
+## Selection questions
 
 ```text
-encode
-copy/map
-kernel transitions
-synchronization
-decode
-queueing
+need byte stream/message/shared state?
+who creates/owns endpoint?
+what if peer crashes?
+what bounds waiting/buffer growth?
+how authenticate peer locally?
+how clean up stale named resource?
 ```
 
-Поэтому «shared memory всегда быстрее» может проиграть из-за complex synchronization/cache bouncing при реальном workload.
+## Practice
 
-## Failure isolation
-
-Threads share process fate/address space.
-
-Separate processes дают stronger fault boundary: segfault одного не обязательно corrupts address space другого, но IPC/control complexity выше.
-
-## Exercise
-
-Для трёх scenarios выбери IPC и объясни trade-offs:
-
-1. shell pipeline;
-2. local DB client ↔ daemon;
-3. two processes exchange 1 GiB read-mostly dataset repeatedly.
-
-Разбор: [`04-ipc-models.solution.md`](04-ipc-models.solution.md).
+Take one small producer/consumer and sketch pipe vs Unix socket vs shared-memory design. Do not implement all three. Choose one and justify with failure/ownership needs.
 
 ## Exit check
 
-Выбор IPC должен включать semantics, data volume, latency, failure isolation и synchronization complexity.
+Why is shared memory not automatically “better IPC because zero-copy”?

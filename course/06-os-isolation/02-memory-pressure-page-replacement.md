@@ -1,90 +1,35 @@
-# 6.2 — Memory pressure, page replacement и COW deeper
+# 6.2 — Что делает ОС, когда активных страниц больше, чем физической памяти
 
-**Теория:** ~70 мин  
-**Lab:** ~60 мин  
-**С телефона:** да
+**Теория:** ~80 мин · **Лаб:** ~75 мин · **С телефона:** теория — да
 
 ← [`01-scheduling-process-states.md`](01-scheduling-process-states.md) · → [`03-deadlocks-semaphores-condvars.md`](03-deadlocks-semaphores-condvars.md)
 
-## Цель
+## Проблема
 
-Понять, что virtual memory — не только address translation: OS управляет limited physical memory и выбирает, какие pages сохранять resident.
+Virtual address spaces can collectively reference more memory than fits in RAM. OS must decide which page contents stay resident and which can be reclaimed/reloaded/swapped according to backing and policy.
 
-## Resident set
+## Resident vs mapped
 
-Process может иметь большой virtual address space, но лишь часть pages resident в physical RAM.
-
-При pressure kernel может:
-
-- drop clean file-backed pages и перечитать позже;
-- write dirty data согласно subsystem policy;
-- reclaim anonymous pages через swap, если configured;
-- kill processes при severe out-of-memory conditions depending system policy.
-
-Не предполагай, что swap всегда включён или одинаков на всех systems.
+A mapped virtual page does not imply its data is resident in physical RAM now. Some pages can be recreated from file, zero-filled, dropped when clean, or written to swap/backing according to system configuration.
 
 ## Page replacement intuition
 
-Ideal replacement знал бы future accesses и удалял page, которая понадобится позже всех. Реальная OS будущего не знает.
+Ideal “evict page that will not be needed soon” requires knowing future. Real kernels approximate locality using access/reference information and complex policies.
 
-Учебные policies:
+Do not memorize one textbook FIFO/LRU as literal Linux algorithm. Textbook policies are models for reasoning about locality and misses.
 
-- FIFO;
-- LRU concept;
-- CLOCK/approximation intuition.
+## Memory pressure
 
-## Locality
+When reclaim cannot keep up, application can spend substantial time faulting/reloading pages; severe working-set mismatch may cause **thrashing**. System can invoke OOM policy if allocation cannot be satisfied under constraints.
 
-Temporal/spatial locality делает LRU-like heuristics полезными: recently used pages вероятнее понадобятся снова — но это heuristic, не закон.
+## cgroup connection preview
 
-## Thrashing
+Later cgroup can impose memory limit below machine RAM. Then “host has free memory” does not imply process group can allocate more.
 
-Если active working sets превышают available physical memory, system может тратить много времени на page movement/fault handling вместо useful work.
+## Lab safety
 
-Symptoms:
-
-- high fault/reclaim activity;
-- storage/swap I/O;
-- low useful throughput;
-- latency spikes.
-
-## COW deeper
-
-`fork` может share pages до write. Когда parent/child пишут, protection fault позволяет kernel создать private copy.
-
-COW trade-off:
-
-- cheap fork for exec-heavy patterns;
-- large child writes can materialize many copied pages.
-
-## Shared memory mapping
-
-`MAP_SHARED`/shared-memory mechanisms позволяют processes intentionally map shared pages. Тогда synchronization/protocol нужен, иначе logical/data races возможны между processes.
-
-## Lab
-
-Напиши program с configurable memory region:
-
-- map large region;
-- touch every page;
-- touch sparse pages;
-- read `/proc/self/status`/available metrics;
-- сравни virtual/resident observations.
-
-Не пытайся intentionally exhaust host RAM.
-
-## Exercise
-
-Для 3 physical frames и reference string:
-
-```text
-1 2 3 1 4 1 2 5
-```
-
-проведи FIFO page replacement manually. Затем сравни qualitatively с LRU.
-
-Разбор: [`02-memory-pressure-page-replacement.solution.md`](02-memory-pressure-page-replacement.solution.md).
+Never intentionally exhaust host RAM. Use modest controlled allocation, `/proc/<pid>/status`/`smaps` where permitted, and optional delegated cgroup limit in project environment.
 
 ## Exit check
 
-Почему page fault rate может быть performance symptom, но один page fault сам по себе не ошибка?
+Why can process have large virtual size, smaller RSS, and still later fault in more pages without a bug?

@@ -1,106 +1,45 @@
-# 6.1 — Process states, context switch и scheduling
+# 6.1 — Почему runnable process всё равно может не получать CPU прямо сейчас
 
-**Теория:** ~70 мин  
-**Упражнения:** ~60 мин  
-**С телефона:** да
+**Теория:** ~70 мин · **Лаб:** ~60 мин · **С телефона:** теория — да
 
 ← [`README`](README.md) · → [`02-memory-pressure-page-replacement.md`](02-memory-pressure-page-replacement.md)
 
-## Цель
+## Проблема
 
-Понять, почему scheduler оптимизирует конфликтующие цели и как CPU virtualization создаёт иллюзию одновременного выполнения множества runnable tasks.
+Processes/threads can all be ready to execute, but CPU cores are finite. OS must choose who runs and who waits.
 
-## Process/thread state
+## States as scheduling facts
 
-Упрощённая модель:
-
-```text
-NEW
- ↓
-RUNNABLE/READY ↔ RUNNING
-      ↑            ↓
-      └─ BLOCKED/WAITING
-
-RUNNING -> TERMINATED
-```
-
-Точные kernel state names сложнее. Для reasoning важно различать:
-
-- runnable — готов использовать CPU;
-- running — сейчас выполняется;
-- blocked/sleeping — ждёт event/I/O/timer/synchronization.
-
-## Context switch
-
-Чтобы сменить running task, OS сохраняет/восстанавливает execution state:
-
-- registers;
-- instruction pointer;
-- stack pointer;
-- scheduler/accounting state;
-- address-space context where relevant.
-
-Context switch имеет cost: kernel work, cache/TLB disruption и потеря locality.
-
-Это не означает «threads всегда медленные» — cost зависит от workload и scheduler behavior.
-
-## Preemption
-
-Timer interrupts/other scheduling events позволяют kernel забрать CPU у running task и выбрать другой.
-
-Без preemption CPU-bound process мог бы monopolize processor, если сам не yield/block.
-
-## Scheduling goals
-
-Конфликтующие metrics:
+Useful simplified process/thread states:
 
 ```text
-turnaround = completion - arrival
-response   = first_run - arrival
-waiting    = time runnable but not running
-throughput = completed jobs / time
+running   — currently executing on a CPU
+runnable  — ready, waiting for CPU time
+sleeping  — waiting for event/resource/timer
+stopped   — intentionally suspended
+zombie    — process exited; parent has not reaped status yet
 ```
 
-Interactive workload хочет низкий response time. Batch workload может ценить throughput. Fairness и cache locality тоже конкурируют.
+Names/details vary by OS; the causal distinction is **waiting for CPU** vs **waiting for something else**.
 
-## FIFO
+## Scheduler
 
-First-Come First-Served прост, но long job впереди создаёт convoy effect для коротких jobs.
+The **scheduler** chooses runnable execution entities for CPU. Context switch saves/restores execution state. Scheduling policy balances fairness, priorities, latency and throughput; there is no universal “round-robin every N ms” model.
 
-## Shortest Job First intuition
+## CPU utilization can mislead
 
-Если duration известна, short jobs first уменьшает average turnaround в idealized model. В реальности точное future runtime неизвестно и starvation long jobs unacceptable.
+Low CPU with high latency can mean threads sleep on I/O/locks. High runnable queue can mean CPU contention. Always pair metric with state/wait reason.
 
-## Round Robin
+## Observe on Linux
 
-Runnable tasks получают time quantum по кругу.
+Use `ps`, `/proc`, `top`/`pidstat` if available. Create one CPU-bound child and one sleeping child; predict states before observing.
 
-Слишком маленький quantum → много context switches.
+## Causal questions
 
-Слишком большой → interactive response приближается к FIFO behavior.
-
-Modern general-purpose schedulers сложнее, но эти модели раскрывают trade-offs.
-
-## Multi-core
-
-Scheduler решает не только «кто следующий», но и placement/migration между CPUs. Migration может терять cache affinity.
-
-## Exercise
-
-Даны jobs:
-
-```text
-A arrival=0 burst=8
-B arrival=1 burst=2
-C arrival=2 burst=1
-```
-
-Нарисуй FCFS и idealized non-preemptive SJF schedule. Вычисли turnaround/response для каждого и averages.
-
-Затем обсуди, почему SJF невозможно идеально реализовать без знания future bursts.
-
-Разбор: [`01-scheduling-process-states.solution.md`](01-scheduling-process-states.solution.md).
+1. Why is runnable not same as running?
+2. Why can 100% CPU be healthy for a CPU-bound batch job but alarming for latency-sensitive service?
+3. Why does zombie consume little CPU yet still represent resource/accounting bug?
 
 ## Exit check
 
-Почему нельзя одновременно гарантировать минимум response time каждому task и отсутствие scheduling overhead/нечестности?
+Given “service slow, CPU 20%”, you can name evidence needed before blaming scheduler.

@@ -1,112 +1,49 @@
-# 6.6 — Linux namespaces
+# 6.6 — Как разным process показать разные представления системных ресурсов
 
-**Теория:** ~80 мин  
-**Lab:** ~2–4 часа  
-**С телефона:** теория — да
+**Теория:** ~90 мин · **Лаб:** ~100 мин · **С телефона:** theory — да
 
 ← [`05-proc-process-inspection.md`](05-proc-process-inspection.md) · → [`07-cgroup-v2-capabilities-isolation.md`](07-cgroup-v2-capabilities-isolation.md)
 
-## Цель
+## Проблема
 
-Понять namespace как отдельный **view/isolation dimension**, а не как «контейнер целиком».
+Process isolation by address space does not hide all OS-wide names/views. Container-like environments need separate views of PIDs, mounts, hostname, network stack and more.
 
-## Namespace idea
+Linux **namespace** isolates a category of system resources/identifiers for member processes.
 
-Linux namespace меняет, какую instance/view global-ish resource видит process.
+Examples:
 
-Основные:
+- PID namespace — process ID view;
+- mount namespace — mount table view;
+- UTS — hostname/domain identifiers;
+- network — interfaces/routes/socket namespace;
+- IPC — certain SysV/POSIX IPC objects;
+- user namespace — UID/GID mapping and capability scope;
+- cgroup namespace — cgroup path view.
 
-- PID;
-- mount;
-- UTS;
-- network;
-- IPC;
-- user;
-- cgroup;
-- time (на современных Linux).
+## Important mental model
 
-Course core подробно работает с UTS, PID, mount; network/user — concept + limited lab depending environment.
-
-## UTS
-
-Изолирует hostname/domain-name view.
-
-Простой lab:
-
-```bash
-unshare --uts ...
-```
-
-в новом namespace изменить hostname и сравнить host/outside view.
-
-## PID namespace
-
-Processes внутри namespace видят отдельную PID hierarchy. Первый process внутри становится PID 1 **в namespace view** и имеет special lifecycle/reaping responsibilities.
-
-Outside host всё равно имеет host PID для того же task.
+Namespace usually changes **view/naming context**, not resource quantity limit.
 
 ```text
-host sees pid 4200
-namespace may see same task as pid 1
+PID namespace: can hide/re-number processes
+≠ CPU quota
+≠ memory limit
 ```
 
-## Mount namespace
+Resource limits belong largely to cgroups/rlimits/other mechanisms.
 
-Изолирует mount table/view. Это основа separate filesystem view, но не автоматически secure root.
+## PID namespace subtlety
 
-Можно создать private mount namespace, bind mount/rootfs и change root view (`pivot_root`/chroot-like pieces) with privileges/care.
+First process in new PID namespace has special init-like responsibilities for descendants, including reaping. “PID 1” has behavioral implications; do not create namespace and ignore child cleanup.
 
-## Network namespace
+## Mount propagation caution
 
-Separate network devices/routes/firewall state view. Чтобы реально соединить namespace наружу, нужны veth/routes/NAT/bridge-style config — Stretch для core.
-
-## User namespace
-
-Позволяет mapping UIDs/GIDs между inside/outside namespace. Это важный foundation rootless containers, но privilege rules сложные и environment-dependent.
-
-Не объясняй «inside root = host root». Mapping/capabilities determine authority.
-
-## `unshare`, `clone`, `setns`
-
-- `unshare` отделяет calling process в новые namespaces;
-- `clone` может создать child в namespaces;
-- `setns` позволяет join existing namespace при permissions.
-
-Сначала command-line experiments, потом C wrapper. Это уменьшает accidental complexity.
-
-## `/proc/<pid>/ns`
-
-Namespace handles представлены special symlink-like entries. Сравнение inode-like identifiers показывает, находятся ли processes в одной namespace instance.
-
-## Security boundary nuance
-
-Namespaces ограничивают views, но все containers share kernel. Для production security нужны также:
-
-- capabilities;
-- seccomp;
-- LSM (SELinux/AppArmor etc.);
-- filesystem permissions;
-- cgroups/resource controls;
-- kernel hardening/updates.
-
-Namespace alone ≠ VM boundary.
+Mount namespace experiments can affect host if propagation/setup misunderstood. Course project requires disposable VM/user namespace/delegated environment and explicit checklist before write operations.
 
 ## Lab
 
-1. `unshare` UTS;
-2. hostname change inside;
-3. inspect `/proc/self/ns`;
-4. PID namespace experiment with child;
-5. mount namespace simple private mount if environment allows;
-6. document failures due permissions/WSL limitations without random root escalation.
-
-## Causal questions
-
-1. Почему PID 1 inside всё ещё имеет host PID?
-2. Почему mount namespace не даёт resource limits?
-3. Почему network namespace без veth/routes может не иметь connectivity?
-4. Почему namespaces не изолируют kernel vulnerabilities?
+Start read-only by comparing `/proc/self/ns/*`. Only then use safe environment to create selected UTS/PID/mount namespace, observe changed hostname/PID view, and exit cleanly.
 
 ## Exit check
 
-Для слова «container» перечисли конкретные isolation dimensions вместо одного binary yes/no.
+Why does hiding host PIDs not stop process from consuming all CPU/RAM?
