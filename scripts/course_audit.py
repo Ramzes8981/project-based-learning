@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -18,7 +19,7 @@ ALLOWED_EXTERNAL_FILES = {
 }
 
 REQUIRED_PROJECT_DOCS = {"README.md", "SPEC.md", "ACCEPTANCE.md", "TESTS.md", "HINTS.md"}
-MARKERS = ("cite", "filecite", "memcite", "sandbox:/", "turn0search")
+MARKERS = ("cite", "filecite", "memcite", "sandbox:/")
 PLACEHOLDER_RE = re.compile(r"\b(?:TODO|TBD|FIXME)\b")
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 URL_RE = re.compile(r"https?://", re.IGNORECASE)
@@ -52,7 +53,6 @@ def clean_link(raw: str) -> str:
     raw = raw.strip()
     if raw.startswith("<") and raw.endswith(">"):
         raw = raw[1:-1]
-    # Markdown title after a path is rare in this repo; split only on quote-prefixed title.
     for marker in (' "', " '"):
         if marker in raw:
             raw = raw.split(marker, 1)[0]
@@ -104,6 +104,10 @@ def check_duplicate_lesson_prefixes(errors: list[str]) -> None:
             seen[prefix] = path
 
 
+def gha_escape(text: str) -> str:
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
 def main() -> int:
     errors: list[str] = []
     if not COURSE.is_dir():
@@ -123,6 +127,8 @@ def main() -> int:
         print(f"course audit: FAIL ({len(errors)} issue(s))")
         for error in errors:
             print(" -", error)
+            if os.environ.get("GITHUB_ACTIONS") == "true":
+                print(f"::error title=Course audit::{gha_escape(error)}")
         return 1
 
     print(f"course audit: PASS ({len(files)} markdown files checked)")
