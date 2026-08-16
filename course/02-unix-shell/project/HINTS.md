@@ -1,35 +1,29 @@
-# Shell — Hints
+# Unix Shell — Hints
 
-## Hint 1
+## 1. Separate parser from executor
 
-Раздели layers:
+A parser that produces a small command structure is easier to test without forking.
 
-```text
-read line
-parse tokens/plan
-execute builtin OR external plan
-```
+## 2. Draw ownership before close calls
 
-## Hint 2
+For redirection/pipeline, draw fd topology per process. Then write close list from diagram.
 
-Для redirection нарисуй target descriptor table **до кода**.
+## 3. Child has one job after fork
 
-## Hint 3
+Setup descriptors/process group, then exec. On failure, report minimally and `_exit`. Never re-enter parent REPL path.
 
-Pipeline hang почти всегда сначала проверяй через «кто ещё держит write end открытым?».
+## 4. `cd` clue
 
-## Hint 4
+Ask which process must retain changed current working directory after command returns.
 
-Не `wait` producer до запуска consumer.
+## 5. Pipeline hang
 
-## Hint 5
+If consumer waits forever, first inspect **all remaining write-end descriptors**, including parent copies.
 
-Child setup order:
+## 6. Do not wait too early
 
-```text
-configure descriptors/signals
-close unused fds
-exec
-```
+Create/fork both pipeline sides before blocking wait. Otherwise pipe capacity can turn ordering bug into deadlock.
 
-Parent cleanup order проектируй отдельно.
+## 7. Signal handlers
+
+Set a `volatile sig_atomic_t` flag or perform only explicitly async-signal-safe operation. Move normal logging/state changes outside handler.

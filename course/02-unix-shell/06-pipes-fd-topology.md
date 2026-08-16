@@ -1,126 +1,94 @@
-# 2.6 — Pipes и descriptor topology
+# 2.6 — Как две программы соединяются bytes и почему лишний open end мешает EOF
 
-**Теория:** ~75 мин  
-**Project slice:** ~4–7 часов  
-**С телефона:** теория — да
+**Теория:** ~90 мин · **Практика/project:** ~4–6 часов · **С телефона:** теория — да
 
 ← [`05-redirection-dup2.md`](05-redirection-dup2.md) · → [`07-signals-process-groups.md`](07-signals-process-groups.md)
 
-## Цель
+## Проблема
 
-Научиться строить pipeline через `pipe`, `fork`, `dup2`, `close` и понимать EOF как свойство открытых write ends.
+For:
 
-## `pipe`
-
-```c
-int fds[2];
-pipe(fds);
+```bash
+producer | consumer
 ```
 
-Conceptually:
+producer stdout must become consumer stdin. Need kernel byte channel between processes.
+
+## Pipe
+
+`pipe(fds)` creates two descriptors:
 
 ```text
-fds[0] -> read end
-fds[1] -> write end
+fds[0] read end
+fds[1] write end
 ```
 
-Bytes, записанные в write end, читаются из read end FIFO-like stream.
+Bytes written to write end can be read from read end.
 
-Pipe — byte stream: message boundaries не гарантируются автоматически.
+A pipe is a byte stream; it does not preserve arbitrary application “message” boundaries. This will later rhyme with TCP.
 
-## `A | B`
+## Descriptor topology
 
-Нужно:
+For one pipeline:
 
 ```text
-A stdout -> pipe write
-B stdin  -> pipe read
+producer child:
+  stdout (1) → pipe write end
+
+consumer child:
+  stdin  (0) ← pipe read end
+
+parent shell:
+  closes both pipe ends after forks
 ```
 
-Process topology:
+Every process must close every pipe end it does not need.
+
+## EOF depends on all writers
+
+Reader sees EOF only after **all** file descriptors referring to write end are closed.
+
+Classic bug:
 
 ```text
-A process --fd1--> [pipe] --fd0--> B process
+producer exits
+but parent accidentally keeps write end open
+→ consumer read waits for more bytes
+→ pipeline appears hung
 ```
 
-Parent shell создаёт pipe до fork children, чтобы они унаследовали необходимые descriptors.
+This is why fd ownership/topology is correctness, not cleanup cosmetics.
 
-## Критическое правило close unused ends
+## Avoid parent wait deadlock
 
-После fork каждый process наследует copies fd entries.
+Do not fork producer, wait for it to finish, then fork consumer when pipe can fill. Producer may block on full pipe because no consumer drains it while parent waits.
 
-Если parent или B process оставит **лишний write end pipe открытым**, reader B может не получить EOF даже после termination A: kernel всё ещё видит хотя бы одного open writer reference.
-
-Это классический shell deadlock/hang.
-
-## Почему wait order важен
-
-Плохая идея для pipeline:
+Correct rough order:
 
 ```text
-fork A
-wait A
-fork B
+create pipe
+fork producer
+fork consumer
+parent closes pipe fds
+parent waits/reaps children
 ```
 
-Если A пишет больше pipe capacity и B ещё не читает, A блокируется, parent ждёт A, B никогда не запускается → deadlock.
+## `SIGPIPE` preview
 
-Оба pipeline processes должны работать concurrently, затем shell waits.
+Writing when no reader exists may generate `SIGPIPE`/`EPIPE`. Detailed signal policy next lesson. For now recognize closed peer as normal pipeline failure mode.
 
-## N-stage pipeline
+## Практика
 
-Для `A | B | C` нужны два pipes.
-
-У process i:
-
-- stdin от previous pipe, если есть;
-- stdout в next pipe, если есть;
-- все unrelated pipe FDs закрыты.
-
-Полезно проектировать topology сначала как graph/table, а потом писать loop.
-
-## Pipe errors
-
-Writing когда readers отсутствуют может привести к `SIGPIPE`/`EPIPE` в зависимости signal handling. Это позже обсуждаем вместе с signals.
-
-## Project slice
-
-Core минимум:
-
-```text
-A | B
-```
-
-После стабильной версии — transfer/N-stage pipeline.
-
-Обязательно:
-
-- create pipe;
-- fork both children;
-- correct `dup2`;
-- close unused FDs в parent/children;
-- wait both;
-- no hanging due to leaked pipe ends.
-
-## Causal questions
-
-1. Почему extra writer fd удерживает EOF?
-2. Почему нельзя ждать A до запуска B?
-3. Почему child должен закрывать unrelated ends даже если «не использует их в коде»?
-4. Чем pipe похож на TCP byte stream концептуально?
-
-## Exercise
-
-Нарисуй таблицу FDs для:
-
-```text
-printf data | wc -c
-```
-
-Rows: parent, child A, child B. Columns: stdin/stdout/pipe read/pipe write. Отметь, что закрывается в каждом процессе.
+Implement exactly one pipe `cmd1 | cmd2` first. Test with enough output to exceed tiny assumptions and with commands that consume until EOF.
 
 Разбор: [`06-pipes-fd-topology.solution.md`](06-pipes-fd-topology.solution.md).
 
+## Causal questions
+
+1. Why does parent retaining write end prevent EOF?
+2. Why can waiting producer before starting consumer deadlock?
+3. Why is pipe ownership naturally drawn as topology rather than only list of close calls?
+
 ## Exit check
 
-Если pipeline зависает, первое диагностическое действие — нарисовать/inspect все живые pipe endpoints, а не добавлять random sleeps.
+Draw every fd after each fork and mark which process must close it.

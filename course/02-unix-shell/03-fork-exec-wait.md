@@ -1,123 +1,98 @@
-# 2.3 — `fork`, `exec`, `waitpid`: модель процессов
+# 2.3 — Как shell создаёт новый process и запускает в нём другую программу
 
-**Теория:** ~75 мин  
-**Упражнение:** ~75 мин  
-**Project slice:** ~45 мин  
-**С телефона:** теория — да
+**Теория:** ~90 мин · **Практика:** ~100 мин · **С телефона:** теория — да
 
 ← [`02-terminal-termios.md`](02-terminal-termios.md) · → [`04-shell-repl-parser.md`](04-shell-repl-parser.md)
 
-## Цель
+## Проблема
 
-Понять классическую Unix-композицию: process создаётся через `fork`, затем child может заменить свой process image через `exec`, а parent наблюдает termination через `waitpid`.
+Shell должен остаться жив после команды `ls`. Если он просто заменит себя `ls`, prompt исчезнет. Значит, нужен отдельный process for command and a way for parent shell to wait/observe result.
 
-## Program vs process
+## `fork`: один process становится двумя execution flows
 
-Program/executable — код/данные в файле.
+On POSIX systems `fork()` creates child process based on caller state.
 
-Process — выполняющийся экземпляр с PID, address space, registers, descriptor table и другими kernel-managed attributes.
+Return distinguishes paths:
 
-## `fork`
+```text
+< 0  failure, no child
+= 0  child path
+> 0  parent path; value is child PID
+```
+
+After fork both processes continue from following instruction, but they are separate processes. Memory is logically separate even if OS internally uses copy-on-write optimization.
+
+## File descriptors across fork
+
+Child inherits copies of parent's descriptor table entries referring to same underlying open-file descriptions/resources. Therefore open pipe/file descriptors before fork can establish later topology.
+
+Important: separate fd numbers can refer to shared kernel open-file state; and closing an fd in one process does not automatically close corresponding inherited fd in another.
+
+## `exec`: replace current process program image
+
+`exec*` family does **not** create new process. On success it replaces current process's program image while preserving process identity and selected OS state such as open fds without close-on-exec.
+
+Typical shell:
+
+```text
+parent shell
+  ↓ fork
+child
+  ↓ setup redirection
+  ↓ exec program
+new program in child PID
+```
+
+If `exec` succeeds, code after it is not executed.
+
+## Failure in child
+
+If `exec` fails, child should report error and terminate without accidentally continuing parent-shell logic. In post-fork child, `_exit(status)` is often preferable to `exit` when avoiding duplicated stdio cleanup/buffers inherited from parent.
+
+## `waitpid`: reap and observe
+
+Parent uses `waitpid` to collect child termination state. Otherwise terminated child can remain as zombie entry until reaped.
+
+Do not compare raw status directly with expected exit code. Use macros:
 
 ```c
-pid_t pid = fork();
+if (WIFEXITED(status)) {
+    int code = WEXITSTATUS(status);
+}
+if (WIFSIGNALED(status)) {
+    int sig = WTERMSIG(status);
+}
 ```
 
-После success **оба процесса продолжают выполнение с точки после `fork`**, но return value различается:
+Retry `waitpid` on `EINTR` when appropriate.
 
-```text
-parent: pid > 0  (child PID)
-child:  pid == 0
-failure: pid == -1 (только caller, child не создан)
-```
+## Error ownership
 
-Child получает отдельный process identity и логически отдельное address space. Modern kernels обычно используют copy-on-write оптимизацию: memory pages физически не обязаны копироваться немедленно.
+After successful fork:
 
-## File descriptors после `fork`
+- parent owns responsibility to reap child;
+- child must either exec or terminate;
+- both sides must close descriptors they no longer need.
 
-Child получает свои descriptor entries, которые относятся к тем же underlying open file descriptions для inherited FDs. Поэтому file offset/state sharing может удивить.
+## Практика
 
-Это особенно важно для pipes/redirection.
-
-## Multithreaded `fork` nuance
-
-Позже после concurrency module важно помнить: child многопоточного процесса содержит только вызывавший thread, но унаследованное memory state может включать locks в сложном состоянии. Поэтому между `fork` и `exec` в таком child разрешён очень ограниченный набор async-signal-safe операций.
-
-Наш shell сейчас single-threaded, поэтому не усложняем implementation, но фиксируем границу применимости.
-
-## `exec`
-
-`exec*` family **не создаёт новый process**. Она заменяет текущий process image новым executable image.
-
-```text
-child PID остаётся тем же
-старый program image заменяется новым
-успешный exec не возвращается
-```
-
-Если `exec` вернулся — произошла ошибка.
-
-Для shell удобно `execvp`, потому что он делает PATH search. Но помни: environment/PATH являются частью execution context и security model.
-
-## `argv`
-
-Program получает argument vector:
-
-```text
-argv[0] program-like name/path convention
-argv[1..] arguments
-argv[argc] == NULL
-```
-
-`exec` functions требуют корректно сформированный null-terminated argv pointer array.
-
-## `waitpid`
-
-Parent должен reap child state:
-
-```c
-waitpid(child_pid, &status, 0);
-```
-
-Status не является просто exit code. Используют macros:
-
-```text
-WIFEXITED
-WEXITSTATUS
-WIFSIGNALED
-WTERMSIG
-```
-
-## Zombie
-
-После termination kernel сохраняет минимальную process status information до `wait`/`waitpid`. Не reaped child становится zombie entry.
-
-Zombie почти не «ест RAM приложения», но расходует process table/kernel bookkeeping и показывает неправильный lifecycle.
-
-## Exercise — process launcher
-
-Напиши программу:
-
-```text
-launcher /bin/echo hello
-```
-
-которая:
+Write launcher for fixed command path/argv:
 
 1. fork;
-2. child exec выбранной команды;
-3. при exec failure child печатает error и завершает через `_exit`;
-4. parent waitpid;
-5. parent различает normal exit/signal termination.
-
-Почему `_exit` после failed exec в child предпочтительнее обычного buffered library `exit` в forked context — зафиксируй как API nuance.
+2. child `execvp`/chosen exec variant;
+3. child reports exec error + `_exit(127)`;
+4. parent loops `waitpid` with `EINTR` handling;
+5. prints decoded exit/signal result.
 
 Разбор: [`03-fork-exec-wait.solution.md`](03-fork-exec-wait.solution.md).
 
-## Project slice
+## Causal questions
 
-Создай первый shell execution path: hard-coded argv → fork → execvp → waitpid. Parser/prompt добавим следующим уроком.
+1. Why does shell need fork before exec for ordinary foreground command?
+2. What exactly does exec replace, and what does it not create?
+3. Why must parent reap child?
+4. Why can inherited fds matter to later pipe EOF?
 
 ## Exit check
 
-Нарисуй process tree до `fork`, сразу после `fork`, после successful child `exec` и после `waitpid`.
+Draw parent/child timeline for `shell → fork → child exec → parent wait → prompt`.

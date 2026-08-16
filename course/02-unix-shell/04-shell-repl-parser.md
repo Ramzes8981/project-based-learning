@@ -1,117 +1,76 @@
-# 2.4 — Shell REPL и ограниченный parser
+# 2.4 — Как превратить строку команды в небольшой безопасный shell grammar
 
-**Теория:** ~50 мин  
-**Project slice:** ~3–5 часов  
-**С телефона:** теория — да
+**Теория:** ~70 мин · **Практика/project:** ~3–5 часов · **С телефона:** теория — да
 
 ← [`03-fork-exec-wait.md`](03-fork-exec-wait.md) · → [`05-redirection-dup2.md`](05-redirection-dup2.md)
 
-## Цель
+## Проблема
 
-Построить command loop и deliberately limited grammar вместо иллюзии «split строку по пробелам = shell parser».
+`fork/exec` запускают уже готовые `argv`. Shell сначала должен прочитать text and decide what command/arguments mean.
+
+Нельзя сразу «поддержать Bash syntax»: uncontrolled grammar creates parser complexity unrelated to current OS learning.
 
 ## REPL
 
 Shell core loop:
 
 ```text
-Read command line
-Evaluate/parse
-Execute
-Print/return to prompt
-Loop
+read line
+→ parse into bounded representation
+→ decide built-in vs external
+→ execute
+→ report result
+→ repeat
 ```
 
-Interactive shell также должен переживать errors одного command без завершения всего process.
+REPL = read-evaluate-print loop; term is useful only because it names this repeated interaction.
 
-## Course grammar v0
+## Course grammar v1
 
-Поддерживаем:
+Start intentionally small:
 
 ```text
-command arg1 arg2 ...
+command := word { whitespace word }
 ```
 
-Whitespace разделяет tokens.
+No quoting, globbing, variable expansion or command substitution in first milestone. Reject overlong line/too many args explicitly.
 
-Пока **не поддерживаем**:
+Later lessons add redirection and one pipeline as grammar extensions.
 
-- quotes;
-- escapes;
-- variable expansion;
-- globbing;
-- command substitution;
-- operators кроме тех, что появятся отдельно (`<`, `>`, `|`).
+## `argv` contract
 
-Это честный contract, а не «плохая реализация bash».
-
-## Tokenization
-
-Parser должен различать:
-
-- empty line;
-- whitespace-only;
-- token count limit или dynamic argv;
-- operator tokens позже.
-
-Если используешь in-place tokenization, знай ownership: tokens могут быть pointers внутрь line buffer. Они валидны только пока жив buffer.
-
-Это отличный practical lifetime example.
-
-## Builtins
-
-`cd` должен исполняться **в shell process**, иначе child изменит только свою working directory и сразу завершится.
-
-То же относится к `exit` и многим shell-state builtins.
-
-Разделение:
+Exec-style functions expect:
 
 ```text
-builtin? -> execute in shell
-external? -> fork/exec/wait
+argv[0] = program name
+argv[1..] = arguments
+argv[last] = NULL
 ```
 
-## Working directory
+Parser must preserve NUL-terminated C strings and a final null pointer entry.
 
-Current working directory — process attribute. Child обычно наследует её при fork; `chdir` shell process влияет на последующие commands.
+## Built-ins run in shell process when state must persist
+
+Example `cd`: if child changes working directory and exits, parent shell directory does not change. Therefore stateful built-in runs in parent process.
+
+This is not special syntax magic; it follows process isolation.
+
+## Parsing safely
+
+Keep explicit bounds:
+
+```text
+max input bytes
+max args
+max token bytes inherited from line
+```
+
+Do not call `strtok` blindly if its hidden mutation/state makes grammar hard to reason about. It is allowed if behavior is understood and tests cover empty/multiple delimiters; manual scanner often teaches boundaries more clearly.
 
 ## Project slice
 
-Реализуй v0:
-
-- prompt;
-- read line;
-- tokenize whitespace grammar;
-- empty line;
-- `cd`;
-- `exit`;
-- external argv execution;
-- errors не убивают shell.
-
-## Tests
-
-Сценарии:
-
-```text
-(empty)
-pwd
-cd /tmp
-pwd
-/bin/echo one two
-nonexistent_command
-```
-
-## Causal questions
-
-1. Почему `cd` в forked child не меняет cwd parent shell?
-2. Почему tokens pointing into line buffer не могут жить после освобождения buffer?
-3. Почему quotes нельзя «случайно почти поддержать»?
-4. Где проходит boundary parser vs executor?
-
-## Подсказки
-
-В проекте см. `HINTS.md`; готового parser code курс не даёт.
+Implement REPL + external foreground command + `exit` + `cd`. Technical milestone in [`project/SPEC.md`](project/SPEC.md).
 
 ## Exit check
 
-README проекта должен явно перечислять grammar v0 и unsupported syntax.
+Why must `cd` happen in parent shell, and why is deliberately small grammar an engineering advantage rather than missing feature?

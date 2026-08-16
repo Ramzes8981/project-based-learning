@@ -1,63 +1,36 @@
-# Module 2 — Checkpoint
+# 2.8 — Checkpoint: можешь ли ты нарисовать process/fd topology shell-а
 
-**Время:** ~2–4 часа  
-**С телефона:** conceptual — да
+**Время:** ~3–5 часов · **С телефона:** review — да; project — ПК
 
 ← [`07-signals-process-groups.md`](07-signals-process-groups.md) · ↑ [`README`](README.md)
 
 ## Explain
 
-1. fd vs underlying open file description.
-2. partial read/write.
-3. EOF vs error.
-4. descriptor ownership/close.
-5. terminal vs shell.
-6. `fork` return paths.
-7. `exec` replaces process image.
-8. `waitpid`/zombie.
-9. builtin `cd` in parent.
-10. `dup2` redirection.
-11. pipe EOF and leaked write ends.
-12. why pipeline children run concurrently.
-13. signal disposition/async-signal-safety.
-14. process group intuition.
+1. executable file vs process;
+2. syscall boundary;
+3. fd as process-local handle;
+4. short I/O and `EINTR`;
+5. terminal/TTY vs ordinary file;
+6. fork vs exec;
+7. why wait/reap;
+8. why `cd` runs in parent;
+9. how `dup2` implements redirection;
+10. why one leaked pipe writer prevents EOF;
+11. why producer-before-consumer wait can deadlock;
+12. signal handler restrictions;
+13. process group reason for foreground job.
 
-## Scenario exam
+## Project gate
 
-Нарисуй и объясни:
+Shell passes [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md) and [`project/TESTS.md`](project/TESTS.md).
 
-```text
-producer | filter > result.txt
-```
+## Required evidence
 
-Нужно показать:
+- one `strace` or equivalent observation tied to prediction;
+- one fd topology drawing for pipeline;
+- one debugging story with leaked descriptor, child status or parser boundary;
+- no zombie leak after repeated commands.
 
-- processes;
-- pipes;
-- relevant fds;
-- `dup2` mapping;
-- what closes where;
-- wait lifecycle;
-- Ctrl-C behavior.
+## Exit check
 
-## Core milestone
-
-Проверь [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md).
-
-## Debug story
-
-Обязательно диагностируй один hang/EOF bug, вызванный descriptor lifetime, либо воспроизведи controlled seeded version.
-
-## Transfer
-
-Одна feature:
-
-- N-stage pipeline;
-- basic background job;
-- small `$VAR` expansion;
-- history;
-- process-group foreground handling.
-
-## Exit gate
-
-Модуль закрыт, если shell больше не выглядит как магический интерпретатор строк: ты можешь разложить его на parser + process creation + fd graph + signals/lifecycle.
+Given `cat input | grep x > out`, you can describe which process owns which descriptors before/after exec and how parent eventually regains control.

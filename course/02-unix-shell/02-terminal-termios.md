@@ -1,94 +1,66 @@
-# 2.2 — Terminal, TTY и `termios`
+# 2.2 — Почему terminal — не просто окно с текстом
 
-**Теория:** ~60 мин  
-**Guided lab:** ~60–90 мин  
-**С телефона:** теория — да; lab — ПК
+**Теория:** ~65 мин · **Лаб:** ~70 мин · **С телефона:** теория — да
 
 ← [`01-file-descriptors-io.md`](01-file-descriptors-io.md) · → [`03-fork-exec-wait.md`](03-fork-exec-wait.md)
 
-## Цель
+## Проблема
 
-Различить terminal и shell и понять, почему interactive text program может переключать terminal driver из canonical mode.
+`stdin` can refer to a regular file, pipe, or terminal. Interactive behavior like line editing, echo and Ctrl-C clearly does not belong to ordinary file bytes alone.
 
-## Terminal != shell
+## TTY mental model
 
-Shell — программа, интерпретирующая команды.
+A **terminal/TTY** is an OS interface for interactive byte streams plus terminal-specific state.
 
-Terminal/TTY — интерфейс ввода-вывода и kernel/driver semantics, через которые interactive process получает characters/signals/display control.
+Modern terminal emulator roughly:
 
-Окно terminal emulator запускает shell, но эти сущности не одно и то же.
+```text
+keyboard/window
+↕
+pseudo-terminal pair (PTY)
+↕
+shell/process
+```
+
+The shell does not read GUI key events directly; it interacts with a terminal device through file descriptors.
 
 ## Canonical mode
 
-Обычно terminal line discipline собирает input line, обрабатывает erase и отдаёт программе данные после line delimiter.
+In typical canonical mode the terminal driver buffers/edit lines before delivering them to `read`. This is why application often receives a completed line rather than every keystroke.
 
-Для text editor/read-key lab нужен режим, где процесс получает keypresses раньше.
+## Echo
+
+Terminal settings can echo typed bytes back for display. Turning echo off is useful for password-like input, but code must restore settings even on failure.
 
 ## `termios`
 
-`tcgetattr` получает terminal attributes, `tcsetattr` меняет их.
+Unix exposes terminal settings through `termios` APIs such as `tcgetattr`/`tcsetattr`.
 
-Attributes содержат bit flags. Именно поэтому bit masks были prerequisite.
+Course scope: observe and temporarily modify one flag in a disposable program, then restore original state.
 
-Core idea:
+## Why restoration matters
 
-```text
-original = current terminal settings
-modified = copy(original)
-clear/adjust selected flags
-apply modified
-...
-restore original before exit
-```
+Terminal state belongs to the terminal, not just local variable. If program exits after disabling echo/raw behavior without restoration, user's shell can feel “broken”.
 
-## Почему нужно сохранять original
+Use cleanup path and save original configuration first.
 
-Если process завершится, оставив terminal в modified mode, shell пользователя может выглядеть «сломавшимся»: input echo/line handling изменятся.
+## `isatty`
 
-Это cleanup resource, аналогичный `free/close`.
+`isatty(fd)` asks whether fd refers to terminal-like device. Interactive prompts should often depend on this rather than assuming stdin/stdout are terminals.
 
-## Signals и restoration
+## Практика
 
-Core lab должен иметь normal cleanup path. Для аварийных scenarios recovery command вроде `reset` полезен.
+Write tiny program:
 
-Не пытайся сейчас написать полностью async-signal-safe framework restoration — signals разберём позже.
+1. check `isatty(STDIN_FILENO)`;
+2. if not terminal, report and exit without terminal API;
+3. save termios;
+4. disable echo temporarily;
+5. read a line;
+6. restore original settings on normal/error paths.
 
-## Escape sequences
-
-Terminal output может содержать control sequences для cursor movement/clear screen. Они являются protocol между program и terminal emulator.
-
-Не предполагай, что любой arbitrary output device поддерживает ANSI-like sequences; наш lab ограничен обычным modern terminal environment.
-
-## Exercise / guided lab
-
-Напиши маленькую программу `keydump`:
-
-1. убедиться, что stdin — terminal;
-2. сохранить original attributes;
-3. включить raw-ish mode минимально необходимыми flags;
-4. читать по одному byte/key sequence;
-5. печатать numeric byte values;
-6. выйти по выбранной key;
-7. восстановить terminal.
-
-### Не делаем
-
-- полноценный text editor;
-- syntax highlighting;
-- rendering engine;
-- сложный terminal compatibility layer.
-
-## Causal questions
-
-1. Почему raw mode относится к terminal state, а не «режиму shell»?
-2. Что произойдёт, если забыть restoration?
-3. Почему bit masks естественны для terminal flags?
-4. Почему arrow key может прийти как несколько bytes, а не один ASCII character?
-
-## Разбор
-
-[`02-terminal-termios.solution.md`](02-terminal-termios.solution.md) содержит architecture checklist, но не полный готовый keydump implementation.
+Разбор: [`02-terminal-termios.solution.md`](02-terminal-termios.solution.md).
 
 ## Exit check
 
-Объясни terminal cleanup как resource-lifetime problem.
+Why can redirecting stdin from a file change interactive behavior even though your C code still calls `read(0, ...)`?
