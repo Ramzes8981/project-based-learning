@@ -1,102 +1,64 @@
-# 4.3 — Cache hierarchy, locality и working set
+# 4.3 — Почему одинаковое число C-операций может стоить очень по-разному
 
-**Теория:** ~70 мин  
-**Lab:** ~90 мин  
-**С телефона:** теория — да
+**Теория:** ~80 мин · **Лаб:** ~90 мин · **С телефона:** theory — да
 
 ← [`02-page-tables-tlb-faults.md`](02-page-tables-tlb-faults.md) · → [`04-measurement-profiling.md`](04-measurement-profiling.md)
 
-## Цель
+## Проблема
 
-Объяснить, почему два `O(n)` алгоритма могут различаться по runtime в разы из-за memory access pattern.
+Two loops can perform same number of additions but have very different runtime depending on memory access pattern. Arithmetic count alone misses memory hierarchy.
 
-## Memory hierarchy
+## CPU cache
 
-Conceptually:
+Fast small storage close to CPU keeps recently/frequently accessed memory data in blocks called cache lines. These stores are **CPU caches** (commonly L1/L2/L3 levels).
 
-```text
-registers
-L1 cache
-L2 cache
-L3/LLC
-DRAM
-storage
-```
-
-Чем ближе к CPU, тем меньше capacity и ниже latency/выше bandwidth.
-
-Точные nanoseconds зависят от hardware — курс не требует заучивания одной таблицы latency.
-
-## Cache line
-
-Cache переносит данные блоками/lines, а не отдельными C objects. На common x86-64 line часто 64 bytes, но измеряй/проверяй platform details, если это важно.
+We introduce term now because performance observation created need; it was not a prerequisite Module 3.
 
 ## Spatial locality
 
-Если после `a[i]` скоро читаем `a[i+1]`, соседние bytes уже могут быть в той же/следующей prefetched line.
+If code accesses nearby addresses, fetching one cache line may bring bytes needed soon.
 
-Contiguous arrays используют spatial locality хорошо.
+Contiguous array traversal typically has better **spatial locality** than pointer-chasing nodes scattered across allocations.
 
 ## Temporal locality
 
-Если same data повторно используется скоро, оно может остаться в cache.
+If same data is reused soon, it may remain in faster level — **temporal locality**.
 
-## Pointer chasing
+## Cache line and false confidence
 
-Linked list nodes на heap могут быть разбросаны. Каждый `next` зависит от предыдущей memory load, что затрудняет prefetch и увеличивает cache misses.
-
-Это объясняет, почему linked list с похожим Big-O может проигрывать vector.
-
-## Stride
-
-Traversal:
-
-```text
-stride 1: 0,1,2,3...
-stride 16: 0,16,32...
-```
-
-может использовать cache lines по-разному.
-
-## Matrix order
-
-Для row-major C array последовательный проход по rows обычно cache-friendly. Column-wise traversal делает большие strides.
-
-Это мост к NumPy: contiguous layout/order влияет на скорость vectorized/native kernels.
+Exact line size/hierarchy is hardware property. Do not hard-code “64 bytes everywhere” as language truth. Measure/query target docs when optimization depends on exact number.
 
 ## Working set
 
-Если active data значительно больше cache, повторное использование может не успевать попасть в cache hits.
+The **working set** is roughly data actively needed during interval. If it fits fast cache levels, reuse is cheap; if much larger, accesses incur more misses/memory traffic.
 
-Performance — свойство workload + data size, а не только function source.
+This is a model, not one exact universal formula.
 
-## Lab
+## Array vs linked list revisited
 
-Создай большой contiguous integer array и сравни:
-
-- sequential traversal;
-- stride traversal;
-- shuffled index traversal;
-- linked pointer-chasing structure схожего объёма.
-
-Повторяй runs, не делай вывод из одного измерения.
-
-Запиши:
+Earlier DS trade-off now gains hardware layer:
 
 ```text
-input size
-pattern
-median-ish runtime
-hypothesis
+Vector:
+  contiguous → predictable prefetch/cache lines
+Linked list:
+  per-node pointer chase → dependency + scattered addresses
 ```
 
-## Causal questions
+Big-O can be same while constant/hardware cost differs dramatically.
 
-1. Почему linked list может проиграть array при одинаковом `O(n)` scan?
-2. Почему working set должен быть частью benchmark description?
-3. Почему cache line делает чтение одного byte потенциально связанным с соседними bytes?
-4. Как это связано с NumPy contiguous arrays?
+## Stride experiment
+
+Traverse large array with stride 1, then larger strides. Keep total useful work controlled enough to avoid misleading comparison. Use multiple runs/warmup and prevent compiler removing work.
+
+## False sharing preview
+
+Threads later: two cores modifying independent variables on same cache line can interfere due coherence. Name **false sharing** can be previewed only as future phenomenon; no concurrency mechanics required now.
+
+## Практика
+
+Benchmark contiguous array vs linked traversal and at least two strides. Record compiler flags, data size, run count, median—not one lucky timing.
 
 ## Exit check
 
-Сначала объясняй memory access pattern, потом говори «CPU медленный».
+Why can linked list and array traversal both be `O(n)` yet differ strongly in measured time?

@@ -1,31 +1,34 @@
 # Arena Allocator — Acceptance
 
-Project is complete when:
+## Stage 1
 
-## Correctness
+- valid alignments return correctly aligned pointers;
+- invalid alignment rejected;
+- exact-end fit succeeds if policy allows;
+- one-byte-too-large fails without state mutation;
+- all size/offset addition/multiplication checked before pointer arithmetic;
+- zero-size policy tested.
 
-- arena create/destroy is explicit;
-- aligned allocations stay within arena;
-- allocation failure is reported without state corruption;
-- free-list reuse works;
-- split/coalesce preserve physical layout invariants;
-- second placement policy can be compared under same workload.
+## Stage 2
 
-## Safety
+- freed block reusable;
+- split remainder remains valid/free;
+- adjacent free blocks coalesce;
+- nonadjacent blocks never coalesce merely because list neighbors;
+- invalid interior/outside pointer rejected;
+- double free rejected/no metadata damage;
+- full free cycle can recover large block where coalescing should permit it.
 
-- no pointer arithmetic before range/overflow validation;
-- metadata arithmetic cannot silently wrap;
-- no overlap, OOB, UAF or double free in valid client use;
-- debug invalid-free policy is documented;
-- ASan/UBSan or equivalent diagnostics run clean on test suite where compatible.
+## Resource/safety
 
-## Tests
+- arena ownership/destroy contract explicit;
+- no OOB/UAF/double system free under sanitizers;
+- warning-clean build;
+- failure leaves allocator inspectable/destructible.
 
-- `make test` covers `TESTS.md`;
-- at least one invariant/property checker;
-- at least one regression test from an actual bug;
-- repeated randomized/deterministic operation sequence.
+## Evidence
 
-## Engineering evidence
-
-[`README.md`](README.md) documents ownership, block layout, metrics, known limitations and policy comparison with measured workload rather than intuition only.
+- fragmentation metrics have definitions;
+- one policy workload comparison;
+- debugging story;
+- transfer feature/decision.

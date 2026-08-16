@@ -1,151 +1,77 @@
-# 4.5 — Allocator design: alignment, free list, fragmentation
+# 4.5 — Как выдавать выровненные блоки из собственного region
 
-**Теория:** ~85 мин  
-**Project:** ~10–16 часов суммарно  
-**С телефона:** теория — да
+**Теория:** ~80 мин · **Практика/project:** ~3–5 часов · **С телефона:** theory — да
 
-← [`04-measurement-profiling.md`](04-measurement-profiling.md) · → [`06-module-checkpoint.md`](06-module-checkpoint.md)
+← [`04-measurement-profiling.md`](04-measurement-profiling.md) · → [`05b-free-lists-coalescing.md`](05b-free-lists-coalescing.md)
 
-## Цель
+## Проблема
 
-Самостоятельно управлять blocks внутри одной arena, сохраняя layout invariants и измеряя fragmentation.
-
-## Scope
-
-Мы **не** пишем замену glibc malloc.
-
-```text
-mmap -> one arena
-course allocator manages sub-blocks inside arena
-```
-
-Это изолирует allocator algorithms от сложности OS allocator implementation.
+`malloc` hides allocator decisions. To understand them, build allocator over one fixed byte region. First milestone only moves forward; no reuse yet.
 
 ## Alignment
 
-Некоторые object types требуют address, кратный alignment.
+Many types require addresses divisible by certain power-of-two boundary. Requirement is **выравнивание (alignment)**.
 
-Если allocator возвращает misaligned pointer для type — использование может быть UB/slow/fault depending architecture.
+C exposes `_Alignof(T)` / `alignof` with appropriate standard version/header spelling. Returning misaligned pointer and using it as `T *` can violate language/hardware requirements.
 
-Для power-of-two alignment `a` полезна идея:
+## Align-up with overflow check
 
-```text
-aligned = ceil(n / a) * a
-```
-
-Bit trick допустим только после доказательства `a` power-of-two и overflow safety.
-
-## Block metadata
-
-Conceptual block:
+For power-of-two `align`, conceptual:
 
 ```text
-[ header | payload ........ ]
+padding = (-offset) mod align
+aligned = offset + padding
 ```
 
-Header может хранить:
-
-- block size;
-- free/used state;
-- next free block offset/pointer;
-- debugging magic/checksum optionally.
-
-Metadata сама занимает arena space и должна учитываться в arithmetic.
+In C, check addition does not exceed region/`SIZE_MAX` before computing/committing. Avoid clever bit tricks until precondition “align is nonzero power of two” is validated.
 
 ## Bump allocator
 
-Самая простая policy:
+State:
 
 ```text
-next = aligned cursor
-cursor += block size
+base region
+region_size
+next_offset
 ```
 
-Allocate быстро, individual free отсутствует. Хорош для temporary arena workloads.
-
-Это first milestone slice.
-
-## Free list
-
-Для reuse нужен список свободных blocks.
-
-First-fit:
-
-- пройти free list;
-- взять первый достаточный block.
-
-Best-fit:
-
-- найти smallest sufficient block.
-
-Нет универсально лучшей policy: разные fragmentation/search costs.
-
-## Splitting
-
-Если free block намного больше request, его можно разделить:
+Allocate:
 
 ```text
-[allocated part][remaining free block]
+align next_offset
+check requested size fits remaining region
+return base + aligned_offset
+advance next_offset
 ```
 
-Но remainder должен быть достаточно большим для metadata + meaningful aligned payload. Иначе создаётся unusable fragment.
+This **bump allocator** is fast and easy, but individual `free` cannot reclaim holes. That limitation creates next lesson.
 
-## Coalescing
+## Metadata
 
-Adjacent free blocks можно объединять.
+Allocator needs enough **metadata** to validate/reclaim blocks later: size/state/links. Stage 1 may store metadata out-of-band in separate table for simplicity rather than invent in-band header arithmetic prematurely.
 
-Важно: объединяются **физически соседние в arena** blocks, а не просто соседние nodes free list.
+## Bounds arithmetic
 
-Нужен способ определить adjacency через offsets/sizes.
+Avoid unsafe check:
 
-## Fragmentation
+```text
+if aligned + size <= region_size
+```
 
-Internal fragmentation: wasted bytes **внутри** allocated block из-за alignment/rounding/policy.
+if `aligned + size` itself can overflow.
 
-External fragmentation: free space разбито на куски; total free может быть большим, но largest free block мал.
+Prefer subtraction form after `aligned <= region_size`:
 
-Leak: память всё ещё считается allocated/достижимой allocator metadata, но application потеряла ownership/reference или забыла free.
+```text
+size <= region_size - aligned
+```
 
-Не смешивай эти понятия.
+Then pointer arithmetic occurs only after offset validated within actual region.
 
-## Required metrics
+## Project stage 1
 
-Allocator должен уметь сообщить:
-
-- arena bytes;
-- active requested bytes;
-- allocated block bytes;
-- free bytes;
-- free block count;
-- largest free block;
-- allocation/free counts.
-
-## Double free
-
-Allocator должен иметь defined debug behavior. Core может detect очевидный repeated free через block state/assert/error. Production security-hardening allocator значительно сложнее.
-
-## Project progression
-
-[`project/SPEC.md`](project/SPEC.md):
-
-1. arena mapping;
-2. bump allocate;
-3. alignment;
-4. metadata;
-5. free list;
-6. reuse;
-7. split;
-8. coalesce;
-9. metrics;
-10. compare policies.
-
-## Causal questions
-
-1. Почему total free bytes не гарантируют успешный large allocation?
-2. Почему free-list neighbor не обязательно physical neighbor?
-3. Где возникает internal fragmentation?
-4. Почему allocator bug часто проявляется далеко от места corruption?
+Implement init + aligned allocate + reset/destroy policy according to [`project/SPEC.md`](project/SPEC.md). No free-list yet.
 
 ## Exit check
 
-Нарисуй arena до/после `alloc A`, `alloc B`, `free A`, `free B`, coalesce.
+Why must numeric bounds/alignment be validated before forming/using pointer to resulting location?

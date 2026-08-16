@@ -2,27 +2,30 @@
 
 ## Hint 1
 
-Сначала bump allocator. Не начинай с free list.
+Represent locations as checked offsets from arena base while doing arithmetic. Convert to pointer only after proving offset within region.
 
 ## Hint 2
 
-Для каждого block умей вычислить:
+For fit check prefer subtraction after validating start:
 
 ```text
-block_start
-header_end/payload_start
-payload_end
-next_block_start
+requested <= arena_size - start
 ```
+
+instead of unchecked `start + requested <= arena_size`.
 
 ## Hint 3
 
-Coalescing требует physical adjacency: `left_end == right_start`.
+Get Stage 1 bump allocator fully tested before adding free-list state.
 
 ## Hint 4
 
-Если stats расходятся, сформулируй conservation-like invariant bytes arena = metadata + allocated payload/padding + free regions.
+Address-ordered free list makes candidate coalescing easier, but still verify physical adjacency explicitly.
 
 ## Hint 5
 
-Policy comparison должен менять только placement choice при одинаковом request trace.
+Invalid free detection needs live-allocation knowledge. Do not infer metadata by blindly reading bytes before arbitrary user pointer.
+
+## Hint 6
+
+A fragmentation metric without exact numerator/denominator is decoration. Define it first.

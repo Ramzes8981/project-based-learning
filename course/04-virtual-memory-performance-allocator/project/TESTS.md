@@ -1,23 +1,21 @@
-# Arena Allocator — public scenarios
+# Arena Allocator — test scenarios
 
-Точные C signatures выбирает ученик; эти сценарии должны быть представлены в его `make test`.
+1. initialize minimum/normal arena;
+2. aligned allocations for several supported powers of two;
+3. invalid align 0/non-power-of-two;
+4. exact fit;
+5. near-boundary failure without offset change;
+6. synthetic huge size proving overflow-safe rejection;
+7. zero-size policy;
+8. free and reuse same/smaller request;
+9. split free block;
+10. free adjacent blocks in both orders then allocate combined size;
+11. free nonadjacent blocks and prove they do not merge;
+12. double free;
+13. pointer outside arena;
+14. interior pointer not allocation start;
+15. repeated allocation/free pattern under ASan/UBSan;
+16. metrics reconcile with known state;
+17. policy comparison workload.
 
-1. create/destroy empty arena;
-2. zero-size allocation policy documented/tested;
-3. allocations of 1 byte and several alignments;
-4. returned pointers satisfy chosen alignment;
-5. fill until explicit allocation failure without corruption;
-6. free then reuse block;
-7. split leaves valid remainder only when it can hold metadata + aligned payload;
-8. free adjacent blocks and coalesce;
-9. non-adjacent free-list neighbors are not coalesced merely because they are list neighbors;
-10. repeated alloc/free sequences preserve invariants;
-11. double-free/invalid-free debug policy produces controlled failure or detection according to contract;
-12. allocation-size/align arithmetic overflow is rejected before pointer arithmetic;
-13. destroy releases arena exactly once;
-14. stats match independently counted layout;
-15. compare first-fit with second placement policy on same deterministic workload.
-
-## Review-only
-
-Unseen fragmentation patterns, awkward sizes near split threshold, many tiny blocks, alternating free pattern, randomized deterministic seed.
+Where behavior depends on metadata overhead, tests use public contract values rather than hidden struct-size assumptions.

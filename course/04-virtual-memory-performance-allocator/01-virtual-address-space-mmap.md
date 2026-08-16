@@ -1,125 +1,59 @@
-# 4.1 — Virtual address space и `mmap`
+# 4.1 — Почему два процесса могут использовать одинаковый адрес и не видеть одну память
 
-**Теория:** ~65 мин  
-**Lab:** ~60 мин  
-**С телефона:** теория — да
+**Теория:** ~70 мин · **Лаб:** ~60 мин · **С телефона:** теория — да
 
 ← [`README`](README.md) · → [`02-page-tables-tlb-faults.md`](02-page-tables-tlb-faults.md)
 
-## Цель
+## Проблема
 
-Понять, что pointer/address в process — виртуальный адрес, а наличие большого virtual range не означает немедленное выделение такого же объёма physical RAM.
+Pointer prints a numeric address. Beginner mental model often becomes:
+
+> «Это номер физической ячейки RAM».
+
+Но два processes can show the same numeric address while referring to different data. ASLR can also move program mappings between runs.
+
+So process pointer value is not a raw physical RAM coordinate.
 
 ## Virtual address space
 
-Каждый обычный process работает в своём virtual address space.
-
-Conceptual map:
+Each process operates in its own **виртуальном адресном пространстве (virtual address space)** — range of addresses whose meanings are controlled by hardware + OS mappings for that process.
 
 ```text
-low addresses
-  code / mappings
-  data
-  heap-like regions
-  mapped libraries/files
-  ...
-  stack
-high addresses
+process A: 0x... → A's mapped storage
+process B: 0x... → B's mapped storage
 ```
 
-Точный layout зависит от executable, loader, ASLR, kernel и runtime. Не заучивай фиксированные addresses.
+Same virtual number can map differently or be unmapped.
 
-## Virtual != physical
+We intentionally do **not** name the internal translation data structure yet. Next lesson asks: “how can mapping be represented efficiently?”
 
-CPU генерирует virtual addresses. Memory-management hardware + kernel-managed page tables переводят их к physical frames или сообщают, что mapping отсутствует/нужна обработка.
+## Regions, permissions, mappings
 
-```text
-virtual address
-  ↓ translation
-physical frame + offset
-```
+A process address range can be mapped readable/writable/executable with OS/hardware-enforced permissions. Some regions back executable/library/file contents; others anonymous memory.
 
-## Mapping
+`/proc/<pid>/maps` on Linux lets us observe ranges and permissions. Observation first; detailed page mechanism next.
 
-Mapping связывает virtual page range с:
+## `mmap` as mapping request
 
-- anonymous memory;
-- file-backed pages;
-- special kernel/device semantics.
+Linux/POSIX-style `mmap` asks kernel to create mapping in process virtual address space. It can be anonymous or file-backed.
 
-Anonymous memory удобно для arena allocator.
+Core lab uses anonymous read/write mapping only after checking `MAP_FAILED`, and releases it with `munmap`.
 
-## `mmap`
+Do not teach `mmap` as “malloc but lower-level”. It has different granularity/contracts, mapping/file semantics and failure modes.
 
-На Linux/POSIX-like systems `mmap` создаёт mapping.
+## ASLR preview without name dependency
 
-Core anonymous private idea:
+You may observe addresses differ across runs. The security mechanism name ASLR is introduced formally in Module 8; here call it address-layout randomization observation only.
 
-```c
-void *p = mmap(NULL, length,
-               PROT_READ | PROT_WRITE,
-               MAP_PRIVATE | MAP_ANONYMOUS,
-               -1, 0);
-```
+## Практика
 
-Linux `MAP_ANONYMOUS` — platform feature; course canonical environment Linux. Failure обозначается `MAP_FAILED`, а не `NULL`.
-
-После использования mapping освобождается `munmap`.
-
-## Reservation vs committed/touched memory
-
-Большая anonymous mapping часто не приводит к немедленному physical backing каждого page. Physical pages могут появляться по demand при first touch.
-
-Отсюда возможно:
-
-```text
-large virtual size
-small resident set initially
-```
-
-Но overcommit/policy/platform details сложнее, поэтому не обещай, что любой huge mapping всегда безопасен.
-
-## Page size
-
-OS управляет memory страницами. Узнать базовый page size можно через `sysconf(_SC_PAGESIZE)`/соответствующий API.
-
-Allocator позже должен понимать alignment, но ему не обязательно выдавать user blocks ровно page-sized.
-
-## `/proc/self/maps`
-
-На Linux файл показывает current process mappings. Он удобен как observational tool:
-
-```bash
-cat /proc/self/maps
-```
-
-Сделай mapping и посмотри, как layout изменился.
-
-## File-backed mapping
-
-`mmap` может отображать file region в address space. Это не означает «файл целиком мгновенно прочитан в RAM»; pages загружаются/кэшируются по demand согласно OS.
-
-## Causal questions
-
-1. Почему virtual address нельзя считать physical RAM address?
-2. Почему mapping 1 GiB не обязательно сразу увеличивает resident RAM ровно на 1 GiB?
-3. Почему `MAP_FAILED` нужно проверять отдельно от `NULL`?
-4. Что является owner `mmap` region и каким API заканчивается lifetime?
-
-## Lab
-
-Напиши `map_probe.c`:
-
-- узнай page size;
-- создай anonymous mapping нескольких pages;
-- напечатай returned address;
-- прочитай `/proc/self/maps` до/после;
-- запиши bytes в разные pages;
-- `munmap`;
-- проверь errors.
+1. Print addresses of code/local/dynamic object and compare across runs/processes.
+2. Inspect `/proc/self/maps` and locate broad regions without memorizing labels.
+3. Create small anonymous mapping, write/read within it, unmap.
+4. Explain why numeric virtual address alone does not reveal physical RAM location.
 
 Разбор: [`01-virtual-address-space-mmap.solution.md`](01-virtual-address-space-mmap.solution.md).
 
 ## Exit check
 
-Объясни разницу `virtual size`, `mapped range`, `physical backing` и `resident pages` на рабочем уровне.
+Why can two processes safely have the same virtual address value with different contents?
