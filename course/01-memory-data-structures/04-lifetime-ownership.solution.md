@@ -1,19 +1,13 @@
 # Разбор 1.4
 
-A. Возврат address local `int`: после return lifetime local закончился, pointer dangling.
+A. **Допустимо**, если caller object действительно остаётся жив и pointer остаётся в его bounds.
 
-B. Caller local struct → read-only function → return до конца caller scope: нормальный short borrow, если function не сохраняет pointer.
+B. **Недопустимо после return**: lifetime local automatic object закончился; pointer становится dangling.
 
-C. Global сохраняет pointer на caller local string: если caller storage заканчивается, global pointer становится dangling. Нужно копировать данные в owned storage или гарантировать более длинный lifetime.
+C. **Допустимо при заявленных условиях**: array object жив, storage не заменён, pointer относится к существующему element.
 
-D. String literal имеет static storage duration, но попытка модификации literal через pointer приводит к undefined behavior. Правильнее использовать `const char *`.
+D. **Допустимо**, если helper не сохраняет pointer дольше call и исходный object жив весь call. `const` ограничивает mutation через этот access path, но не управляет lifetime.
 
-Главный шаблон проверки:
+E. **Недопустимо после окончания lifetime local object**. Более долгоживущая pointer variable не продлевает target lifetime.
 
-```text
-object создан где?
-→ lifetime до какого события?
-→ кто хранит pointer?
-→ может ли pointer пережить object?
-→ кто отвечает за cleanup, если ресурс требует cleanup?
-```
+Это решение намеренно соответствует всем пяти сценариям A–E из урока.

@@ -1,53 +1,51 @@
-# Module 1 — Memory, Pointers, Algorithms & Data Structures
+# Module 1 — Как программа находит данные в памяти и выбирает структуру для них
 
-**Цель:** понять память C, владение ресурсами и фундаментальные структуры/алгоритмы достаточно глубоко, чтобы самостоятельно реализовать Vector и Hash Table и объяснить их стоимость.
+**Core:** ~55–75 часов.  
+**Optional advanced algorithms:** ~20–30 часов.  
+**Prerequisite:** Module 0.
 
-**Оценка:** ~85–110 часов.  
-**Mini-milestone:** Dynamic Array / Vector.  
-**Core milestone:** MiniKV → Hash Table in C.
+Старый модуль смешивал memory model, safety и почти весь академический DS&A в один 85–110-часовой блок. Теперь здесь две явные фазы с отдельными gates.
 
-## Prerequisites
+## Phase A — C memory safety
 
-Module 0 закрыт: MiniKV v0 работает, многофайловый C-проект собирается через Make, `make test` запускает твои проверки.
+Проблема проекта Module 0: фиксированное место закончилось. Прежде чем просить больше памяти, нужно понять, **что значит сослаться на существующий объект и когда такая ссылка перестаёт быть допустимой**.
 
-## Последовательность
+1. [`01-addresses-pointers.md`](01-addresses-pointers.md) — **Как функция может изменить уже существующее значение**.
+2. [`02-arrays-pointer-arithmetic.md`](02-arrays-pointer-arithmetic.md) — **Почему массив и указатель связаны, но не являются одним и тем же**.
+3. [`03-const-types-bits.md`](03-const-types-bits.md) — **Как безопасно считать размеры до работы с памятью**.
+4. [`03b-text-bytes-utf8.md`](03b-text-bytes-utf8.md) — **Почему текст и bytes — не одно и то же**.
+5. [`04-lifetime-ownership.md`](04-lifetime-ownership.md) — **Почему правильный адрес позже может стать недействительным**.
+6. [`05-heap-allocation.md`](05-heap-allocation.md) — **Как программе попросить больше памяти и не потерять её**.
+7. [`06-undefined-behavior-debugging.md`](06-undefined-behavior-debugging.md) — **Почему некоторые ошибки C нельзя понимать как обычный runtime exception**.
+8. [`07-dynamic-array.md`](07-dynamic-array.md) — **Как сделать массив, который умеет расти**.
+9. [`08-linked-structures.md`](08-linked-structures.md) — **Как хранить элементы, не требуя одного большого непрерывного блока**.
+10. [`09-function-pointers-callbacks.md`](09-function-pointers-callbacks.md) — **Как передать программе само действие**.
 
-1. [`01-addresses-pointers.md`](01-addresses-pointers.md) — адреса, `&`, `*`, pointer parameters.
-2. [`02-arrays-pointer-arithmetic.md`](02-arrays-pointer-arithmetic.md) — массивы и pointer arithmetic.
-3. [`03-const-types-bits.md`](03-const-types-bits.md) — `const`, `size_t`, fixed-width integers, bit masks.
-4. [`04-lifetime-ownership.md`](04-lifetime-ownership.md) — lifetime и ownership contracts.
-5. [`05-heap-allocation.md`](05-heap-allocation.md) — `malloc/calloc/realloc/free`.
-6. [`06-undefined-behavior-debugging.md`](06-undefined-behavior-debugging.md) — UB, sanitizers, debugging.
-7. [`07-dynamic-array.md`](07-dynamic-array.md) — Vector и amortized growth.
-8. [`08-linked-structures.md`](08-linked-structures.md) — linked list, stack, queue, locality.
-9. [`09-function-pointers-callbacks.md`](09-function-pointers-callbacks.md) — function pointers, callbacks, context pointers.
-10. [`10-complexity-invariants-binary-search.md`](10-complexity-invariants-binary-search.md) — O/Ω/Θ, invariants, binary search.
-11. [`11-sorting.md`](11-sorting.md) — insertion/selection/merge/quick/heap sort и trade-offs.
-12. [`12-recursion-recurrences.md`](12-recursion-recurrences.md) — recursion, call stack, recurrence intuition.
-13. [`13-bst-traversals-balanced-trees.md`](13-bst-traversals-balanced-trees.md) — BST, traversals, degeneration, balancing motivation.
-14. [`14-heap-priority-queue.md`](14-heap-priority-queue.md) — binary heap и Priority Queue.
-15. [`15-dynamic-programming.md`](15-dynamic-programming.md) — state, transition, memoization/tabulation.
-16. [`16-string-searching.md`](16-string-searching.md) — naive search, prefix function/KMP, Rabin–Karp.
-17. [`17-trie.md`](17-trie.md) — prefix tree и ownership/layout trade-offs.
-18. [`18-probability-for-hashing.md`](18-probability-for-hashing.md) — probability intuition, expected value, birthday effect.
-19. [`19-hashing-collisions.md`](19-hashing-collisions.md) — hash table, probing, tombstones.
-20. [`20-resize-rehash.md`](20-resize-rehash.md) — resize, rehash, instrumentation.
-21. [`21-module-checkpoint.md`](21-module-checkpoint.md) — gate Module 1.
+**Project gate A:** [`project/vector/`](project/vector/README.md).
 
-## Проекты
+## Phase B — core algorithms & data structures
 
-- [`project/vector/SPEC.md`](project/vector/SPEC.md) — маленький интеграционный проект.
-- [`project/hash-table/SPEC.md`](project/hash-table/SPEC.md) — основной milestone.
+Теперь появляется другая проблема: корректная программа может быть слишком медленной или неудобной для конкретной операции.
 
-В каждом project-folder есть learner-owned `README.md`. Исходники, Makefile и unit tests создаёшь ты; курс задаёт SPEC, scenarios, acceptance и hints.
+11. [`10-complexity-invariants-binary-search.md`](10-complexity-invariants-binary-search.md) — **Как сравнивать способы решения и не ломать главный invariant**.
+12. [`11-sorting.md`](11-sorting.md) — **Когда выгодно сначала упорядочить данные**.
+13. [`12-recursion-recurrences.md`](12-recursion-recurrences.md) — **Когда задача естественно содержит уменьшенную копию самой себя**.
+14. [`13-bst-traversals-balanced-trees.md`](13-bst-traversals-balanced-trees.md) — **Как дерево поддерживает упорядоченный поиск**.
+15. [`14-heap-priority-queue.md`](14-heap-priority-queue.md) — **Как быстро получать самый приоритетный элемент**.
+16. [`19-hashing-collisions.md`](19-hashing-collisions.md) — **Как находить запись по ключу без полного просмотра массива**.
+17. [`20-resize-rehash.md`](20-resize-rehash.md) — **Почему hash table нельзя просто увеличить копированием slots**.
+18. [`20b-graphs-paths.md`](20b-graphs-paths.md) — **Как представлять связи и искать путь между объектами**.
+19. [`21-module-checkpoint.md`](21-module-checkpoint.md) — cumulative checkpoint.
 
-## Что считается прохождением
+**Project gate B:** [`project/hash-table/`](project/hash-table/README.md).
 
-Недостаточно знать названия структур. Ты должен уметь:
+## Optional advanced algorithms
 
-- объяснить ownership/lifetime каждого pointer;
-- назвать invariant структуры;
-- оценить complexity и memory trade-off;
-- написать и отладить реализацию;
-- покрыть error/boundary paths;
-- перенести идею на новый небольшой кейс.
+Эти файлы остаются полноценными материалами, но не блокируют core systems path:
+
+- [`15-dynamic-programming.md`](15-dynamic-programming.md) — dynamic programming;
+- [`16-string-searching.md`](16-string-searching.md) — KMP/Rabin–Karp;
+- [`17-trie.md`](17-trie.md) — Trie;
+- [`18-probability-for-hashing.md`](18-probability-for-hashing.md) — более формальная probability intuition.
+
+Весь минимум вероятностной интуиции, нужный для Hash Table, теперь содержится непосредственно в уроке 1.16 (`19-hashing-collisions.md`).

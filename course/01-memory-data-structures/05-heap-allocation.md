@@ -1,182 +1,107 @@
-# 1.5 — Heap allocation: `malloc`, `calloc`, `realloc`, `free`
+# 1.5 — Как программе попросить больше памяти и не потерять её
 
-**Теория:** ~60 мин  
-**Упражнение:** ~45 мин  
-**Project slice:** ~60–90 мин  
-**С телефона:** теория — да
+**Теория:** ~80 мин  
+**Практика:** ~75 мин  
+**С телефона:** теория — да; практика — ПК
 
 ← [`04-lifetime-ownership.md`](04-lifetime-ownership.md) · → [`06-undefined-behavior-debugging.md`](06-undefined-behavior-debugging.md)
 
-## Цель
+## Проблема
 
-Уметь выделять dynamic storage, обрабатывать allocation failure и освобождать memory ровно один раз согласно ownership contract.
+MiniKV v0 упирался в фиксированное число records. Мы хотим размер, который выбирается во время выполнения и может изменяться.
 
-## Зачем heap
+Local fixed array этого не решает. Нужен механизм запросить storage у runtime и вернуть его позже.
 
-Fixed array Module 0 имеет lifetime/size, заданные программой заранее.
+## Dynamic allocation
 
-Dynamic allocation позволяет во время выполнения запросить storage нужного размера и самостоятельно решить, когда его освобождать.
+В C стандартная библиотека предоставляет **динамическое выделение памяти (dynamic allocation)**:
 
-В стандартной C library основные функции объявлены в `<stdlib.h>`.
+- `malloc` — выделить block указанного размера;
+- `calloc` — выделить место для элементов и zero-initialize bytes;
+- `realloc` — изменить размер существующего allocation;
+- `free` — закончить lifetime allocation.
+
+Разговорно такую область storage часто называют **heap**, но стандарт C не требует конкретной heap implementation. Важно поведение API, а не картинка «stack сверху, heap снизу».
 
 ## `malloc`
 
 ```c
-int *values = malloc(count * sizeof(*values));
-```
+size_t count = 10;
+if (count > SIZE_MAX / sizeof(int)) {
+    /* reject */
+}
 
-Если allocation успешна, возвращается pointer на storage, достаточно выровненный для подходящих object types.
-
-Если неуспешна — `NULL`.
-
-`malloc` **не инициализирует bytes нулями**.
-
-Правило style:
-
-```c
-sizeof(*values)
-```
-
-обычно устойчивее к изменению типа, чем дублировать `sizeof(int)`.
-
-## Проверка overflow размера
-
-Выражение:
-
-```c
-count * sizeof(*values)
-```
-
-само может overflow `size_t`, прежде чем `malloc` увидит размер.
-
-Перед allocation больших/внешне контролируемых counts нужен guard:
-
-```text
-count <= SIZE_MAX / element_size
-```
-
-Позже это станет security-critical в network parsing.
-
-## `calloc`
-
-```c
-int *values = calloc(count, sizeof(*values));
-```
-
-выделяет storage для массива и zero-initializes bytes.
-
-Не считай «all zero bytes» универсальным способом получить любое возможное semantic zero для любой экзотической структуры/representation; для наших обычных integer arrays это предсказуемо полезно.
-
-## `free`
-
-```c
-free(values);
-values = NULL;
-```
-
-`free` завершает lifetime allocated storage. Любые другие pointers на ту же allocation становятся dangling.
-
-Присвоить **одну локальную копию** pointer в `NULL` полезно против случайного повторного использования именно этой переменной, но не чинит aliases.
-
-## `realloc`
-
-```c
-void *realloc(void *ptr, size_t new_size);
-```
-
-может:
-
-- расширить allocation на месте;
-- переместить её;
-- вернуть новый pointer;
-- вернуть `NULL` при failure, оставив старую allocation валидной для ненулевого `new_size` по обычному контракту.
-
-Поэтому опасно:
-
-```c
-values = realloc(values, new_size);
-```
-
-Если failure → потерян единственный pointer на old allocation.
-
-Безопаснее:
-
-```c
-int *tmp = realloc(values, new_count * sizeof(*values));
-if (tmp == NULL) {
-    /* old values still owned here */
-} else {
-    values = tmp;
+int *items = malloc(count * sizeof *items);
+if (items == NULL) {
+    /* allocation failed */
 }
 ```
 
-Отдельные corner cases `new_size == 0` не используем как часть core API: проще иметь явный `free` path.
+Почему сначала checked arithmetic: маленький wrapped byte count опаснее честного failure.
 
-## Allocation ownership
+## Кто освобождает
 
-После успешного `malloc` должен существовать один понятный owner responsibility:
+После успешного allocation должен существовать один понятный owner, ответственный за `free`.
 
 ```text
 allocate
-  ↓
-own resource
-  ↓
-use / transfer ownership
-  ↓
-free exactly once
+→ owner stores pointer
+→ borrowers may use while live
+→ owner free exactly once
+→ no later access
 ```
 
-«Где-то потом free» — плохой контракт.
+Ошибки:
 
-## Cleanup on error
+- забыть `free` → leak;
+- `free` дважды → invalid;
+- use after `free` → dangling access;
+- потерять единственный owner pointer → allocation больше нельзя освободить.
 
-Если function успела выделить несколько resources, а затем шаг 4 падает, error path должен освободить уже приобретённые ресурсы.
+## `realloc`: failure-safe pattern
 
-В C часто используется single cleanup section:
+`realloc` может:
 
-```text
-acquire A
-acquire B
-acquire C
-if failure -> cleanup acquired resources in reverse/known order
+- оставить block на месте;
+- перенести data в новый block;
+- вернуть `NULL` при failure, при этом исходный allocation остаётся owned caller-ом для non-zero requested size.
+
+Поэтому не затирай единственный pointer сразу:
+
+```c
+void *tmp = realloc(items, new_bytes);
+if (tmp == NULL) {
+    /* items still owns the old allocation */
+} else {
+    items = tmp;
+}
 ```
 
-Конкретный `goto cleanup` в C может быть вполне разумным инструментом, если уменьшает duplicated cleanup paths. Мы не вводим запрет «goto всегда зло».
+### Zero-size policy
 
-## Causal questions
+Поведение `realloc(ptr, 0)` historically/platform-version-sensitive для teaching portability и легко создаёт двусмысленный ownership contract. В core мы **не используем его**. Если новый logical size равен zero, отдельной веткой вызывай `free` и устанавливай owner pointer в `NULL`.
 
-1. Почему `free(p); p = NULL;` не делает безопасными другие aliases?
-2. Почему прямое `p = realloc(p, ...)` может создать leak?
-3. Почему allocation size overflow — отдельный bug от `malloc == NULL`?
-4. Где должен быть описан owner каждой allocation?
+## Pointer invalidation после успешного move
 
-## Упражнение
+Если `realloc` перенёс block, pointers на старые elements больше нельзя использовать. Даже если числовой адрес «выглядит правдоподобно».
 
-Напиши программу, которая:
+Это причина, почему внутренний pointer на `vector.items[3]` нельзя бездумно хранить через операцию роста.
 
-1. получает фиксированный `size_t n` из constant/test;
-2. проверяет multiplication overflow;
-3. выделяет `n` integers;
-4. заполняет значениями;
-5. увеличивает capacity через safe `realloc` pattern;
-6. проверяет старые значения;
-7. освобождает storage.
+## Cleanup on failure
+
+Функция с несколькими allocations должна иметь понятный cleanup path. Часто в C полезен один cleanup label, если он уменьшает дублирование и делает ownership видимым.
+
+## Практика
+
+Реализуй helper, который создаёт dynamic array `int` заданного `count`, zero-initializes логические elements и возвращает success/failure через out-parameter. Требования:
+
+- checked multiplication;
+- `count == 0` имеет явный documented result;
+- allocation failure не оставляет caller с мусорным pointer;
+- owner освобождает resource ровно один раз.
 
 Разбор: [`05-heap-allocation.solution.md`](05-heap-allocation.solution.md).
 
-## Project slice — Hash Table storage становится dynamic
-
-Открой [`project/hash-table/SPEC.md`](project/hash-table/SPEC.md).
-
-Перенеси table storage с fixed array на heap allocation, **но пока не добавляй hashing**. Сохрани линейный lookup.
-
-Обязательные вопросы:
-
-- кто owner entries allocation?
-- что делает constructor/init при allocation failure?
-- что делает destroy?
-- какие fields нужно сбросить после destroy, чтобы object state был понятен?
-
 ## Exit check
 
-Нарисуй success и failure paths для `create -> use -> destroy`, включая `malloc == NULL`.
+Объясни, почему `items = realloc(items, ...)` может потерять allocation при failure и почему pointers на elements могут стать invalid после success.

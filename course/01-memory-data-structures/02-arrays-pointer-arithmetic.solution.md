@@ -1,28 +1,26 @@
 # Разбор 1.2
 
-Ключевой эксперимент:
+Correct solution не должен содержать intentional warning из диагностического эксперимента:
 
 ```c
-#include <stdio.h>
 #include <stddef.h>
 
-static void inspect(int values[], size_t count)
+int sum_ints(const int *values, size_t count, int *out_sum)
 {
-    printf("parameter sizeof = %zu\n", sizeof(values));
-    for (size_t i = 0; i < count; ++i) {
-        printf("%d\n", *(values + i));
+    if (out_sum == NULL) {
+        return 0;
     }
-}
+    if (values == NULL && count != 0) {
+        return 0;
+    }
 
-int main(void)
-{
-    int values[6] = {1, 2, 3, 4, 5, 6};
-    printf("array sizeof = %zu\n", sizeof(values));
-    inspect(values, 6);
-    return 0;
+    int sum = 0;
+    for (size_t i = 0; i < count; ++i) {
+        sum += values[i];
+    }
+    *out_sum = sum;
+    return 1;
 }
 ```
 
-Современный compiler обычно предупредит про `sizeof` на array function parameter — и это полезная диагностика.
-
-`sizeof(values)` в `main` относится к настоящему `int[6]`. В `inspect` parameter уже имеет pointer semantics.
+Условие упражнения пока явно предполагает отсутствие `int` overflow. В production-style API такое предположение должно быть либо доказано bounds, либо заменено checked arithmetic.

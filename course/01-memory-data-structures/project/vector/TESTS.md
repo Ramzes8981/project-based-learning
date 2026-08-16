@@ -1,14 +1,16 @@
-# Vector — Public scenarios
+# Vector — test scenarios
 
-1. empty init/destroy;
-2. push one;
-3. push enough elements to force several resizes;
-4. verify all values after each growth;
-5. set/get first and last valid index;
-6. invalid index behavior;
-7. pop from non-empty;
-8. pop from empty according to contract;
-9. repeated create/destroy in a loop under sanitizer;
-10. capacity never becomes smaller than size.
+1. initialize empty;
+2. push one element;
+3. push enough elements to trigger several grows;
+4. verify all values and insertion order after each grow boundary;
+5. get first/last valid index;
+6. get `index == len` fails without access;
+7. zero/near-zero initial policy according to API;
+8. injected allocation failure during grow preserves old pointer/logical values/len/capacity;
+9. checked-size helper rejects impossible byte count before multiplication;
+10. destroy empty;
+11. destroy populated;
+12. transfer operation boundary cases.
 
-Additional review cases may be supplied later.
+For allocation-failure testing, route allocator calls through a tiny test seam rather than trying to exhaust machine memory.

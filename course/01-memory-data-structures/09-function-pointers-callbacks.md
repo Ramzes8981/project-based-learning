@@ -1,120 +1,73 @@
-# 1.9 — Function pointers, callbacks и context pointers
+# 1.9 — Как передать программе само действие
 
-**Теория:** ~60 мин  
-**Упражнение:** ~45 мин  
-**С телефона:** теория — да
+**Теория:** ~55 мин  
+**Практика:** ~55 мин  
+**С телефона:** теория — да; практика — ПК
 
 ← [`08-linked-structures.md`](08-linked-structures.md) · → [`10-complexity-invariants-binary-search.md`](10-complexity-invariants-binary-search.md)
 
-## Цель
+## Проблема
 
-Понять function pointer как значение, которое обозначает функцию с конкретной сигнатурой, и безопасно использовать callback без скрытого ownership/lifetime контракта.
-
-## Зачем это systems-программисту
-
-Callbacks появляются в signal/event APIs, сортировке, FUSE, parsers, generic libraries и plugin-like interfaces. Если впервые увидеть callback table уже внутри filesystem API, сложность будет искусственной.
-
-## Базовый синтаксис
-
-```c
-int compare_int(int a, int b)
-{
-    return (a > b) - (a < b);
-}
-
-int (*cmp)(int, int) = compare_int;
-int r = cmp(10, 20);
-```
-
-Читаем декларацию изнутри: `cmp` — pointer на function, которая принимает два `int` и возвращает `int`.
-
-Через `typedef` API читается лучше:
-
-```c
-typedef int (*IntCompare)(int, int);
-```
-
-## Signature — часть контракта
-
-Нельзя безопасно подставить function с несовместимой сигнатурой и надеяться, что ABI «как-нибудь совпадёт». Типы параметров и return type должны соответствовать ожидаемому callback type.
-
-## Callback
-
-Callback — функция, переданная другому коду для вызова позже/внутри алгоритма.
-
-```c
-size_t count_if(const int *values, size_t n,
-                int (*predicate)(int));
-```
-
-Алгоритм знает **когда вызвать**, caller предоставляет **что именно проверить**.
-
-## Context pointer
-
-Одного callback иногда недостаточно: ему нужны настройки/state.
-
-Распространённая C-модель:
-
-```c
-typedef bool (*Predicate)(int value, void *ctx);
-```
-
-`void *ctx` — untyped pointer. Он не делает runtime type-checking. Обе стороны обязаны договориться, какой объект там лежит и сколько он живёт.
-
-Пример contract:
+Мы хотим одну reusable operation, но поведение для каждого элемента должно задаваться caller-ом:
 
 ```text
-count_if borrows ctx only for duration of call
-callback must not store ctx after return
+walk all values
+→ for each value do caller-selected action
 ```
 
-Это связь function pointers с предыдущим lifetime уроком.
+Копировать весь loop для print/sum/validation неудобно.
 
-## Callback table
+## Function pointer
 
-Системные API часто группируют callbacks:
+У функции есть тип callable contract. C позволяет хранить pointer на функцию и вызывать её через этот pointer.
 
 ```c
-typedef struct {
-    int (*open)(const char *path, void *ctx);
-    int (*read)(const char *path, void *buf, size_t n, void *ctx);
-} Operations;
+typedef void (*IntVisitor)(int value, void *ctx);
 ```
 
-Такой struct — таблица поведения. Позже именно эта mental model поможет понять FUSE operations.
+`IntVisitor` — function pointer type: получает `int`, opaque context pointer и ничего не возвращает.
 
-## Не путать с code generation
+```c
+void visit_all(const int *items, size_t count,
+               IntVisitor visitor, void *ctx)
+{
+    if (visitor == NULL) {
+        return;
+    }
+    for (size_t i = 0; i < count; ++i) {
+        visitor(items[i], ctx);
+    }
+}
+```
 
-Function pointer — адрес/идентификатор существующей функции в текущем executable/process model. Мы не создаём машинный код на лету.
+Функцию, переданную для последующего вызова, часто называют **callback**.
 
-## Error/safety checklist
+## Зачем `void *ctx`
 
-- callback signature совпадает;
-- `ctx` указывает на живой объект;
-- mutability `ctx` соответствует contract;
-- callback не сохраняется дольше, чем живут function/module/context;
-- callback не вызывается после destroy/teardown;
-- функция документирует, вызывает callback синхронно или может сохранить его на будущее.
+Callback нередко нужен state. Глобальная variable создаёт скрытую зависимость. `ctx` позволяет caller передать context явно.
 
-## Упражнение
+Типовая схема:
 
-Реализуй маленький `count_if` для массива `int`.
+```text
+caller owns context object
+visit_all borrows pointer during call
+callback casts it back according to agreed contract
+```
 
-1. callback без context: `is_positive`;
-2. затем version с `void *ctx`, где context задаёт threshold;
-3. tests: пустой массив, все подходят, никто не подходит, boundary threshold.
+Lifetime context должен покрывать все callback calls.
 
-Не используй глобальную переменную для threshold: смысл упражнения — увидеть, зачем context передаётся явно.
+## Неправильная mental model
+
+> «Function pointer — pointer на обычные data bytes функции, которые можно безопасно трактовать как `void *`».
+
+Не делай такой вывод. C различает function pointers и object pointers; portability rules не позволяют бездумно смешивать их.
+
+## Практика
+
+Используя `visit_all`, реализуй callback, который считает количество values больше threshold, где threshold и counter лежат в context struct.
 
 Разбор: [`09-function-pointers-callbacks.solution.md`](09-function-pointers-callbacks.solution.md).
 
-## Causal questions
-
-1. Почему `void *` не означает «тип не важен»?
-2. Что изменится, если API сохранит callback и `ctx` для вызова через минуту?
-3. Почему callback-table — удобный интерфейс для ОС/FS framework?
-4. Какие lifetime вопросы возникают у context pointer?
-
 ## Exit check
 
-Ты должен уметь прочитать `int (*fn)(const char *, void *)` и сформулировать lifetime contract для второго аргумента.
+Какой lifetime contract нужен между `ctx` и callback, и почему global state здесь хуже явного context?

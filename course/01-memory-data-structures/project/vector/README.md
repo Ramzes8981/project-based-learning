@@ -1,48 +1,23 @@
-# Vector — рабочий README
+# Vector in C — рабочий milestone
 
-Этот файл заполняешь по мере реализации.
+Проект начинается **после 1.7**. До dynamic allocation/capacity он не должен быть prerequisite.
 
-## Status
+## Поведение
 
-## API
+Vector хранит последовательность `int`:
 
-Запиши выбранные signatures и error semantics.
+- начинается пустым;
+- `push` добавляет значение в конец;
+- `get` читает существующий element;
+- при необходимости internal storage растёт;
+- allocation failure не портит старое содержимое;
+- `destroy` освобождает owned resource и оставляет object в безопасном empty state.
 
-## Representation
+## Документы
 
-```text
-data pointer:
-size:
-capacity:
-element type:
-```
+- [`SPEC.md`](SPEC.md) — technical contract;
+- [`ACCEPTANCE.md`](ACCEPTANCE.md) — gate;
+- [`TESTS.md`](TESTS.md) — semantic scenarios;
+- [`HINTS.md`](HINTS.md) — hints без full solution.
 
-## Ownership
-
-Кто владеет backing allocation? Что invalidates element pointers? Что происходит после destroy?
-
-## Growth policy
-
-Начальная capacity, factor, overflow/failure behavior.
-
-## Build / tests
-
-```text
-make
-make test
-make clean
-```
-
-Запиши sanitizer command/target.
-
-## Invariants
-
-Минимум: `size <= capacity`, valid allocation/capacity relation, no out-of-bounds initialized elements.
-
-## Debugging story
-
-Symptom → hypothesis → evidence → root cause → fix → regression test.
-
-## Known limitations / transfer
-
-Опиши выбранное расширение и memory/performance trade-off.
+Student writes implementation. Полного milestone solution в репозитории нет.

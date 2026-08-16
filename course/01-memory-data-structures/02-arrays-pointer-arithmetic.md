@@ -1,157 +1,133 @@
-# 1.2 — Arrays, pointers и pointer arithmetic
+# 1.2 — Почему массив и указатель связаны, но не являются одним и тем же
 
-**Теория:** ~50 мин  
-**Упражнение:** ~35 мин  
-**Project slice:** ~30–45 мин  
-**С телефона:** теория — да
+**Теория:** ~65 мин  
+**Практика:** ~60 мин  
+**С телефона:** теория — да; практика — ПК
 
 ← [`01-addresses-pointers.md`](01-addresses-pointers.md) · → [`03-const-types-bits.md`](03-const-types-bits.md)
 
-## Цель
+## Проблема
 
-Понять связь массивов и pointers без ложного правила «array = pointer».
-
-## Prerequisite check
-
-1. Что хранит `int *p`?
-2. Что делает `*p`?
-3. Что было особенного с длиной array в Module 0?
-
-## Array — не pointer
+Мы уже проходили массив:
 
 ```c
-int a[4] = {10, 20, 30, 40};
+int values[4] = {10, 20, 30, 40};
 ```
 
-`a` — **array object** из четырёх `int`.
+Теперь нужно понять, почему функция обычно получает массив вместе с отдельной длиной и почему выражения с array names часто выглядят как pointer operations.
 
-В большинстве expressions имя массива преобразуется (decays) в pointer на первый element:
+## Элементы лежат подряд
 
-```c
-int *p = a;
-```
-
-эквивалентно по адресу первого элемента:
-
-```c
-int *p = &a[0];
-```
-
-Но сам array object не превращается в pointer как сущность.
-
-Доказательство на уровне поведения:
-
-```c
-sizeof(a)
-```
-
-в scope настоящего массива даёт размер всего массива, а:
-
-```c
-sizeof(p)
-```
-
-даёт размер pointer object.
-
-## Array parameter trap
-
-```c
-void f(int values[10])
-```
-
-в parameter list не передаёт в функцию «полный array object из 10 ints». Для большинства практических целей parameter adjusted to pointer type.
-
-Поэтому функция должна получать length отдельно:
-
-```c
-void f(int values[], size_t count);
-```
-
-или эквивалентно:
-
-```c
-void f(int *values, size_t count);
-```
-
-Это объясняет, почему `sizeof(values)` внутри функции не даёт исходную array length.
-
-## Pointer arithmetic
-
-Если `p` указывает на element массива, `p + 1` указывает на следующий element, а не «на адрес + 1 byte».
-
-```c
-int *p = a;
-printf("%d\n", *(p + 2));  // 30
-```
-
-Компилятор масштабирует шаг согласно типу pointed object.
-
-Для valid array object разрешено формировать pointer на **one past the last element**, но dereference такого pointer недопустим.
+Для массива элементы одного типа расположены последовательно.
 
 ```text
-&a[0] ... &a[3]  -> valid elements
-&a[4]            -> one-past pointer: можно сравнивать/использовать как boundary,
-                    нельзя *dereference
+values[0]  values[1]  values[2]  values[3]
 ```
 
-## `a[i]` и pointer notation
-
-На концептуальном уровне:
+Адрес первого элемента:
 
 ```c
-a[i]
+&values[0]
 ```
 
-эквивалентно:
+Во многих выражениях имя массива автоматически преобразуется в pointer на первый элемент. Это называют **array-to-pointer conversion**; не «массив становится pointer навсегда».
 
 ```c
-*(a + i)
+int *p = values;
 ```
 
-Это помогает понять array indexing, но не означает, что pointer notation всегда лучше читается.
+## Почему `p + 1` не значит «прибавить один byte»
 
-## Pointer subtraction
+Pointer arithmetic масштабируется размером типа, на который pointer указывает:
 
-Разность двух pointers в пределах одного array object может описывать расстояние в элементах. Результат имеет специальный signed type `ptrdiff_t`.
+```c
+p + 1
+```
 
-Не вычитай произвольные адреса unrelated objects и не строй логику на их «числовой близости».
+означает pointer к следующему `int` того же массива.
 
-## Strings снова
+Поэтому:
 
-C string часто передаётся как `const char *`, то есть pointer на первый character sequence. Функции вроде `strlen` идут вперёд до terminator.
+```c
+values[i]
+```
 
-Отсюда два обязательных контракта:
+и
 
-- pointer должен адресовать доступную последовательность;
-- в пределах доступной последовательности должен существовать `\0`.
+```c
+*(values + i)
+```
 
-## Causal questions
+описывают доступ к одному элементу при допустимом `i`.
 
-1. Почему фраза «array — это pointer» вводит в заблуждение?
-2. Почему `sizeof` помогает увидеть разницу?
-3. Зачем разрешён one-past pointer, если его нельзя dereference?
-4. Почему `p + 1` для `int *` не означает «следующий byte»?
+## Граница и one-past pointer
 
-## Упражнение
+Для массива из `N` элементов допустимо вычислить pointer **ровно за последним элементом** — one-past pointer:
 
-Создай array из 6 integers.
+```c
+int *end = values + 4;
+```
 
-1. Выведи элементы через indexing.
-2. Выведи те же элементы через pointer traversal.
-3. Вычисли address first element и one-past boundary.
-4. Не dereference boundary.
-5. Передай array в функцию вместе с explicit count и внутри сравни `sizeof(parameter)` с `sizeof(array)` у caller.
+Он полезен как граница цикла, но разыменовывать `end` нельзя.
 
-### Self-check
+```text
+[0] [1] [2] [3] | end
+ ^               ^
+ first           one-past
+```
 
-Ты должен суметь объяснить различие результатов `sizeof` без фразы «компилятор странный».
+Pointer arithmetic имеет смысл только внутри одного array object и его one-past boundary. Это не универсальная арифметика по всей памяти процесса.
+
+## Почему функция теряет размер массива
+
+Параметр вида:
+
+```c
+void print_all(int values[])
+```
+
+в function parameter context фактически описывает pointer parameter. Функция не получает встроенное число элементов. Поэтому честный API выглядит так:
+
+```c
+void print_all(const int *values, size_t count);
+```
+
+## BROKEN EXAMPLE — только для диагностики compiler warning
+
+Следующий эксперимент намеренно показывает плохую mental model и **не является корректным образцом**:
+
+```c
+void bad_sizeof(int values[])
+{
+    printf("%zu\n", sizeof values);
+}
+```
+
+С warning flags compiler обычно сообщает, что `sizeof` применяется к adjusted pointer parameter. После эксперимента удали этот код. Correct API передаёт `count` отдельно.
+
+## Практика
+
+Напиши:
+
+```c
+int sum_ints(const int *values, size_t count, int *out_sum);
+```
+
+Contract:
+
+- `out_sum == NULL` → failure;
+- `values == NULL` допустим только при `count == 0`;
+- не читать ни одного элемента за `count`;
+- пока считать, что сумма помещается в `int` — overflow разберём в следующем уроке.
 
 Разбор: [`02-arrays-pointer-arithmetic.solution.md`](02-arrays-pointer-arithmetic.solution.md).
 
-## Project slice
+## Causal questions
 
-В MiniKV убедись, что каждый API, работающий с external array/buffer, получает достаточную информацию о capacity/length. Не пытайся «восстановить» length через `sizeof(parameter)`.
+1. Почему `values + 1` двигается к следующему `int`, а не к следующему byte?
+2. Для чего можно вычислять one-past pointer, если его нельзя dereference?
+3. Почему `sizeof` внутри array parameter не восстанавливает caller array length?
 
 ## Exit check
 
-Ответь: когда expression `a` превращается в pointer и почему это всё равно не делает type `int[4]` тем же самым, что `int *`?
+Ты не говоришь «array — это pointer». Ты можешь точно объяснить, **в каких выражениях** происходит conversion и что теряется на function boundary.

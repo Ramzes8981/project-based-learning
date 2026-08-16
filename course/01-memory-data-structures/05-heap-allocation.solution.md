@@ -1,32 +1,34 @@
 # Разбор 1.5
 
-Фрагмент безопасного size check:
+Один ясный contract: zero count возвращает success и `*out = NULL`.
 
 ```c
+#include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 
-if (n != 0 && sizeof(int) > SIZE_MAX / n) {
-    /* size overflow */
-}
+int make_zeroed_ints(size_t count, int **out)
+{
+    if (out == NULL) {
+        return 0;
+    }
+    *out = NULL;
 
-int *values = malloc(n * sizeof(*values));
-if (values == NULL && n != 0) {
-    /* allocation failure */
-}
-```
+    if (count == 0) {
+        return 1;
+    }
+    if (count > SIZE_MAX / sizeof(int)) {
+        return 0;
+    }
 
-Safe `realloc`:
+    int *items = calloc(count, sizeof *items);
+    if (items == NULL) {
+        return 0;
+    }
 
-```c
-int *tmp = realloc(values, new_n * sizeof(*values));
-if (tmp == NULL && new_n != 0) {
-    free(values);
+    *out = items;
     return 1;
 }
-values = tmp;
 ```
 
-В реальном коде перед `realloc` нужно так же проверить multiplication overflow для `new_n`.
-
-Цель solution — показать ownership/failure structure, а не дать Vector implementation.
+Caller, получив non-null `*out`, становится owner и обязан вызвать `free` ровно один раз. Zero-size policy здесь задана самим API и не зависит от спорных corner cases `realloc(ptr, 0)`.
