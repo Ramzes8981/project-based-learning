@@ -1,75 +1,55 @@
-# Module 1 — Checkpoint
+# 1.19 — Checkpoint: memory safety + data-structure trade-offs
 
-**Время:** ~2–4 часа без доработки milestone  
-**С телефона:** вопросы — да; review/build — ПК
+**Время:** ~3–5 часов  
+**С телефона:** explain/review — да; projects — ПК
 
-← [`20-resize-rehash.md`](20-resize-rehash.md) · ↑ [`README`](README.md)
+← [`20b-graphs-paths.md`](20b-graphs-paths.md) · ↑ [`README`](README.md)
 
-## A. Memory reasoning
+## Gate A — memory model
 
-Без поиска объясни:
+Без кода объясни:
 
-1. array object vs pointer;
-2. lifetime vs numerical address;
-3. owner vs borrow;
-4. `malloc` failure path;
-5. почему `realloc` нужен temporary pointer;
-6. use-after-free/double-free/leak;
-7. что sanitizers доказывают и чего не доказывают;
-8. pointer invalidation после Vector growth.
+1. object vs address vs pointer;
+2. array-to-pointer conversion и потерю length на function boundary;
+3. one-past rule;
+4. почему `p != NULL` не доказывает validity;
+5. lifetime и dangling pointer;
+6. C ownership convention;
+7. checked `size_t` arithmetic;
+8. `malloc/realloc/free` ownership transitions;
+9. почему successful `realloc` инвалидирует borrowed element pointers;
+10. UB vs ordinary runtime error;
+11. byte sequence vs C string vs UTF-8 text.
 
-## B. Algorithms/DS
+Vector должен проходить acceptance/sanitizers.
 
-Объясни и сравни:
+## Gate B — algorithmic thinking
 
-- linear vs binary search;
-- insertion/merge/quick/heap sort trade-offs;
-- recursion depth;
-- BST height/degeneration;
-- heap/Priority Queue;
-- DP state/transition;
-- Trie vs Hash Table;
-- expected vs worst-case hashing.
-
-## C. Situational checks
-
-### 1
-`size_t i = 0; parent = (i - 1) / 2;` — что происходит и каков precondition?
-
-### 2
-Callback API сохраняет `void *ctx`, который указывает на local caller variable. Что нужно знать до return?
-
-### 3
-Hash insert нашёл tombstone и сразу записал туда key, не проверив remainder chain. Какой bug возможен?
-
-### 4
-Resize сначала меняет `table->capacity`, потом allocation падает. Почему table может стать invalid?
-
-### 5
-BST содержит million keys и имеет height почти million. Что это говорит о complexity и recursion risk?
-
-## D. Vector milestone
-
-Проверь [`project/vector/ACCEPTANCE.md`](project/vector/ACCEPTANCE.md), свой README, `make test` и sanitizer run.
-
-## E. Hash Table milestone
-
-Проверь [`project/hash-table/ACCEPTANCE.md`](project/hash-table/ACCEPTANCE.md): ownership, collisions, tombstones, resize, failure paths, metrics, tests.
-
-Обязательно добавь debugging story и transfer feature в project README.
-
-## Gate
-
-Module 1 закрыт, когда ты можешь не только написать структуры, но и объяснить:
+Для Vector, linked list, sorted array, BST, heap, hash table назови:
 
 ```text
-representation
-+ invariants
-+ ownership
-+ complexity
-+ failure behavior
-+ tests
-+ measurement
+главные операции
+инвариант
+expected/worst cost where meaningful
+memory/layout trade-off
+failure/edge cases
+systems use case
 ```
 
-После этого Rust Bridge будет полезен: borrow checker станет ответом на проблемы, которые уже пришлось контролировать вручную в C.
+Hash Table должен проходить collision/delete/resize/failure tests.
+
+## Graph transfer
+
+Объясни, почему routing/dependency/deadlock relationships естественно моделируются graph, и когда BFS vs Dijkstra appropriate.
+
+## Debugging story
+
+Минимум одна история должна содержать memory-safety evidence (sanitizer/precise invariant failure), а не только «посмотрел на код и исправил».
+
+## Optional does not block
+
+DP/KMP/Trie/probability deep dive не входят в core gate. Их можно пройти сейчас или позже по возникновению задачи.
+
+## Exit check
+
+Ты готов к Rust bridge, если можешь сформулировать C ownership/lifetime contracts настолько точно, чтобы затем увидеть, **какие из них Rust заставит кодировать в типах/borrows**.

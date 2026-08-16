@@ -1,30 +1,34 @@
 # Hash Table — Hints
 
-## Hint 1 — separate concerns
+## Hint 1
 
-Раздели conceptual operations:
+Сначала fixed-size table. Если collision/delete semantics неверны, resize только размножит bug.
+
+## Hint 2
+
+Probe loop должен иметь explicit maximum iterations `slot_count`.
+
+## Hint 3
+
+Для lookup `DELETED` означает «продолжай», а `EMPTY` — «можно остановиться: key не найден дальше в этой probe chain».
+
+## Hint 4
+
+Resize проще reason about как transaction-like rebuild:
 
 ```text
-hash key
-find start bucket
-probe for existing key / insertion slot
-copy/store entry
+prepare new table
+populate completely
+commit pointer/metadata swap
+release old container storage
 ```
 
-Не пытайся написать весь `set()` одним giant block.
+Не уничтожай единственный correct old state до commit.
 
-## Hint 2 — termination
+## Hint 5
 
-Любой probe loop должен иметь максимум bounded attempts относительно capacity. Даже full/corrupt-ish state не должен превращаться в infinite loop.
+Отдельно нарисуй key ownership при rehash. Именно здесь легко создать double free или leak.
 
-## Hint 3 — tombstone
+## Hint 6
 
-Для lookup tombstone означает «продолжай». Для insertion он может быть candidate slot, но поиск existing duplicate key всё равно может требовать продолжения.
-
-## Hint 4 — resize failure
-
-Не освобождай old table, пока fresh table не построена успешно.
-
-## Hint 5 — ownership
-
-Если table копирует strings, продумай cleanup не только normal destroy, но и partial failure во время insertion/rehash.
+Не оптимизируй hash function до collision fixtures и invariants. Correct collision handling важнее красивого distribution benchmark.

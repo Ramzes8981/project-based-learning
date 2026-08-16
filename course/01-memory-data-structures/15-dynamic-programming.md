@@ -1,62 +1,41 @@
-# 1.15 — Dynamic Programming: state, transition, memoization
+# Optional 1A — Когда повторяющиеся подзадачи стоит запоминать
 
-**Теория:** ~85 мин  
-**Упражнение:** ~90 мин  
-**С телефона:** да
+**Статус:** optional; не блокирует core systems path.  
+**Теория:** ~70 мин · **Практика:** ~70 мин · **С телефона:** да
 
-← [`14-heap-priority-queue.md`](14-heap-priority-queue.md) · → [`16-string-searching.md`](16-string-searching.md)
+↑ [`README`](README.md) · optional next → [`16-string-searching.md`](16-string-searching.md)
 
-## Цель
+Этот урок сохранён для algorithm depth, но Hash Table/Unix/OS/networking от него не зависят.
 
-Уметь распознать повторяющиеся subproblems и превратить экспоненциальную recursion в вычисление каждого состояния ограниченное число раз.
+## Проблема
 
-## DP не равно «таблица»
+Некоторые recursive formulations вычисляют один и тот же subproblem много раз. Если subproblem result зависит только от небольшого state, его можно сохранить и reused.
 
-Сначала определить:
+Это семейство техник называют **динамическим программированием (dynamic programming, DP)**.
 
-1. **State:** какая минимальная информация описывает subproblem?
-2. **Transition:** из каких меньших states получаем текущий?
-3. **Base cases:** что известно без рекурсии?
-4. **Order:** в каком порядке states становятся доступными?
+## Две идеи
 
-Memoization и tabulation — способы вычисления, не сама идея.
+- **memoization**: recursive/top-down + cache computed states;
+- **tabulation**: iterative/bottom-up table in dependency order.
 
-## Example: climbing stairs
+DP нужен не потому, что «задача сложная», а когда есть overlapping subproblems + полезная state decomposition.
 
-Если можно шагать на 1 или 2:
+## Пример
 
-```text
-ways(n) = ways(n-1) + ways(n-2)
-```
+Naive Fibonacci — учебный пример повторной работы, но не шаблон всех DP-задач. Более инженерный пример: минимальная стоимость пройти sequence states с локальными transitions.
 
-Naive recursion повторяет states. Memoization хранит уже вычисленное. Bottom-up tabulation идёт от base cases вверх.
+## Checklist
 
-## Complexity
+Перед DP спроси:
 
-Если states `n`, а transition каждого `O(1)`, total `O(n)`. Memory может быть `O(n)` или `O(1)`, если transition зависит только от последних двух states.
+1. Что является state?
+2. Какие states нужны для вычисления текущего?
+3. Есть ли overlapping work?
+4. Какова table size?
+5. Нужен ли весь table или только previous layer?
 
-## Example: coin change intuition
+## Практика
 
-State может быть `best amount` или пара `(coin_index, amount)` — выбор state определяет correctness и complexity. Слишком мало state теряет информацию; слишком много делает алгоритм дорогим.
-
-## Упражнение
-
-Реши одну задачу двумя способами:
-
-**minimum cost to reach position n**, где из `i` можно перейти в `i+1`/`i+2`, а каждая позиция имеет cost.
-
-Сначала запиши recurrence и base cases **без кода**, затем memoized или bottom-up C implementation. Добавь tests для `n=0/1/2`, нескольких cost patterns.
+Возьми небольшую shortest-cost-on-line задачу, сначала запиши recurrence, затем memoized и bottom-up versions. Сравни число вычисленных states.
 
 Разбор: [`15-dynamic-programming.solution.md`](15-dynamic-programming.solution.md).
-
-## Anti-patterns
-
-- начинать с multidimensional array без определения state;
-- путать greedy choice и DP;
-- забыть invalid/unreachable states;
-- arithmetic overflow в count-style задачах;
-- memo table с sentinel, который может быть валидным результатом.
-
-## Exit check
-
-Объясни DP-задачу формулой `state + transition + base cases + computation order`, не словом «табличка».

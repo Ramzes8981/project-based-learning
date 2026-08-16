@@ -1,77 +1,57 @@
-# 1.12 — Recursion, call stack и recurrence intuition
+# 1.12 — Когда задача естественно содержит уменьшенную копию самой себя
 
-**Теория:** ~70 мин  
-**Упражнение:** ~60 мин  
-**С телефона:** да
+**Теория:** ~60 мин  
+**Практика:** ~60 мин  
+**С телефона:** теория — да; практика — ПК
 
 ← [`11-sorting.md`](11-sorting.md) · → [`13-bst-traversals-balanced-trees.md`](13-bst-traversals-balanced-trees.md)
 
-## Цель
+## Проблема
 
-Понимать рекурсию как обычные function calls со своими состояниями, уметь определить base case, progress measure и оценить depth/work.
+Некоторые структуры сами состоят из структур того же вида: дерево содержит поддеревья, directory содержит nested directories, divide-and-conquer делит задачу на меньшие версии.
 
-## Три обязательных вопроса
+Повторять вручную неизвестное число уровней неудобно.
 
-Для recursive function:
+## Recursion
 
-1. **Base case:** когда вызовы прекращаются?
-2. **Progress:** почему каждый recursive step приближает к base case?
-3. **State:** какие данные нужны каждому frame после возврата дочернего вызова?
+Когда function решает задачу через вызов самой себя для меньшего input, это **рекурсия (recursion)**.
 
-## Call stack
-
-Каждый незавершённый вызов хранит свой execution state. Поэтому depth влияет на stack usage.
+Нужны две вещи:
 
 ```text
-f(4)
- └─ f(3)
-     └─ f(2)
-         └─ f(1)
+base case      — где больше не рекурсируем
+progress rule  — почему каждый call приближает к base case
 ```
 
-`O(n)` recursive depth может быть опасен при большом `n`, даже если total work тоже `O(n)`.
+Без progress recursion может не завершиться.
+
+## Call stack cost
+
+Каждый незавершённый recursive call добавляет состояние вызова. Очень глубокая recursion может исчерпать доступный call stack.
+
+Поэтому recursion — не «всегда красивее loop». Нужно оценить maximum depth.
 
 ## Recurrence intuition
 
-Merge sort work можно описать приблизительно:
+Для merge sort грубая cost model:
 
 ```text
 T(n) = 2*T(n/2) + O(n)
 ```
 
-На каждом уровне дерева суммарное merge-work порядка `n`, уровней порядка `log n` → `O(n log n)`.
+Два subproblems половинного размера + linear merge. На каждом уровне суммарная merge-work порядка `n`, уровней порядка `log n`, поэтому возникает `O(n log n)`.
 
-Не требуется формально решать любые recurrence equations; цель — уметь нарисовать recursion tree и посчитать уровни/работу.
+Не требуется формальный Master Theorem как gate; важно видеть связь structure → work.
 
-## Exponential recursion
+## Практика
 
-Наивный Fibonacci:
-
-```text
-fib(n) -> fib(n-1) + fib(n-2)
-```
-
-повторно вычисляет одни и те же subproblems. Это подводка к dynamic programming.
-
-## Recursion vs iteration
-
-Recursion удобна, когда структура задачи сама рекурсивна: tree traversal, divide-and-conquer, parser. Iteration часто лучше контролирует stack и состояние для линейной задачи.
-
-## Упражнение
-
-1. Реализуй recursive sum для маленького массива, но явно ограничь размер теста и сравни с iterative version.
-2. Нарисуй frames для `sum(a, 3)`.
-3. Для merge sort нарисуй recursion tree для `n=8` и оцени число уровней.
+1. Напиши recursive sum для маленького array range `[lo, hi)`.
+2. Назови base case и progress rule.
+3. Перепиши его loop-ом и сравни state/cost.
+4. Нарисуй call tree для `n=4` divide-and-conquer example.
 
 Разбор: [`12-recursion-recurrences.solution.md`](12-recursion-recurrences.solution.md).
 
-## Causal questions
-
-1. Почему наличие base case не гарантирует termination?
-2. Как `n -> n-1` доказывает progress при `n >= 0`?
-3. Почему recursive traversal дерева естественнее recursive traversal гигантского линейного массива?
-4. Что именно повторяет naive Fibonacci?
-
 ## Exit check
 
-Для любой рекурсивной функции сначала назови base case, progress measure и maximum expected depth.
+Для любой recursive function ты можешь показать, почему она terminates и какова worst-case depth.

@@ -1,68 +1,18 @@
-# 1.16 — Поиск подстроки: naive, KMP intuition, Rabin–Karp
+# Optional 1B — Как искать подстроку быстрее повторного полного сравнения
 
-**Теория:** ~90 мин  
-**Упражнение:** ~75 мин  
+**Статус:** optional; не блокирует core.  
 **С телефона:** да
 
-← [`15-dynamic-programming.md`](15-dynamic-programming.md) · → [`17-trie.md`](17-trie.md)
+← [`15-dynamic-programming.md`](15-dynamic-programming.md) · optional next → [`17-trie.md`](17-trie.md)
 
-## Цель
+Сначала naive substring search: для каждой допустимой start position сравнить pattern. Worst-case может повторять одну и ту же работу.
 
-Понять, как алгоритм использует структуру pattern, чтобы не начинать сравнение заново после каждого mismatch.
+KMP использует information о собственных prefix/suffix pattern, чтобы не откатывать input index бессмысленно. Rabin–Karp сначала сравнивает rolling hash windows, но hash match требует verification из-за collisions.
 
-> В этом уроке C string рассматривается как последовательность bytes до `\0`. Unicode/text semantics будут отдельным уроком в Rust Bridge.
+Ключевой systems takeaway:
 
-## Naive search
+- проверять `pattern_len > text_len` **до** выражений вроде `text_len - pattern_len` с `size_t`;
+- hashing ускоряет candidate filtering, но collision означает необходимость final byte comparison;
+- algorithm choice зависит от pattern count/input model.
 
-Для каждой possible start position сравниваем pattern слева направо.
-
-Worst case `O(n*m)` для text length `n`, pattern length `m`.
-
-## Prefix function / KMP intuition
-
-Если часть pattern уже совпала, mismatch не всегда заставляет забыть всё совпадение. Нужно знать длину крупнейшего proper prefix pattern, который одновременно suffix уже совпавшей части.
-
-Prefix table строит эту информацию заранее.
-
-```text
-pattern: a b a b a c
-prefix:  0 0 1 2 3 0
-```
-
-Во время search pointer по text не откатывается назад; pattern state переходит по prefix information. Итоговая complexity `O(n+m)`.
-
-Не заучивай код префикс-функции как заклинание: на каждом fallback спрашивай, какой prefix уже гарантированно совпадает.
-
-## Rabin–Karp
-
-Сравнивает rolling hash окон длины pattern.
-
-```text
-hash(window) == hash(pattern)
-```
-
-не означает равенство: hash collision возможен, поэтому candidate обычно подтверждается byte comparison.
-
-Преимущество — быстрое обновление hash при сдвиге окна и естественная связь с hashing/probability.
-
-## Упражнение
-
-Обязательно реализуй naive substring search для byte strings с явными lengths (не полагайся только на `strlen`).
-
-Затем на бумаге построи prefix table для нескольких patterns и проследи KMP transitions. Полная KMP implementation — transfer task, если базовая логика понятна.
-
-Для Rabin–Karp посчитай toy rolling hash на маленьком modulus и специально найди collision, чтобы не спутать hash с proof equality.
-
-Разбор: [`16-string-searching.solution.md`](16-string-searching.solution.md).
-
-## Edge cases
-
-- empty pattern — заранее выбери contract;
-- pattern longer than text;
-- repeated characters;
-- binary bytes с `0` требуют length-based API, не C-string API;
-- arithmetic overflow в rolling hash должен быть частью выбранной unsigned/modular модели.
-
-## Exit check
-
-Почему KMP умеет не откатывать text index, а Rabin–Karp обязан подтверждать совпавший hash?
+Практика/разбор остаются в [`16-string-searching.solution.md`](16-string-searching.solution.md).

@@ -1,110 +1,86 @@
-# 1.11 — Sorting: алгоритмы и инженерные trade-offs
+# 1.11 — Когда выгодно сначала упорядочить данные
 
-**Теория:** ~90 мин  
-**Упражнение:** ~90 мин  
-**С телефона:** теория — да
+**Теория:** ~70 мин  
+**Практика:** ~80 мин  
+**С телефона:** теория — да; практика — ПК
 
 ← [`10-complexity-invariants-binary-search.md`](10-complexity-invariants-binary-search.md) · → [`12-recursion-recurrences.md`](12-recursion-recurrences.md)
 
-## Цель
+## Проблема
 
-Не заучить пять сортировок, а понимать, почему одинаковая цель может иметь разные time/memory/stability trade-offs.
+Binary search быстрый, но требует sorted data. Значит, иногда мы платим стоимость сортировки заранее, чтобы будущие операции стали дешевле или проще.
 
-## Термины
+## Что значит «sorted»
 
-**Stable sort:** равные по key элементы сохраняют относительный порядок.
-
-**In-place:** требует только небольшую дополнительную память относительно input (точное определение зависит от модели).
-
-**Adaptive:** может выигрывать на уже почти отсортированном input.
-
-## Insertion sort
-
-Поддерживает sorted prefix и вставляет следующий элемент в нужное место.
-
-- worst: `O(n²)`;
-- почти отсортированные данные: часто близко к линейному числу сдвигов;
-- stable при аккуратной реализации;
-- in-place.
-
-Полезен для маленьких массивов и как building block гибридных сортировок.
-
-## Selection sort
-
-На каждом шаге ищет минимум remainder и ставит на позицию.
-
-- `Θ(n²)` comparisons почти независимо от initial order;
-- мало swaps;
-- простой, но редко лучший general-purpose выбор.
-
-## Merge sort
+Для ascending integers invariant результата:
 
 ```text
-split
-sort left/right
-merge sorted halves
+a[i] <= a[i + 1] для каждого допустимого i
 ```
 
-- `O(n log n)`;
-- легко сделать stable;
-- array version обычно требует auxiliary buffer `O(n)`;
-- predictable worst case.
+Это oracle, который можно проверить независимо от конкретного algorithm.
 
-## Quicksort
+## Простые алгоритмы нужны как baseline
 
-Выбирает pivot, partition и рекурсивно сортирует части.
+### Insertion sort
 
-- average `O(n log n)`;
-- worst `O(n²)` при плохом pivot/partition sequence;
-- хорошая locality и малые constants делают его практически важным;
-- recursive stack depth тоже часть resource analysis.
+Идея:
 
-## Heapsort
+```text
+prefix [0, i) уже отсортирован
+вставить a[i] в правильное место
+расширить sorted prefix
+```
 
-Строит binary heap и многократно извлекает extreme element.
+Хорош для маленьких или почти sorted inputs; worst-case `O(n²)` moves/comparisons.
 
-- `O(n log n)` worst case;
-- in-place;
-- обычно unstable;
-- access pattern часто менее cache-friendly, чем quicksort.
+### Selection sort
 
-Heap подробно построим отдельным уроком.
+На каждом шаге найти минимум в unsorted suffix и поставить его на границу. Простая mental model, но даже на почти sorted data продолжает делать квадратичное число comparisons.
 
-## Почему library sort обычно лучше
+## Divide-and-conquer sorting
 
-Production sorting library учитывает тип данных, architecture, adversarial inputs и годы оптимизации. Учебная реализация нужна для модели, не для замены стандартной библиотеки.
+### Merge sort
 
-## Comparator safety
+Разделить input, отсортировать части, затем слить sorted sequences. Typical time `O(n log n)`, но straightforward implementation требует дополнительного storage.
 
-Comparator должен задавать согласованный ordering. Нельзя писать `return a - b` для произвольных `int`: subtraction может overflow. Безопаснее сравнение по отношениям:
+### Quicksort intuition
+
+Разделить around pivot, затем сортировать parts. Average behavior часто хорош, но bad pivot/input может дать `O(n²)` without mitigation. Standard library implementation details не обязаны совпадать с учебным quicksort.
+
+## `qsort` и comparator contract
+
+C standard library даёт generic `qsort`. Comparator должен вернуть negative/zero/positive according to order.
+
+Плохой pattern:
+
+```c
+return a - b;
+```
+
+Разность signed ints может overflow.
+
+Безопаснее сравнить явно:
 
 ```c
 return (a > b) - (a < b);
 ```
 
-## Упражнение
+## Stability
 
-Самостоятельно реализуй insertion sort и merge sort для `int[]`.
+**Stable sort** сохраняет relative order records с equal keys. Это важно, если данные уже были упорядочены по другому field.
 
-Для каждого запиши:
+Не все sorting algorithms/implementations stable; contract нужно проверять, а не угадывать по названию.
 
-- invariant;
-- worst-case time;
-- extra memory;
-- stability;
-- boundary tests.
+## Практика
 
-Затем на бумаге пройди один partition quicksort, но полный quicksort код пока не обязателен.
+1. Реализуй insertion sort для `int`.
+2. После каждого outer step assert/check sorted-prefix invariant в test build.
+3. Сравни number of comparisons/moves на sorted, reverse и random small arrays.
+4. Отдельно используй `qsort` с overflow-safe comparator.
 
 Разбор: [`11-sorting.solution.md`](11-sorting.solution.md).
 
-## Ситуационные вопросы
-
-1. Почему `O(n²)` insertion sort иногда выигрывает у `O(n log n)` на 12 почти sorted элементах?
-2. Почему merge sort удобен, когда нужна stability?
-3. Что плохой pivot делает quicksort?
-4. Почему comparator overflow способен сломать сортировку, даже если массив небольшой?
-
 ## Exit check
 
-Для каждого из пяти алгоритмов назови главную причину выбрать или не выбрать его.
+Какое будущее workload оправдывает стоимость предварительной сортировки, и почему «`O(n log n)`» ещё не выбирает algorithm автоматически?
