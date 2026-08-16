@@ -4,7 +4,7 @@
 **Упражнения:** ~45 мин  
 **С телефона:** да
 
-← [`README`](README.md) · → [`02-boolean-logic-alu.md`](02-boolean-logic-alu.md)
+← [`README`](README.md) · → [`01b-floating-point-ieee754.md`](01b-floating-point-ieee754.md)
 
 ## Цель
 
@@ -82,13 +82,13 @@ Network protocols часто задают multi-byte integers в big-endian/netw
 
 ## Object bytes
 
-В C можно исследовать bytes объекта через `unsigned char*`/byte-oriented view. Это полезный controlled experiment для representation.
+В C можно исследовать bytes объекта через `unsigned char *`. Character types имеют специальную роль для наблюдения object representation; не делай из этого общего разрешения alias arbitrary objects через любой pointer type.
 
 ## Exercise
 
 1. Переведи `0xA7`, `0x1234` в binary.
 2. Представь `-1`, `-2`, `127`, `-128` в 8-bit two's complement.
-3. Напиши маленькую C-программу, которая выводит bytes `uint32_t 0x12345678` в твоём окружении.
+3. Напиши C-программу, которая выводит bytes `uint32_t 0x12345678` через `const unsigned char *`.
 4. Объясни observed endianness.
 
 Разбор: [`01-bits-integers-endianness.solution.md`](01-bits-integers-endianness.solution.md).
