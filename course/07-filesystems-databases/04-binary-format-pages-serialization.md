@@ -1,6 +1,6 @@
 # 7.4 — Binary formats, pages и serialization
 
-**Теория:** ~90 мин  
+**Теория:** ~95 мин  
 **Упражнение:** ~60 мин  
 **Project slice:** ~2–3 часа  
 **С телефона:** да
@@ -9,115 +9,94 @@
 
 ## Цель
 
-Спроектировать stable on-disk format без raw `fwrite(struct)` assumptions.
+Спроектировать stable on-disk format без raw `fwrite(struct)`/pointer-cast assumptions.
 
-## Почему page-oriented storage
+## Page-oriented storage
 
-Storage engines обычно группируют bytes fixed-size pages:
+Fixed-size page — удобная единица I/O/cache/index layout:
 
 ```text
-file offset = page_number * PAGE_SIZE
+page_offset = page_number * PAGE_SIZE
 ```
 
-Плюсы:
+Но multiplication проверяется до syscall: malformed page number не должен wrap `off_t`/size arithmetic.
 
-- единица I/O/cache;
-- predictable offsets;
-- index nodes fit pages;
-- dirty/eviction bookkeeping удобно page-based.
+SimpleDB использует 4096-byte pages и полностью course-owned format из [`project/FORMAT.md`](project/FORMAT.md).
 
-SQLite — реальный пример page-oriented DB; его официальный формат хранит main DB как последовательность pages и использует interior/leaf B-tree pages. citeturn526026search0turn526026search1
+## Почему raw struct dump плохой format
 
-Наш SimpleDB format проще и полностью определён в `project/FORMAT.md`.
+Compiler может вставлять padding/alignment. Host endianness и ABI влияют на integer/layout. Pointer fields вообще являются process addresses, бессмысленными после restart.
 
-## Почему нельзя dump C struct
+Stable format задаёт **offset + width + byte order + semantic meaning** каждого field.
+
+## Header
+
+Magic/version/page size/root page/page count позволяют отличить valid supported DB от random/incompatible bytes.
+
+Validation order важен:
+
+```text
+file at least one header page
+magic exact
+version supported
+page_size expected
+page_count consistent with actual file length
+root_page within allowed range
+only then traverse pages
+```
+
+## Canonical endianness
+
+SimpleDB v1 использует explicit little-endian multi-byte integers. Host endianness не должен менять file bytes.
+
+## Safe decode/encode
+
+Избегай:
 
 ```c
-struct Header {
-    uint8_t type;
-    uint32_t count;
-};
+*(uint32_t *)(buf + off)
 ```
 
-Compiler может вставить padding между fields. Endianness host также влияет на byte order multi-byte integers.
+Проблемы: alignment, aliasing, out-of-bounds, host byte order.
 
-Кроме того:
-
-- type sizes/ABI могут различаться;
-- struct layout меняется между versions;
-- pointers нельзя persist как process addresses.
-
-Поэтому disk format использует explicit offsets + encoded integer widths.
-
-## Magic и version
-
-File header должен позволить отличить:
-
-- наш DB от random file;
-- supported version от incompatible format.
-
-Например conceptual:
+Лучше explicit byte helpers, например conceptually:
 
 ```text
-magic[8]
-format_version u16
-page_size u16/u32
-root_page u32
-...
+decode_u32_le(p[0..4])
+encode_u32_le(value, p[0..4])
 ```
 
-Exact course format в project spec.
+или `memcpy` в suitably sized integer + explicit endian conversion после bounds check. Никогда не dereference unaligned cast pointer.
 
-## Endianness
+## Decoder rule
 
-Выбирается один canonical byte order независимо от host. Course SimpleDB использует little-endian explicit encoding, потому что так указано в FORMAT — выбор мог быть и другим.
-
-Важно не «little лучше», а reproducible contract.
-
-## Serialization helpers
-
-Вместо casts вроде:
-
-```c
-*(uint32_t *)(buf + offset)
-```
-
-которые могут нарушить alignment/aliasing, course code должен использовать explicit encode/decode bytes или `memcpy` + endian conversion with proven preconditions.
-
-## Bounds
-
-Decoder всегда получает:
+Каждая функция получает buffer length. До чтения width `w`:
 
 ```text
-buffer + buffer_len
+offset <= len
+w <= len - offset
 ```
 
-и до чтения field проверяет, что bytes существуют.
+Subtract-from-remaining pattern избегает overflow `offset + w`.
 
-Это тот же pattern, что network framing.
+## Determinism
 
-## Checksums preview
+Reserved bytes и unused cell tail в course format обнуляются. Это облегчает hex fixtures/reproducibility и уменьшает accidental leakage старого memory contents на диск.
 
-Checksum может обнаруживать случайное corruption, но не делает storage transactional/authenticated. Core format checksum не требует; можно добавить transfer feature.
+## Checksums
+
+Checksum обнаруживает часть случайной corruption, но не даёт transaction atomicity или authentication. Core v1 не требует checksum; transfer feature может добавить page checksum с version bump/flag.
 
 ## Exercise
 
-Спроектируй 32-byte header для toy file:
-
-- 4-byte magic;
-- version;
-- record count;
-- payload size;
-- reserved bytes.
-
-Нарисуй offset/width каждого field и manually encode one example as hex bytes.
+Спроектируй 32-byte toy header: magic/version/count/payload-size/reserved. Нарисуй offsets/widths и вручную encode one sample in hex. Затем напиши encode/decode helpers с boundary tests.
 
 Разбор: [`04-binary-format-pages-serialization.solution.md`](04-binary-format-pages-serialization.solution.md).
 
 ## Project slice
 
-Реализуй SimpleDB file header + empty root page according to [`project/FORMAT.md`](project/FORMAT.md). Добавь hex-dump test fixture.
+Создай SimpleDB header + empty root page согласно `FORMAT.md`; проверь file через [`project/tools/inspect_db.py`](project/tools/inspect_db.py) и собственный hex dump.
 
 ## Exit check
 
-Почему stable file format является protocol между версиями программы, а не private `struct` layout?
+On-disk format — protocol между версиями программы; private C layout не является protocol.

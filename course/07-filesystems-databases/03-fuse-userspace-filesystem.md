@@ -1,6 +1,6 @@
-# 7.3 — FUSE: filesystem interface в userspace
+# 7.3 — FUSE 3: filesystem callbacks в userspace
 
-**Теория:** ~65 мин  
+**Теория:** ~75 мин  
 **Guided lab:** ~2–4 часа  
 **С телефона:** теория — да
 
@@ -8,95 +8,92 @@
 
 ## Цель
 
-Увидеть filesystem как набор операций/contracts, которые kernel VFS может делегировать userspace process через FUSE.
+Увидеть filesystem как callback interface между kernel VFS и userspace daemon, применив function pointers из Module 1.
 
-## Зачем FUSE
-
-Обычный application вызывает:
+## Control flow
 
 ```text
-open/read/stat/readdir/...
+application open/stat/read/readdir
+↓
+VFS path/inode logic
+↓
+FUSE kernel interface
+↓
+libfuse dispatch
+↓
+our callbacks in userspace process
+↓
+errno/data response
 ```
 
-Kernel VFS выбирает filesystem implementation.
+FUSE project состоит из kernel interface и userspace library/runtime. Мы используем **high-level synchronous libfuse 3 API**, где callbacks работают с paths.
 
-FUSE позволяет части filesystem logic жить userspace:
+## Version contract
+
+Course lab использует:
+
+```c
+#define FUSE_USE_VERSION 31
+#include <fuse.h>
+```
+
+и `pkg-config fuse3 --cflags --libs` для compile/link. Полный локальный contract/signatures находится в [`FUSE3_MINI_REFERENCE.md`](FUSE3_MINI_REFERENCE.md).
+
+## Core callback table
+
+`struct fuse_operations` содержит function pointers. Для read-only toy FS нужны:
 
 ```text
-application syscall
-   ↓
-VFS/FUSE kernel interface
-   ↓
-userspace FUSE daemon callbacks
-   ↓
-response to kernel/application
+getattr
+readdir
+open
+read
 ```
 
-## High-level API model
+Это прямое применение callback-table model: library выбирает, когда вызвать функцию, а `user_data`/global state lifetime должен быть валиден всё время FUSE loop.
 
-Для учебного read-only filesystem нас интересуют callbacks вроде:
+## Callback не равен user syscall one-to-one
 
-- `getattr` — metadata/path type;
-- `readdir` — directory entries;
-- `open` — validate open request;
-- `read` — вернуть requested byte range.
+Kernel/cache/VFS способны выполнять иной request pattern, чем наивная модель «один `cat` → один callback read». Поэтому implementation обязана корректно обрабатывать любой valid offset/size sequence.
 
-Точные signatures зависят от libfuse 3 API version. Mandatory conceptual theory находится здесь; перед сборкой конкретного lab допустимо открыть current official API docs.
+## `getattr`
 
-Официальные libfuse examples по-прежнему используют `fuse3` build metadata и отдельные high/low-level examples. citeturn259580search8turn526026search3
+Заполняет `struct stat` для path. Unknown path → negative errno such as `-ENOENT`. Directory/file mode и size должны соответствовать тому, что затем делают `readdir/read`.
 
-## Callback != syscall one-to-one
+## `readdir`
 
-Kernel/page cache может объединять/изменять pattern requests. Не предполагай «один user `cat` = ровно один `read` callback».
+Для root перечисляет минимум `.` и `..` плюс virtual files. `filler` — ещё один callback: FUSE передаёт function pointer твоему callback.
 
-## Path and metadata
+## `read`: offset/size
 
-Virtual filesystem может вообще не иметь backing disk file. Callback сам synthesizes metadata/content.
-
-Пример:
+Для virtual content длины `len`:
 
 ```text
-/course/status
+if offset < 0 -> EINVAL-style error
+if offset >= len -> 0 (EOF)
+available = len - offset
+take = min(size, available)
+copy exactly take bytes
+return take
 ```
 
-может при каждом read генерировать current process statistics.
-
-## Offset и size
-
-`read` callback получает offset + requested size. Нужно вернуть correct slice:
-
-```text
-if offset >= content_len -> EOF/0
-else return min(size, content_len-offset) bytes
-```
-
-Нельзя всегда копировать полный content regardless buffer/request.
+Не вычисляй `offset + size > len` бездумно: signed/unsigned conversion и overflow хуже, чем subtract-from-available pattern.
 
 ## Errors
 
-FUSE API представляет filesystem errors через errno-style codes according to interface conventions. `ENOENT`, `EACCES` и др. должны отражать contract, а не random `-1`.
+High-level callbacks обычно возвращают `0`/positive byte count on success или **negative errno** (`-ENOENT`, `-EACCES`, ...). Не возвращай случайный `-1`, теряя semantic reason.
 
 ## Guided lab
 
-Не пиши full filesystem.
+1. root directory;
+2. read-only `/hello`;
+3. read-only `/stats`, content generated при read;
+4. log path + offset + requested size;
+5. test reads with `dd`/small buffers, not only `cat`;
+6. unmount/cleanup.
 
-1. Собери current libfuse 3 minimal high-level example или собственный equivalent по documented API.
-2. Экспортируй root directory.
-3. Добавь virtual read-only file `hello`.
-4. Добавь `stats`, content generated at read time.
-5. Логируй callback type/path/offset для наблюдения.
-6. Корректно unmount/cleanup.
-
-## What can go wrong
-
-- stale mount после crash;
-- неправильный `st_mode`/metadata;
-- read ignores offset;
-- callback возвращает wrong errno;
-- lab запускается там, где FUSE unavailable/permissions blocked.
-
-Environment failure не считается провалом CS-концепции.
+Если FUSE недоступен в WSL/environment, выполняй lab в Ubuntu VM/native Linux. Environment limitation не является conceptual failure.
 
 ## Exit check
 
-Объясни, как `cat /mount/stats` превращается в kernel VFS operations и userspace callbacks.
+Объясни путь `cat mount/stats` через VFS → FUSE → callback table → offset-based read response.

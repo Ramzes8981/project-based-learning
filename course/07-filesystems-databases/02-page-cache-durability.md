@@ -1,6 +1,6 @@
 # 7.2 — Page cache, dirty data, `fsync` и durability
 
-**Теория:** ~85 мин  
+**Теория:** ~90 мин  
 **Lab:** ~60 мин  
 **С телефона:** да
 
@@ -8,111 +8,101 @@
 
 ## Цель
 
-Отличать «write syscall успешно принял bytes» от «данные переживут crash/power loss».
+Отличать «write syscall принял bytes» от «выбранный failure model гарантирует сохранность данных».
 
-## Несколько слоёв buffering
+## Data path
 
-Упрощённый data path:
+Упрощённо:
 
 ```text
 application buffer
-  ↓
-libc buffering (если stdio)
-  ↓
-syscall
-  ↓
-OS page cache / dirty pages
-  ↓
-filesystem / block layer
-  ↓
-storage device caches/media
+↓
+libc stdio buffer (если используется)
+↓
+write/pwrite syscall
+↓
+kernel page cache: dirty pages
+↓
+filesystem/block layer
+↓
+device cache/controller/media
 ```
 
-`write()` success обычно означает, что kernel принял data according to API contract; это не универсальная гарантия physical durability.
+Успешный `write` означает, что операция выполнилась согласно syscall contract для переданных bytes. Это не универсальная гарантия пережить внезапную потерю питания.
 
 ## Page cache
 
-Regular file data часто кэшируется pages в RAM.
+Regular-file reads/writes обычно проходят через kernel cache, если не выбран специальный direct-I/O режим.
 
-Read:
+Read hit может не требовать device I/O. Write часто изменяет cached page и делает её dirty; writeback происходит позже.
 
-- cache hit → storage I/O может не понадобиться;
-- miss → kernel загружает data.
+Следствие:
 
-Write:
-
-- page изменяется/становится dirty;
-- kernel может flush later.
-
-Это повышает throughput и coalescing, но разделяет logical write completion и durable persistence.
+```text
+logical visibility != durable persistence
+```
 
 ## `fsync`
 
-`fsync(fd)` запрашивает synchronized completion file data + metadata, необходимой для retrieval, в рамках filesystem/device contract.
+`fsync(fd)` — explicit synchronization boundary для file data и metadata, необходимой для последующего retrieval, согласно OS/filesystem/device contract.
 
-Но durable update **нескольких** filesystem objects всё равно требует продуманной sequence. Например запись нового file + rename может потребовать sync file и directory depending desired crash guarantee/filesystem semantics.
-
-Не превращай одну последовательность в «вечный универсальный рецепт» без platform guarantees.
+Он не превращает произвольную multi-file update sequence в transaction. Если обновление включает file content **и directory namespace**, reasoning должен включать оба объекта.
 
 ## `fdatasync`
 
-Схож с fsync, но может не ждать metadata, не нужную для subsequent data retrieval. Точные guarantees зависят от standard/platform.
+Идея похожа, но цель — синхронизировать file data и только metadata, необходимую для retrieval. Не используй различие как микрооптимизацию до появления измеримой необходимости.
 
-## Rename
+## Rename: visibility vs persistence
 
-Rename в одной filesystem namespace обеспечивает strong namespace atomicity properties для имени: не должно быть промежуточного состояния, где target replacement наполовину виден как два смешанных path contents. Но atomic visibility ≠ crash durability на storage.
+Rename/replacement в одной filesystem даёт сильную namespace atomicity для имени: observer не должен видеть «половину старого имени + половину нового файла». Но atomic namespace switch и сохранность этого switch после power loss — разные свойства.
 
-POSIX описывает `rename()` как операцию изменения имени, а synchronized persistence — отдельные interfaces. citeturn259580search0turn259580search2
+## Snapshot replacement pattern
 
-## Safe replacement pattern intuition
-
-Для config/file snapshot:
+На Linux/Unix-подобной системе типичная схема для durable replacement:
 
 ```text
 create temp in same directory/filesystem
-write full content
-validate
-fsync(temp) if durability required
+write complete contents with robust short-write handling
+fsync(temp) when durability required
 rename(temp, target)
-fsync(directory) if target-name durability is required by chosen platform/filesystem contract
+fsync(parent directory) when directory-entry durability required
 ```
 
-Это conceptual Linux/Unix pattern; production implementation должна сверяться с конкретной filesystem semantics.
+Это **failure-model pattern**, не вечная формула для любой storage stack. Production code сверяет exact platform/filesystem guarantees.
 
-## Crash vs process crash
+## Failure models
 
-Process crash и machine power loss — разные failure models.
+### Application/process crash
 
-- process crash: kernel/page cache живы;
-- OS/power loss: volatile kernel state исчезает.
+Kernel остаётся жив, page cache сохраняется. `kill -9` не моделирует power loss.
 
-Тест «kill -9 process и file сохранился» не доказывает power-loss durability.
+### OS crash / power loss
 
-## Partial writes
+Volatile kernel/device state может исчезнуть.
 
-Regular file write тоже может fail/partial. Database pager использует robust positional I/O loops или чётко проверяет complete page transfer.
+### Torn/partial application operation
+
+Даже без power loss process может завершиться между несколькими page writes.
+
+Database recovery нужен именно потому, что logical operation часто состоит из нескольких physical updates.
+
+## Partial I/O
+
+`pwrite/read` не освобождают от проверки return value. Pager должен либо loop до полного page transfer, либо иметь explicit policy/error, не считать short operation успехом.
 
 ## Lab
 
-Напиши маленький snapshot writer:
+Сделай snapshot writer: temporary file → complete write → file sync → rename → optional directory sync. Составь failure matrix:
 
-- temp file;
-- write content;
-- `fsync` temp;
-- rename;
-- inspect final content.
+```text
+before temp sync
+after temp sync before rename
+after rename before directory sync
+after all requested sync points
+```
 
-Затем составь failure matrix: crash before sync, after sync before rename, after rename before directory sync.
-
-Не симулируй power loss реальной машины.
-
-## Causal questions
-
-1. Почему `close()` и `write()` success не равны durability guarantee?
-2. Почему process kill и power loss — разные experiments?
-3. Что даёт rename и чего не даёт?
-4. Почему DB recovery design не может состоять только из `fsync` после каждого произвольного write?
+Не симулируй power loss основной машины.
 
 ## Exit check
 
-Для фразы «данные записаны» уточни: в application buffer, kernel cache, filesystem namespace или durable media?
+Для фразы «данные записаны» уточняй level: userspace buffer, kernel cache, namespace visibility или durable state относительно конкретного failure model.
