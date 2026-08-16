@@ -1,82 +1,45 @@
-# 8.2 — Loader, shared libraries, PIE и ASLR
+# 8.2 — Почему адрес функции в файле и во время запуска может отличаться
 
-**Теория:** ~80 мин  
-**Lab:** ~90 мин  
-**С телефона:** да
+**Теория:** ~90 мин · **Лаб:** ~85 мин · **С телефона:** theory — да
 
 ← [`01-elf-sections-segments-symbols.md`](01-elf-sections-segments-symbols.md) · → [`03-ptrace-debugger-lifecycle.md`](03-ptrace-debugger-lifecycle.md)
 
-## Цель
+## Проблема
 
-Отличать link-time address/offset от runtime virtual address и вычислять runtime location в PIE process.
+Symbol tool reports a value for function, but process `/proc/<pid>/maps` shows executable loaded at address that changes across runs. Breakpoint needs **runtime virtual address**.
 
-## Loader path
+## Loader
 
-После `execve` kernel/loader setup создаёт process image:
+OS/kernel + dynamic loader map executable/shared objects, apply required relocations, resolve dynamic dependencies according to ELF/ABI rules and transfer control to entry point.
 
-```text
-map executable segments
-setup stack/argv/env/auxiliary data
-load/interact with dynamic linker for dynamic executable
-map shared libraries
-apply relocations/lazy/eager binding according to format/runtime policy
-transfer control to entry/startup code
-```
-
-C `main` не является самой первой machine instruction процесса; runtime startup eventually calls it.
-
-## Static vs dynamic linking
-
-Static link включает needed library code в executable at link time (with caveats/licensing/platform).
-
-Dynamic executable references shared libraries loaded/mapped runtime.
-
-Advantages dynamic libraries: sharing/updating/smaller binaries; costs: loader complexity, ABI/version dependency, relocation/binding.
+Exact responsibility split varies by executable type; core needs mapping relationship.
 
 ## PIE
 
-Position Independent Executable не требует fixed runtime base. Internal code/data references compiled in relocation-friendly relative forms.
-
-Runtime address:
-
-```text
-load_base + object-relative virtual offset
-```
-
-для соответствующей mapping/model.
+**Position-Independent Executable (PIE)** is built so main executable can be loaded at varying virtual base. Modern Linux toolchains often enable PIE by default, but course build flags make fixture mode explicit.
 
 ## ASLR
 
-Address Space Layout Randomization меняет placement mappings across executions: executable base for PIE, shared libraries, stack, heap/mmap regions etc. Exact entropy/policy platform-dependent.
+**Address Space Layout Randomization (ASLR)** randomizes placement of selected mappings across runs. PIE lets main executable participate more fully; shared libraries/stack/etc. can also be randomized independently.
 
-ASLR не исправляет memory-corruption bug; оно затрудняет predictability addresses.
+ASLR is mitigation, not secret key and not proof exploit impossible.
 
-## `/proc/<pid>/maps`
+## Load bias
 
-Показывает actual runtime ranges/permissions/backing. Сопоставь ELF program headers с mappings.
+For a given ELF mapping, runtime address can often be related to ELF virtual-address coordinate via **load bias**:
 
-## Permissions
+```text
+runtime_addr = ELF_virtual_value + load_bias
+```
 
-Typical code mapping `r-x`, read-only data `r--`, writable data `rw-`. W^X/NX policy стремится разделять writable и executable, но exact mappings/hardening depend build/system.
+But compute bias from program headers + actual mappings, not by blindly subtracting first line of `/proc/maps` from symbol value. File offsets/alignment/multiple segments matter.
 
-## Lab
+Course debugger can restrict accepted fixture layout and document algorithm; unsupported ELF layout must fail explicitly rather than set breakpoint at guessed address.
 
-Собери один test program:
+## Non-PIE comparison
 
-1. default distro/compiler PIE settings;
-2. explicit non-PIE variant (`-no-pie` where toolchain supports).
-
-Запусти несколько раз, print address function/global и сравни `/proc/.../maps`.
-
-Найди symbol/object-relative address через `nm/readelf` и runtime base.
-
-## Causal questions
-
-1. Почему hard-coded symbol address ломается в PIE+ASLR?
-2. Почему non-PIE удобен как первый debugger breakpoint test, но не production recommendation?
-3. Что ASLR защищает, а чего не защищает?
-4. Почему `main` не обязана совпадать ELF entry point?
+Build fixture explicitly with/without PIE when toolchain supports flags, inspect ELF type/maps/symbol values. Explain difference empirically.
 
 ## Exit check
 
-Для PIE symbol объясни formula runtime address = mapping base + relative value with correct ELF load assumptions.
+Why does a symbol value alone not always equal address to pass to `ptrace` at runtime?

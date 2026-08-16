@@ -1,83 +1,52 @@
-# 8.1 — ELF: headers, sections, segments и symbols
+# 8.1 — Как executable хранит то, что нужно loader-у и debugger-у
 
-**Теория:** ~95 мин  
-**Lab:** ~90 мин  
-**С телефона:** теория — да
+**Теория:** ~95 мин · **Лаб:** ~90 мин · **С телефона:** theory — да
 
 ← [`README`](README.md) · → [`02-loader-pie-aslr.md`](02-loader-pie-aslr.md)
 
-## Цель
+## Проблема
 
-Понимать ELF одновременно как link/tool representation и как input loader'у, не смешивая sections с runtime segments.
+Compiler/linker produced executable bytes. OS loader must know which bytes map into memory, with what permissions and entry point. Debugger may additionally want symbol/debug information.
 
-## ELF roles
+A flat byte blob is insufficient; executable needs structured format.
 
-На Linux ELF используется для relocatable objects, executables, shared objects и ряда других object-file forms.
+## ELF
 
-ELF header задаёт class (32/64), byte order, object type, machine architecture и offsets/counts основных tables. Любой parser сначала проверяет magic/class/endianness/table bounds до чтения variable structures.
+Linux commonly uses **ELF (Executable and Linkable Format)** for executables, shared objects, object files and core dumps.
 
-## Sections: link/tool view
-
-Типичные sections:
+Core mental model separates two views:
 
 ```text
-.text      instructions
-.rodata    read-only constants
-.data      initialized writable data
-.bss       zero-initialized storage (SHT_NOBITS-style concept)
-.symtab    full/static symbol table when present
-.dynsym    dynamic symbols when needed
-.strtab    associated strings
-.debug_*   debug information when emitted
+program headers / segments → runtime loader view
+section headers / sections → link/debug/tooling organization view
 ```
 
-Section header table описывает file ranges/metadata. Не каждая section обязана быть mapped в process.
+## Segments: runtime mapping contract
 
-## Segments: loader/runtime view
+Program headers describe loadable **segments** with file offset, virtual address intent, file/memory size and permissions. Loader primarily follows these for executable mappings.
 
-Executable/shared-object **program header table** описывает segments, которые loader использует для создания process image. `PT_LOAD` segment задаёт file offset, virtual address, file/memory sizes, permissions и alignment.
+`PT_LOAD` segments often explain why `/proc/<pid>/maps` shows read-only, executable and writable regions.
 
-```text
-sections -> удобно linker/debug/tools
-segments -> удобно loader/runtime mappings
-```
+Do not say “`.text` is mapped because loader reads section `.text`” as universal ELF runtime mechanism. Sections can contribute bytes to segments; program headers drive loading.
 
-Один loadable segment может содержать несколько sections с совместимыми permissions/layout.
+## Sections
 
-## `p_filesz` vs `p_memsz`
-
-Loadable segment может требовать больше bytes в memory, чем занимает в file. Область `p_memsz > p_filesz` инициализируется согласно ELF loading rules; это одна из причин большого `.bss` не обязан раздувать executable file тем же объёмом.
+Sections such as `.text`, `.rodata`, `.data`, `.bss`, symbol/string/debug sections organize link-time/tool information. A stripped runtime executable can function with much section/symbol information removed if loadable program metadata remains sufficient.
 
 ## Symbols
 
-Symbol table entry связывает name с value/address-like data, size, binding/type и section relation.
+Symbol table maps names to values/metadata in file/linking coordinate system. Dynamic symbols are subset needed for dynamic linking/export; full `.symtab` can be stripped.
 
-Undefined symbol в `.o` — нормально до link, если definition придёт из другого object/library. Stripping обычной `.symtab` не удаляет machine instructions; dynamic linking data может оставаться отдельно.
+Debugger cannot assume every function name exists in stripped binary.
 
-## Relocations
+## `.bss` puzzle
 
-Relocation описывает место, которое должно быть скорректировано после выбора final addresses/symbol values. Это bridge `separately compiled objects -> final layout` и основа части PIC/dynamic-link logic.
+Uninitialized data can occupy memory size larger than bytes stored in file. Loadable segment expresses file size vs memory size; loader zero-fills required tail. This is why file need not contain megabytes of literal zero bytes.
 
-## Lab tools
+## Observe
 
-Для **собственного/доверенного** binary:
-
-```text
-file
-readelf -h
-readelf -S
-readelf -l
-readelf -s
-objdump -d
-nm
-```
-
-Сопоставь sections с `PT_LOAD` ranges и permissions. Не запускай untrusted binary ради анализа; static tools тоже следует использовать в изолированной среде для truly hostile samples.
-
-## Lab
-
-Собери C fixture с initialized global, zero array, const string и function call; сравни normal `-g -O0` и stripped copy. Покажи `.text/.data/.bss`, program headers, symbols, disassembly.
+Use `readelf -h -l -S -s` and `objdump` on a tiny fixture. Before commands predict which view explains runtime executable permission region.
 
 ## Exit check
 
-Если спрашивают «где `.text` в памяти», ты должен сначала перейти от section view к loadable segment/mapping, а не считать section header прямой runtime page-table инструкцией.
+Why can an ELF execute after many section headers/debug symbols are stripped, and why are segments more directly relevant to loader?

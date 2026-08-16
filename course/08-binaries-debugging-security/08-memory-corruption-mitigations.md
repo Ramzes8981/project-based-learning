@@ -1,106 +1,45 @@
-# 8.8 — Memory corruption и exploit mitigations bridge
+# 8.8 — Что mitigations делают с memory-corruption bug и чего они не исправляют
 
-**Теория:** ~100 мин  
-**Local lab:** ~90 мин  
-**С телефона:** теория — да
+**Теория:** ~100 мин · **Лаб:** ~90 мин · **С телефона:** theory — да
 
 ← [`07-dwarf-source-debugging.md`](07-dwarf-source-debugging.md) · → [`09-module-checkpoint.md`](09-module-checkpoint.md)
 
-## Цель
+## Проблема
 
-Связать C memory bugs с runtime consequences и понять mitigations без перехода к атаке реальных систем.
+C out-of-bounds/UAF may corrupt control/data. Modern systems add layers that make exploitation harder. Important distinction:
 
-## Memory corruption classes recap
+> mitigation changes exploitability/detectability; it does not make original invalid access correct.
 
-- stack/heap out-of-bounds write;
-- use-after-free;
-- double free;
-- integer overflow → undersized allocation;
-- format/string parsing bugs;
-- uninitialized data.
+## NX / executable permissions
 
-Bug и exploitability — разные вещи. Многие bugs crash, leak data or are non-exploitable under context; некоторые дают control primitives.
-
-## NX / W^X
-
-No-eXecute memory permissions запрещают execution из writable data pages like normal stack/heap under policy.
-
-Это мешает классическому injected-code execution, но не предотвращает overwrite/corruption itself и не запрещает code-reuse attacks.
+Non-executable data mappings reduce straightforward execution of injected bytes. Return-oriented/code-reuse attacks show why NX is not complete defense.
 
 ## Stack canary
 
-Compiler вставляет guard value между certain local stack buffers/control metadata. Epilogue checks corruption and aborts if canary changed.
+Compiler can place guard value near sensitive stack control data and verify before return. Some overwrites are detected, but not every memory corruption touches canary or is stopped before harmful data change.
 
-Canary ловит часть sequential stack overwrites, но:
+## PIE + ASLR
 
-- не предотвращает heap corruption;
-- не гарантирует любой overwrite;
-- detection happens when check executes.
-
-## ASLR + PIE
-
-Randomizes runtime addresses, снижая predictability. Information leak может weaken it; non-memory bugs remain.
+Randomized runtime addresses make reliable code/data location harder. Information leaks or weak entropy/reuse can reduce benefit. ASLR does not enforce memory bounds.
 
 ## RELRO
 
-Relocation Read-Only hardening makes selected dynamic-linker metadata read-only after relocation. Full/partial details depend linker flags/runtime.
+ELF/linker hardening can make relocation-related regions read-only after relocation. Full/partial modes differ. It protects specific writable metadata surfaces, not arbitrary heap/stack data.
 
-It narrows writable control data surface, but not general memory safety.
+## Fortify / checked libc opportunities
 
-## Fortification / sanitizers
+Toolchain may add compile/runtime checks for operations when object sizes are known. Coverage depends on optimization/compiler/operation and is not substitute for explicit bounds.
 
-Build hardening (`_FORTIFY_SOURCE`, stack protector etc.) и sanitizers имеют разные goals:
+## Sanitizers are developer diagnostics, not deploy mitigation
 
-- hardening production consequences/detection;
-- sanitizers development diagnostics with overhead.
+ASan/UBSan/TSan instrument programs to find bugs during testing. They change memory/performance and are not normally production exploit mitigation equivalent.
 
-Не ship ASan как universal production mitigation by assumption.
+## Lab
 
-## Local lab
+Compile own intentionally vulnerable fixture **marked BROKEN EXAMPLE** with combinations of PIE/non-PIE, stack protector, RELRO/NX observations. Use `readelf`/maps/debugger to explain changed properties; do not build exploit chain.
 
-Controlled toy only:
-
-```c
-void copy_bad(const char *src) {
-    char buf[16];
-    /* deliberately unsafe boundedness bug for diagnosis */
-}
-```
-
-Lab goals:
-
-1. reproduce crash/canary diagnostic with oversized local test input;
-2. inspect stack/mappings in GDB/minidbg;
-3. compile with/without stack protector in isolated toy to compare detection;
-4. inspect ELF hardening attributes/mappings where tooling available;
-5. fix root cause with explicit bounds.
-
-No remote target, privilege escalation or weaponized payload.
-
-## Defense-in-depth
-
-```text
-memory-safe design/language
-+ bounds/ownership correctness
-+ compiler hardening
-+ ASLR/NX/RELRO
-+ least privilege/sandbox
-+ testing/fuzzing/sanitizers
-```
-
-Mitigations buy defense layers, not permission to leave UB.
-
-## Rust bridge
-
-Safe Rust prevents many spatial/temporal memory-safety classes through bounds/ownership checks. `unsafe` Rust/FFI can reintroduce them; logical/protocol bugs remain.
-
-## Causal questions
-
-1. Почему NX не чинит buffer overflow?
-2. Почему ASLR не помогает, если attacker already leaks exact addresses?
-3. Почему canary не защищает heap?
-4. Как Rust reduces attack surface without solving authorization/protocol design?
+Then fix bounds bug in source and show mitigations remain defense-in-depth.
 
 ## Exit check
 
-Для каждого mitigation назови конкретный assumption/class attack it complicates и что остаётся unprotected.
+For each mitigation name one attack surface it raises cost for and one class of bug it does not prevent.

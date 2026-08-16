@@ -1,30 +1,27 @@
-# Module 8 — Binaries, Debugging & Security Bridge
+# Module 8 — Как запущенная программа выглядит изнутри debugger-а
 
-**Цель:** связать ELF file, runtime mappings, registers/signals и debugger state machine; научиться диагностировать memory-corruption mechanisms и mitigations на контролируемых локальных targets.
+**Оценка:** ~40–60 часов.  
+**Target:** Linux x86-64 for debugger labs.  
+**Prerequisite:** process/signals, virtual memory, x86-64 ABI, C memory safety.
 
-**Оценка:** ~45–62 часа.  
-**Core milestone:** `minidbg-c` — минимальный Linux/x86-64 debugger на C.
-
-## Platform boundary
-
-Core намеренно **Linux + x86-64 + single-threaded tracee**. `ptrace`, register layout и `INT3` semantics не выдаются за portable C.
+К этому моменту source-level mental model уже недостаточна: debugger получает executable file, runtime mappings, registers, signals and bytes. Модуль строится в том же порядке, в котором эти слои становятся нужны.
 
 ## Уроки
 
-1. [`01-elf-sections-segments-symbols.md`](01-elf-sections-segments-symbols.md)
-2. [`02-loader-pie-aslr.md`](02-loader-pie-aslr.md)
-3. [`03-ptrace-debugger-lifecycle.md`](03-ptrace-debugger-lifecycle.md)
-4. [`04-registers-memory.md`](04-registers-memory.md)
-5. [`05-software-breakpoints.md`](05-software-breakpoints.md)
-6. [`06-single-step-stack-unwinding.md`](06-single-step-stack-unwinding.md)
-7. [`07-dwarf-source-debugging.md`](07-dwarf-source-debugging.md)
-8. [`08-memory-corruption-mitigations.md`](08-memory-corruption-mitigations.md)
-9. [`09-module-checkpoint.md`](09-module-checkpoint.md)
+1. [`01-elf-sections-segments-symbols.md`](01-elf-sections-segments-symbols.md) — **Как executable хранит то, что нужно loader-у и debugger-у**.
+2. [`02-loader-pie-aslr.md`](02-loader-pie-aslr.md) — **Почему адрес функции в файле и во время запуска может отличаться**.
+3. [`03-ptrace-debugger-lifecycle.md`](03-ptrace-debugger-lifecycle.md) — **Как debugger останавливает tracee и получает право его наблюдать**.
+4. [`04-registers-memory.md`](04-registers-memory.md) — **Как прочитать registers/memory, не путая `-1` с ptrace error**.
+5. [`05-software-breakpoints.md`](05-software-breakpoints.md) — **Как один byte `INT3` превращается в breakpoint и почему RIP надо откатить**.
+6. [`06-single-step-stack-unwinding.md`](06-single-step-stack-unwinding.md) — **Как выполнить ровно одну инструкцию и восстановить call chain в ограниченной модели**.
+7. [`07-dwarf-source-debugging.md`](07-dwarf-source-debugging.md) — **Откуда debugger узнаёт source line и variable names, которых нет в ISA**.
+8. [`08-memory-corruption-mitigations.md`](08-memory-corruption-mitigations.md) — **Что mitigations делают с memory-corruption bug и чего они не исправляют**.
+9. [`09-module-checkpoint.md`](09-module-checkpoint.md) — checkpoint.
 
 ## Проект
 
-[`project/SPEC.md`](project/SPEC.md) · [`project/README.md`](project/README.md)
+[`project/README.md`](project/README.md) — `minidbg-c`: attach/launch, registers, memory, software breakpoints, single-step and limited stack trace on controlled fixtures.
 
-`project/tests/targets/` содержит только **контролируемые учебные tracees**, которые можно собирать non-PIE/PIE с известными symbols. Debugger implementation курс не предоставляет.
+## Security boundary
 
-Core не требует C++ и не реализует полноценный DWARF parser. Source-level debugging — Stretch после machine-level core.
+Лабы выполняются только на собственных course fixtures/processes в разрешённой среде. Здесь изучается debugger mechanism и defensive understanding memory corruption, а не скрытое управление чужими процессами.

@@ -1,81 +1,70 @@
-# 8.5 — Software breakpoints на x86-64
+# 8.5 — Как один byte `INT3` превращается в breakpoint и почему RIP надо откатить
 
-**Теория:** ~105 мин  
-**Project slice:** ~8–12 часов  
-**С телефона:** теория — да
+**Теория:** ~105 мин · **Практика/project:** ~5–7 часов · **С телефона:** theory — да
 
 ← [`04-registers-memory.md`](04-registers-memory.md) · → [`06-single-step-stack-unwinding.md`](06-single-step-stack-unwinding.md)
 
-## Цель
+## Проблема
 
-Реализовать address breakpoint как reversible machine-code patch + debugger state transition.
+Debugger wants process stop when execution reaches chosen instruction address.
 
-## x86 `INT3`
+On x86, one common **software breakpoint** replaces first byte of instruction with `INT3` opcode byte `0xCC`, which triggers trap.
 
-Core x86-64 software breakpoint заменяет first instruction byte на one-byte trap opcode `0xCC` (`INT3`). После исполнения trap tracee останавливается с `SIGTRAP`; x86 RIP указывает **после** one-byte trap, поэтому candidate breakpoint address = `RIP - 1`.
+## Install breakpoint
 
-Не классифицируй любой `SIGTRAP` как breakpoint: `exec`, single-step и другие tracing events тоже могут давать trap stops.
-
-## Breakpoint record
+For address `A`:
 
 ```text
-address
-original_byte
-enabled
-(optional hit count/id)
+read word containing A
+save original byte at A
+replace only that byte with 0xCC
+write word back preserving neighbors
+mark breakpoint enabled
 ```
 
-Duplicate insert must be detected before reading «original» byte again; иначе можно сохранить уже вставленный `0xCC` и потерять настоящий code byte.
+Do not assume address is word-aligned or overwrite entire word with breakpoint pattern.
 
-## Patch operation
+## Trap position
 
-При word-sized ptrace memory API:
+When CPU executes `INT3`, reported RIP in stopped tracee normally points **after** one-byte breakpoint instruction. To execute original instruction:
 
 ```text
-peek word at breakpoint address
-save low byte
-patched = (word & ~0xff) | 0xcc
-poke word
+tracee stops with RIP = A + 1
+→ restore original byte at A
+→ set RIP = A
+→ single-step original instruction
+→ wait for step trap
+→ reinsert 0xCC at A
+→ continue
 ```
 
-Это конкретно для принятой x86 little-endian exact-address strategy. Если implementation выравнивает word address, byte shift рассчитывается по `address - aligned_address`.
+If you simply restore byte and continue with RIP=A+1, original instruction is skipped.
 
-Используй unsigned masks/types, чтобы bit operations не зависели от signed shifts.
+## Distinguish trap reasons
 
-## Hit/step-over lifecycle
+`SIGTRAP` may arise from breakpoint, single-step, exec/ptrace events, etc. Debugger must use its own breakpoint table + current RIP/event info; not every SIGTRAP means “our breakpoint hit”.
+
+## Breakpoint ownership
+
+Store:
 
 ```text
-wait -> SIGTRAP stop
-read RIP
-candidate = RIP - 1
-verify enabled breakpoint(candidate)
-set RIP = candidate
-restore original byte
-PTRACE_SINGLESTEP
-wait for step stop
-reinsert 0xCC if breakpoint still enabled
-return to debugger prompt / continue policy
+runtime address
+original byte
+enabled state
+optional source/symbol label
 ```
 
-Ключевой invariant: original instruction исполняется ровно один раз, а persistent breakpoint после этого снова armed.
+Duplicate breakpoint at same address needs explicit policy. Remove breakpoint restores byte only if tracee state/address still corresponds and breakpoint enabled.
 
-## Delete/disable
+## PIE address
 
-Restore original byte only while tracee stopped and if breakpoint is currently armed. Self-modifying code/thread races are explicit non-goals, поэтому saved byte remains valid under course assumptions.
+User may specify symbol; debugger resolves ELF coordinate to runtime address using supported load-bias logic from 8.2 before patch.
 
-## PIE
+## Project stage
 
-Сначала non-PIE fixtures с stable link/runtime addresses. Затем выбери symbol offset/value и вычисли runtime address из actual executable mapping base `/proc/<pid>/maps`. Не hardcode ASLR base.
-
-## Tests
-
-- breakpoint at known function hit twice in loop;
-- duplicate `break` не corrupt saved byte;
-- delete before hit restores code;
-- continue after hit executes original instruction;
-- unrelated SIGTRAP not mislabeled where distinguishable by current state;
-- target exits while breakpoint armed without debugger corruption.
+Implement set/hit/continue/reinsert/remove on controlled non-self-modifying fixture. Tests include adjacent bytes preserved and repeated hits in loop.
 
 ## Exit check
 
-Опиши breakpoint не словом «0xCC», а full state machine restore → RIP fix → step → reinsert.
+Why does correct continue-from-breakpoint require a single-step cycle rather than simply replacing `0xCC` with original byte and issuing CONT?

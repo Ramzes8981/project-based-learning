@@ -1,62 +1,57 @@
-# 8.4 — Registers и tracee memory
+# 8.4 — Как прочитать registers/memory, не путая `-1` с ptrace error
 
-**Теория:** ~85 мин  
-**Project slice:** ~4–6 часов  
-**С телефона:** да
+**Теория:** ~95 мин · **Практика/project:** ~3–5 часов · **С телефона:** theory — да
 
 ← [`03-ptrace-debugger-lifecycle.md`](03-ptrace-debugger-lifecycle.md) · → [`05-software-breakpoints.md`](05-software-breakpoints.md)
 
-## Цель
+## Problem
 
-Инспектировать x86-64 register state и read/patch tracee memory, учитывая architecture-specific layout и ptrace error semantics.
+Once tracee is stopped, debugger needs CPU state and process memory.
 
 ## Registers
 
-Для x86-64 core:
+On Linux x86-64, `PTRACE_GETREGS`/`SETREGS` commonly expose general-purpose register set in target-specific structure such as `user_regs_struct`.
 
-```text
-RIP  instruction pointer
-RSP  stack pointer
-RBP  frame/base register by convention, not guaranteed frame chain
-RAX..R15 general-purpose
-RFLAGS
+This is not portable POSIX debugger API. Course project pins Linux x86-64 and checks build target.
+
+Important fields include RIP/RSP/RBP/general registers/flags. Read them according to ABI/ISA meanings learned earlier.
+
+## Memory read with `PTRACE_PEEKDATA`
+
+Classic ptrace reads machine-word-sized data and returns a `long`. Problem: valid memory word can itself equal `-1` bits, while API also reports error with `-1` and sets `errno`.
+
+Correct pattern:
+
+```c
+errno = 0;
+long word = ptrace(PTRACE_PEEKDATA, pid, addr, 0);
+if (word == -1 && errno != 0) {
+    /* actual error */
+}
 ```
 
-Linux exposes architecture-specific register interfaces such as `PTRACE_GETREGS` on x86 and more general register-set interfaces. Course implementation may use x86-64 `struct user_regs_struct`; это deliberate non-portability.
+Never test only `word == -1`.
 
-## Memory peek
+## Unaligned/arbitrary-length reads
 
-`PTRACE_PEEKDATA`/`PTRACE_PEEKTEXT` on Linux read a machine word from tracee address; Linux does not maintain a separate text/data address space for these two requests.
+A helper that reads bytes across machine-word boundaries must:
 
-Because returned word can legitimately equal all-one-bits/`-1`, always clear/check `errno` as described in Lesson 8.3.
+- avoid overflow in `addr + len` arithmetic;
+- read covering words;
+- copy only requested bytes;
+- not assume tracee address is aligned;
+- stop/report partial failure deterministically.
 
-## Memory poke
+Pointer in tracer and numeric virtual address in tracee are different address spaces. Never dereference tracee address directly in tracer.
 
-`PTRACE_POKEDATA` writes a machine word. To patch one byte without losing neighbors:
+## Writing memory
 
-```text
-read containing word
-modify selected byte in local unsigned representation
-write whole word back
-```
+`PTRACE_POKEDATA` writes word. To modify one byte, debugger must read original word, change targeted byte, write full word, while preserving neighbors. This creates breakpoint lesson.
 
-Address alignment/endianness and which word contains requested byte must be explicit. Simplest breakpoint course path uses the exact target address as ptrace word address and modifies its low-order byte on x86 little-endian; document this architecture assumption.
+## Project stage
 
-## Address parsing
-
-Command `mem 0x...` parses an address-sized unsigned integer. Validate:
-
-- complete string consumed;
-- no negative input if grammar forbids;
-- conversion not overflowed;
-- value representable as pointer/address type used by ptrace wrapper.
-
-`atoi` into `int` is not address parser.
-
-## Project slice
-
-Add `regs`, `reg NAME`, `mem ADDRESS`; use targets with known globals and stack computation. Compare with GDB only at equivalent stop locations.
+Implement register dump + exact byte-range memory read on stopped fixture. Add test where read word bits equal all ones to ensure errno handling doesn't misclassify valid data.
 
 ## Exit check
 
-Why can `PTRACE_PEEKDATA` return `-1` without failure, and how does `errno` distinguish the case?
+Why must `errno` be reset before `PTRACE_PEEKDATA`, and why can tracer not simply cast tracee RIP to pointer and dereference it?
