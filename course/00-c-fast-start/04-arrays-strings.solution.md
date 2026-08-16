@@ -1,41 +1,30 @@
-# Разбор упражнения 0.4
-
-Один вариант integer search:
+# Разбор 0.4
 
 ```c
-#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
 
-size_t linear_search(const int values[], size_t count, int target)
+int main(void)
 {
-    for (size_t i = 0; i < count; ++i) {
-        if (values[i] == target) {
-            return i;
-        }
+    int values[5] = {10, 20, 30};
+    size_t used = 3;
+    size_t max_items = sizeof values / sizeof values[0];
+
+    for (size_t i = 0; i < used; ++i) {
+        printf("%d\n", values[i]);
     }
 
-    return count;
+    char word[8];
+    const char *src = "cat";
+    size_t len = strlen(src);
+    if (len + 1 <= sizeof word) {
+        memcpy(word, src, len + 1);
+        printf("%s\n", word);
+    }
+
+    printf("used=%zu max=%zu\n", used, max_items);
+    return 0;
 }
 ```
 
-Контракт:
-
-```text
-result < count  -> элемент найден по этому индексу
-result == count -> not found
-```
-
-Такой вариант не требует сужать `size_t` index до `int`. Sentinel `count` безопасен, потому что валидные индексы массива длины `count` находятся только в диапазоне `0..count-1`.
-
-Для strings идея та же, но сравнение содержимого:
-
-```c
-strcmp(values[i], target) == 0
-```
-
-При этом `values[i]` и `target` обязаны быть валидными null-terminated C strings. `strcmp` не получает отдельную длину и не может сам исправить broken string contract.
-
-Ключевой invariant цикла:
-
-> перед началом итерации `i` элементы `0..i-1` уже проверены и не содержат более раннего совпадения.
-
-`count == 0` естественно приводит к нулю итераций и возврату `0`; для пустого массива это одновременно значение `count`, то есть корректный `not found` sentinel.
+`used` — логическое число занятых элементов. `max_items` — сколько элементов помещается в фиксированном массиве. Для `word` конечный `\0` копируется вместе с текстом.

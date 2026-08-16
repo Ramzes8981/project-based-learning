@@ -1,100 +1,16 @@
-# MiniKV v0 — Public test scenarios
+# MiniKV v0 — test scenarios
 
-Это **известные заранее сценарии**, а не готовый test harness. Тестовый C-код пишешь ты и подключаешь его к `make test`.
+Пиши собственный harness. Ниже — semantic oracle, а не готовый test implementation.
 
-Сценарии определяют observable behavior и не требуют конкретных имён функций/struct fields.
+1. **empty** — `GET missing` → `NOT_FOUND`.
+2. **insert** — `SET a 10`, затем `GET a` → `10`.
+3. **replace** — `SET a 10`, `SET a 20`; занята всё ещё одна запись, `GET a` → `20`.
+4. **two names** — `a` и `b` не мешают друг другу.
+5. **delete existing** — после удаления `a` → `NOT_FOUND`, `b` остаётся.
+6. **delete missing** — безопасный status, state не меняется.
+7. **full** — заполнить все доступные slots; следующий новый `SET` → `FULL`; старые значения не меняются.
+8. **replace while full** — заменить уже существующее имя можно даже когда нового места нет.
+9. **name boundary** — максимально допустимое имя работает; имя на один символ длиннее отклоняется.
+10. **repeated operations** — несколько insert/update/delete cycles не рассинхронизируют `used`.
 
-## 0. Build/test contract
-
-Перед функциональными cases проверь:
-
-```bash
-make
-make test
-make clean
-```
-
-Ожидания:
-
-- build без unexplained warnings;
-- failing assertion/test приводит к ненулевому exit status и провалу `make test`;
-- после `make clean` source, README и project specs остаются на месте.
-
-## 1. Empty store
-
-После initialization:
-
-- lookup любого key → not found;
-- размер/счётчик, если он есть, согласован с пустым состоянием.
-
-## 2. Insert one
-
-```text
-SET alpha = one
-GET alpha -> one
-```
-
-## 3. Multiple keys
-
-Добавь минимум 3 keys в разном порядке и проверь каждый.
-
-## 4. Update
-
-```text
-SET alpha = one
-SET alpha = two
-GET alpha -> two
-```
-
-Проверь, что логическое число записей не увеличилось из-за update.
-
-## 5. Missing key
-
-После добавления нескольких записей `GET missing` должен вернуть явный not-found результат без изменения store.
-
-## 6. Full capacity
-
-Заполни все slots, сохрани snapshot нескольких existing values, затем попробуй добавить новый key.
-
-Проверь:
-
-- операция сообщает full;
-- старые значения не изменились.
-
-## 7. Key boundaries
-
-Проверь согласно своему documented contract:
-
-- пустой key;
-- key максимально разрешённой логической длины;
-- key на один символ длиннее лимита.
-
-Если key хранится как C string в buffer capacity `C`, помни: maximum logical length должна оставлять место для `\0`.
-
-## 8. Value boundaries
-
-То же для value.
-
-## 9. Duplicate-looking strings
-
-Создай два отдельных `char` arrays с одинаковым текстом и убедись, что lookup сравнивает **содержимое**, а не identity/address.
-
-## 10. State preservation after failure
-
-Для минимум двух rejected operations проверь, что ранее сохранённые entries не изменились.
-
-Подходящие случаи:
-
-- insert в full store;
-- слишком длинный key/value.
-
-## 11. Transfer feature
-
-Добавь минимум 2 проверки для выбранного расширения:
-
-- обычный happy path;
-- boundary/error case.
-
-## Review-only edge cases
-
-На review преподаватель может предложить дополнительные случаи, которых здесь нет. Реализация должна соответствовать documented contract, а не только известным test values.
+Для каждого failure case проверяй не только status, но и **state after failure**.

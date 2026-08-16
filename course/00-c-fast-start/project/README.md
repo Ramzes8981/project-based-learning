@@ -1,114 +1,51 @@
-# MiniKV v0 — рабочий README проекта
+# MiniKV v0 — что должна делать программа
 
-Этот файл заполняет **ученик по мере разработки**. Курс задаёт вопросы и критерии, но не принимает design decisions за тебя.
+На этом этапе проект — не «маленькая база данных» и не упражнение по hashing. Это способ постепенно связать базовый C в одну программу.
 
-Перед началом прочитай:
+## Поведение
 
-- [`SPEC.md`](SPEC.md) — обязательное поведение;
-- [`TESTS.md`](TESTS.md) — известные заранее сценарии;
-- [`ACCEPTANCE.md`](ACCEPTANCE.md) — критерии завершения;
-- [`HINTS.md`](HINTS.md) — подсказки, открывать по необходимости.
-
-## Status
-
-Запиши текущий этап проекта своими словами.
-
-Пример формата статуса, не готовый ответ:
+Программа хранит несколько записей вида:
 
 ```text
-Contract defined / storage started / tests incomplete / ready for review
+имя → целое значение
 ```
 
-## Product limits
-
-Зафиксируй выбранные тобой значения:
+Минимальные операции:
 
 ```text
-maximum entries:
-maximum key length:
-maximum value length:
-empty key policy:
-empty value policy:
+SET alice 10
+GET alice
+DELETE alice
 ```
 
-Не меняй лимиты посреди теста только ради прохождения конкретного case. Если контракт меняется — обнови README и tests осознанно.
+Правила:
 
-## Operations and error semantics
+- если `SET` получает новое имя и ещё есть свободное место — запись добавляется;
+- если имя уже существует — его значение заменяется;
+- `GET` существующего имени возвращает значение;
+- `GET` неизвестного имени сообщает `NOT_FOUND`;
+- `DELETE` существующего имени удаляет запись;
+- если для новой записи места больше нет — программа сообщает `FULL` и не портит старые данные.
 
-Опиши поведение:
+## Что пока не решаем
 
-```text
-SET existing key:
-SET new key:
-SET when full:
-GET existing key:
-GET missing key:
-invalid/too-long input:
-```
+Не нужны:
 
-Не обязательно фиксировать точные C signatures до соответствующего урока.
+- неограниченное число записей;
+- хранение на диске;
+- network access;
+- encryption/authentication;
+- hashing;
+- dynamic memory;
+- performance optimization.
 
-## Representation
+Сначала сделай поведение корректным для маленького фиксированного набора.
 
-После появления кода опиши собственную структуру данных:
+## Как открывать остальные документы
 
-```text
-Entry:
-Store:
-how an empty slot is represented:
-how active entry count is represented, if present:
-```
+- [`SPEC.md`](SPEC.md) — technical constraints, разбитые по урокам;
+- [`ACCEPTANCE.md`](ACCEPTANCE.md) — финальный gate Module 0;
+- [`TESTS.md`](TESTS.md) — scenarios;
+- [`HINTS.md`](HINTS.md) — подсказки без готового implementation.
 
-## Build
-
-После урока про Make запиши команды, которыми реально собирается проект:
-
-```text
-make
-make test
-make clean
-```
-
-Если выбрал другие targets — задокументируй их.
-
-## Tests
-
-Запиши:
-
-- где находятся твои tests;
-- как они запускаются;
-- какие boundary/error cases уже покрыты;
-- какие известные scenarios из `TESTS.md` ещё не проверены.
-
-## Complexity
-
-Для v0 объясни своими словами, почему lookup имеет линейный worst-case growth относительно числа занятых entries.
-
-## Known limitations
-
-Версия v0 намеренно ограничена. Запиши реальные ограничения своей реализации, а не общий список из SPEC.
-
-## Transfer feature
-
-Перед Module 1 выбери одно небольшое расширение сверх минимального SPEC и опиши:
-
-```text
-feature:
-why it was chosen:
-new edge cases:
-```
-
-## Debugging story
-
-Минимум один раз за модуль зафиксируй реальную или специально внесённую ошибку:
-
-```text
-Symptom:
-Hypothesis:
-Diagnostic step / evidence:
-Root cause:
-Fix:
-Regression test:
-```
-
-Цель — тренировать воспроизводимый debugging process, а не составлять отчёт ради отчёта.
+Не читай секцию SPEC из будущего урока раньше времени.

@@ -1,245 +1,127 @@
-# 0.5 — Struct, enum, headers и linker
+# 0.5 — Как описать одну запись и собрать программу из нескольких файлов
 
-**Теория:** ~50 мин  
-**Упражнение:** ~40 мин  
-**Project slice:** ~60–90 мин  
-**С телефона:** теория — да; project slice — ПК
+**Теория:** ~60 мин  
+**Практика:** ~60 мин  
+**С телефона:** теория — да; практика — ПК
 
 ← [`04-arrays-strings.md`](04-arrays-strings.md) · → [`06-make-build-test.md`](06-make-build-test.md)
 
-## Цель
+## Проблема 1: одна запись содержит разные поля
 
-Научиться группировать связанные данные в `struct`, описывать состояния через `enum` и разделять маленькую программу на interface/implementation без магии вокруг headers и linker.
+Для проекта одна запись должна хранить имя и число. Два независимых массива работают, но легко ошибиться и перестать понимать, какое имя относится к какому значению.
 
-## Prerequisite check
-
-1. Чем declaration отличается от definition?
-2. Почему MiniKV должен знать capacity каждого string buffer?
-3. Что такое executable и какую роль выполняет linker?
-
-## Инженерный контекст
-
-Пока program состоит из 30 строк, всё можно держать в одном файле. Но реальный проект быстро разваливается, если representation, public API, tests и executable entrypoint не имеют границ.
-
-C не даёт classes/modules в Python-смысле, зато позволяет явно разделять interface и implementation через headers/translation units.
-
-## `struct`
-
-```c
-struct Point {
-    int x;
-    int y;
-};
+```text
+names[2]  <-> values[2]
 ```
 
-Использование:
+Удобнее сделать одну сущность «запись».
+
+## Структура
+
+В C несколько полей можно объединить в **структуру (`struct`)**:
 
 ```c
-struct Point p = { .x = 10, .y = 20 };
-printf("%d\n", p.x);
+typedef struct {
+    char name[32];
+    int value;
+} Entry;
 ```
 
-`struct` описывает агрегат из полей. В памяти поля принадлежат одному объекту, но между ними позже может оказаться padding для alignment.
-
-Пока padding не нужен для MiniKV; подробно разберём его перед binary/storage work.
-
-## `typedef`
-
-Можно создать удобное имя типа:
+Теперь:
 
 ```c
-typedef struct Point {
-    int x;
-    int y;
-} Point;
+Entry item;
+item.value = 42;
 ```
 
-Это не создаёт новый runtime object и не делает C «объектно-ориентированным». `typedef` даёт alias/имя типа.
+`typedef` здесь лишь даёт удобное имя `Entry` типу структуры.
 
-## `enum`
+## Проблема 2: файл становится слишком большим
 
-```c
-typedef enum {
-    RESULT_OK,
-    RESULT_NOT_FOUND,
-    RESULT_FULL
-} Result;
+Допустим, `main.c` содержит и интерфейс программы, и функции работы с записями. Мы хотим разнести их:
+
+```text
+main.c       — пользовательский сценарий
+store.c      — реализация операций
+store.h      — объявления, которые нужны обоим
 ```
 
-`enum` удобен, когда у состояния есть ограниченный именованный набор вариантов.
+Файл `.h` — **header**. В нём мы размещаем declarations: «такая функция/тип существует и выглядит так».
 
-Именованный `RESULT_NOT_FOUND` обычно лучше «магического `-7`», смысл которого приходится помнить.
+## Почему одного compiler call на каждый `.c` недостаточно
 
-## Headers
+Каждый `.c` можно перевести отдельно. Результат отдельной компиляции обычно называют **объектным файлом (object file)**.
 
-`point.h`:
+```bash
+cc -std=c17 -Wall -Wextra -Wpedantic -c main.c -o main.o
+cc -std=c17 -Wall -Wextra -Wpedantic -c store.c -o store.o
+```
+
+Но `main.o` может содержать вызов функции, реализация которой находится в `store.o`. Нужно соединить эти части и разрешить ссылки между ними.
+
+Программа, выполняющая этот этап, называется **линковщиком (linker)**. Обычная команда `cc` умеет вызвать его за нас:
+
+```bash
+cc main.o store.o -o minikv
+```
+
+Теперь термин появился потому, что возникла реальная проблема многофайловой сборки.
+
+## Declaration и definition
+
+Упрощённо:
+
+- declaration сообщает форму имени;
+- definition предоставляет само тело функции или объект.
 
 ```c
-#ifndef POINT_H
-#define POINT_H
+/* declaration */
+int add(int a, int b);
 
-struct Point {
-    int x;
-    int y;
-};
+/* definition */
+int add(int a, int b)
+{
+    return a + b;
+}
+```
 
-int point_manhattan(struct Point p);
+Если declaration есть, а подходящей definition при финальной сборке нет, linker не сможет завершить executable.
+
+## Include guard
+
+Header может быть включён несколько раз через цепочку других headers. Защитим его:
+
+```c
+#ifndef STORE_H
+#define STORE_H
+
+/* declarations */
 
 #endif
 ```
 
-Для учебного примера зададим **precondition**:
+## Неправильная mental model
 
-```text
--10000 <= p.x <= 10000
--10000 <= p.y <= 10000
-```
+> «`#include` подключает уже скомпилированную библиотеку».
 
-При таком контракте абсолютные значения и их сумма гарантированно помещаются в обычный `int` в нашей учебной среде.
+Для обычного header в нашем курсе это неверная модель. Preprocessor подставляет содержимое header в обрабатываемый source; реализации из других `.c` всё равно должны попасть в финальную сборку.
 
-`point.c`:
+## Практика
 
-```c
-#include "point.h"
+Раздели маленькую программу на:
 
-int point_manhattan(struct Point p)
-{
-    int x = p.x < 0 ? -p.x : p.x;
-    int y = p.y < 0 ? -p.y : p.y;
-    return x + y;
-}
-```
+- `main.c`;
+- `math_ops.c`;
+- `math_ops.h`.
 
-### Почему здесь нужен явный precondition
-
-Без ограничения входного диапазона похожий код имеет опасный edge case: для `INT_MIN` выражение `-p.x` не представимо в `int`, а signed overflow в C — undefined behavior. Даже если отдельные модули координат помещаются, сумма тоже должна помещаться в return type.
-
-На этом этапе мы не строим полноценную checked-arithmetic библиотеку. Важно другое: **тип функции сам по себе не всегда описывает весь допустимый входной домен**. Если корректность зависит от диапазона, это часть API contract и тестов.
-
-Позже мы разберём fixed-width integers, overflow checks и проектирование API, которые могут сообщать об арифметической ошибке явно.
-
-`main.c` включает header и вызывает функцию только на значениях, удовлетворяющих контракту.
-
-### Зачем include guard
-
-Если один header косвенно включится несколько раз, guard не даст его содержимому повторно объявиться там, где это запрещено/мешает.
-
-## Translation unit
-
-После preprocessing каждый `.c` превращается в отдельную **translation unit** и компилируется отдельно.
-
-Например:
-
-```bash
-cc -std=c17 -Wall -Wextra -Wpedantic -g -c point.c -o point.o
-cc -std=c17 -Wall -Wextra -Wpedantic -g -c main.c -o main.o
-cc point.o main.o -o app
-```
-
-Первые две команды создают object files. Последняя вызывает linking.
-
-Можно и короче:
-
-```bash
-cc -std=c17 -Wall -Wextra -Wpedantic -g point.c main.c -o app
-```
-
-Но длинная форма лучше показывает модель.
-
-## Почему declaration в `.h`, definition в `.c`
-
-Header — контракт, который должны видеть другие translation units.
-
-Implementation details по возможности остаются в `.c`.
-
-Это уменьшает accidental coupling и делает интерфейс проекта явным.
-
-## Linker errors
-
-Если header обещает:
-
-```c
-int point_manhattan(struct Point p);
-```
-
-но ни один object file не содержит definition, compilation отдельных файлов может пройти, а linker затем сообщит, что символ не найден.
-
-Теперь `undefined reference` должен быть логически понятен.
-
-## Causal questions
-
-1. Почему `struct` лучше параллельных несвязанных массивов для сущности `Entry`?
-2. Почему public header не должен без необходимости раскрывать каждый implementation detail?
-3. Почему программа может успешно скомпилировать `.c` файлы и всё равно провалиться на linking?
-4. Чем named enum status лучше случайных integer codes?
-5. Почему precondition диапазона является частью корректности функции, а не «комментарием для красоты»?
-
-## Упражнение
-
-Сделай маленький модуль `point` из трёх файлов:
-
-```text
-point.h
-point.c
-main.c
-```
-
-Требования:
-
-- `Point` содержит `x/y`;
-- одна функция вычисляет Manhattan distance до начала координат;
-- допустимый диапазон каждой координаты: `[-10000, 10000]`;
-- declaration и precondition находятся в header/документации API;
-- definition — в `.c`;
-- main создаёт несколько points и проверяет функцию через `assert`, включая boundary values диапазона.
-
-Сначала собери object files отдельно, затем link.
-
-### Self-check
-
-- нет warnings;
-- тесты не нарушают declared precondition;
-- умеешь показать object files;
-- если временно удалить definition, понимаешь linker error;
-- header имеет include guard;
-- можешь объяснить, почему вариант без ограничения диапазона имеет `INT_MIN` edge case.
+Сначала собери каждый `.c` с `-c`, затем свяжи `.o`. После этого намеренно не передай `math_ops.o` на последнем шаге и прочитай diagnostic.
 
 Разбор: [`05-structs-modules.solution.md`](05-structs-modules.solution.md).
 
-## Project slice — MiniKV v0
+## Project slice
 
-Теперь собери первую законченную версию MiniKV по [`project/SPEC.md`](project/SPEC.md).
-
-Предлагаемая conceptual representation:
-
-```text
-Entry
-  key buffer
-  value buffer
-  occupied/state
-
-Store
-  fixed array<Entry>
-  current count / state
-```
-
-Ты самостоятельно выбираешь точные поля и API в рамках SPEC.
-
-Обязательно добавь собственные `assert` tests из [`project/TESTS.md`](project/TESTS.md).
-
-Пока не используй heap allocation.
+Теперь можно создать тип `Entry` и массив записей проекта. Прочитай разделы **Behavior** и **Unlocked after 0.5** в [`project/SPEC.md`](project/SPEC.md).
 
 ## Exit check
 
-Можешь ли ты объяснить путь:
-
-```text
-minikv.c -> minikv.o
-main.c   -> main.o
-          ↓
-        linker
-          ↓
-       executable
-```
-
-и указать, какая часть является public contract, включая допустимый домен входных значений?
+Объясни, какую новую проблему решает linker и почему нам не было смысла вводить его в 0.1.

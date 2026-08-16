@@ -1,38 +1,27 @@
-# Разбор упражнения 0.3
-
-Один вариант:
+# Разбор 0.3
 
 ```c
-#include <assert.h>
+#include <stdio.h>
 
-enum TemperatureClass {
-    TEMP_COLD,
-    TEMP_NORMAL,
-    TEMP_HOT
-};
-
-int classify_temperature(int t)
+int clamp_score(int score)
 {
-    if (t < 10) {
-        return TEMP_COLD;
+    if (score < 0) {
+        return 0;
     }
-
-    if (t < 25) {
-        return TEMP_NORMAL;
+    if (score > 100) {
+        return 100;
     }
-
-    return TEMP_HOT;
+    return score;
 }
 
 int main(void)
 {
-    assert(classify_temperature(9) == TEMP_COLD);
-    assert(classify_temperature(10) == TEMP_NORMAL);
-    assert(classify_temperature(24) == TEMP_NORMAL);
-    assert(classify_temperature(25) == TEMP_HOT);
-    assert(classify_temperature(100) == TEMP_HOT);
+    int cases[] = {-1, 0, 50, 100, 101};
+    for (int i = 0; i < 5; ++i) {
+        printf("%d -> %d\n", cases[i], clamp_score(cases[i]));
+    }
     return 0;
 }
 ```
 
-Ключевой вопрос — boundary values `9/10` и `24/25`. Если тестировать только очевидные середины диапазонов, можно пропустить off-by-one ошибку.
+Ключевая идея — границы `0` и `100` принадлежат допустимому диапазону, поэтому проверяются случаи непосредственно рядом с ними.
