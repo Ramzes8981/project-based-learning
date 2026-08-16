@@ -82,6 +82,8 @@ new_capacity * sizeof(Bucket)
 
 Transfer candidates: configurable threshold, second probing strategy experiment, iterator, shrink+hysteresis, probe histogram.
 
+Разбор: [`20-resize-rehash.solution.md`](20-resize-rehash.solution.md).
+
 ## Exit check
 
 Ты должен уметь нарисовать ownership table **до allocation, во время temporary rehash и после commit** и показать, почему allocation failure не ломает старую table.
