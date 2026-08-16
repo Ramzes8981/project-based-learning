@@ -1,6 +1,6 @@
 # 6.7 — cgroup v2, capabilities и isolation composition
 
-**Теория:** ~85 мин  
+**Теория:** ~90 мин  
 **Project:** ~6–10 часов  
 **С телефона:** теория — да
 
@@ -8,106 +8,113 @@
 
 ## Цель
 
-Отделить resource control от namespaces и собрать честный mini-container/isolation lab.
+Отделить resource control от namespaces и собрать честную model container-style isolation без обещания security boundary, которого проект не создаёт.
 
 ## cgroup v2
 
-Cgroups группируют processes и позволяют accounting/control resources через controllers.
+Cgroup — kernel mechanism для группировки processes и resource accounting/control. В v2 используется единая hierarchy.
 
-Current Linux cgroup v2 использует unified hierarchy. Process membership виден через `cgroup.procs`; child после `fork` рождается в cgroup parent на момент fork according to kernel cgroup v2 model. citeturn676423search1
+Полезная filesystem mental model:
 
-Controllers могут управлять/учитывать:
+```text
+/sys/fs/cgroup/
+├── cgroup.controllers
+├── cgroup.subtree_control
+├── cgroup.procs
+├── memory.current / memory.max ...
+├── cpu.stat / cpu.max ...
+└── pids.current / pids.max ...
+```
 
-- CPU;
-- memory;
-- pids;
-- I/O;
-- others depending kernel/config.
+Набор controller files зависит от kernel/configuration/delegation.
+
+## Membership
+
+`cgroup.procs` перечисляет PIDs processes, принадлежащих cgroup. Process можно переместить записью PID в target `cgroup.procs`, если permissions/delegation это разрешают.
+
+После `fork` child рождается в той cgroup, к которой принадлежит parent в момент fork. Это важно для launcher design: limit/group часто подготавливают до запуска workload либо явно мигрируют child.
+
+`/proc/<pid>/cgroup` позволяет увидеть membership; для pure v2 entry имеет hierarchy id `0` и path.
 
 ## Namespace vs cgroup
 
 ```text
-namespace -> что process видит
-cgroup    -> сколько/как resources process group использует
+namespace -> какую часть/имена system state process видит
+cgroup    -> accounting/limits/weight resources группы processes
 ```
 
-Они дополняют друг друга, но не заменяют.
+UTS namespace не ограничивает RAM. `memory.max` не меняет hostname view. Это ортогональные механизмы.
 
-## cgroup v2 hierarchy
+## Controllers
 
-Conceptually:
+### Memory
 
-```text
-root cgroup
-├─ serviceA
-│  ├─ workers
-│  └─ maintenance
-└─ serviceB
-```
+`memory.max` — hard limit interface v2, но это не «зарезервировать ровно X MiB физической RAM». Реальное поведение включает accounting, reclaim и OOM decisions. Для наблюдения также полезны `memory.current`/events, если доступны.
 
-Process относится к hierarchy membership; controllers/delegation rules определяют allowed changes.
+### PIDs
 
-Не записывай arbitrary limits в host cgroup filesystem без controlled environment/permission understanding.
+`pids.max` ограничивает количество tasks/process creation внутри subtree accounting model. Это защита resource availability, не permission sandbox.
 
-## Memory limit nuance
+### CPU
 
-Memory cgroup limit — не «выделить process ровно X MB физической RAM». Это accounting/control механизм с reclaim/OOM behavior и деталями kernel controller.
+CPU controller может задавать weight/maximum bandwidth. Ограничение CPU не означает deterministic execution speed: host load/scheduler/measurement noise остаются.
 
-## PID controller
+## Delegation и безопасность lab
 
-Ограничение pids помогает защитить host/service от fork bomb-style resource exhaustion, но не заменяет permissions/security.
+Не создавай/не меняй произвольные host cgroups от root только ради упражнения. Сначала выясни:
+
+- cgroup v2 mounted ли;
+- delegated ли тебе writable subtree;
+- запускается ли lab в disposable VM/user session;
+- какие controllers enabled;
+- как cleanup вернуть system state.
+
+Если writable delegation нет — **наблюдение membership считается достаточным core evidence**, а limit experiment переносится в VM/optional.
 
 ## Capabilities
 
-Traditional root privileges Linux разбиты на capabilities: например network/admin/sys-admin-like powers.
+Linux разбивает многие традиционные root powers на capabilities. Capability всегда нужно рассматривать в контексте user namespace и resource, которым он управляет.
 
-Process с UID 0 внутри user namespace не обязательно имеет same effective capabilities на host resources.
+UID 0 внутри нового user namespace не означает host root. Process может иметь capabilities внутри своего user namespace, не имея тех же privileges над resources parent/initial namespace.
 
-Production container reduces capability set instead of давать blanket root power.
+Следствие: фраза «внутри container root» недостаточна для security reasoning.
 
-## seccomp preview
+## seccomp / LSM preview
 
-Seccomp filters syscall surface. Namespace/cgroup не запрещают автоматически dangerous syscalls, доступные через shared kernel.
+Namespaces/cgroups сами по себе не фильтруют syscall surface shared kernel. Production isolation может дополнительно использовать seccomp, capability reduction, LSM policies, read-only mounts и другие controls.
 
-Core проект только документирует место seccomp; полноценный policy — Stretch/security branch.
+Core lab не строит production seccomp policy — важно понимать место механизма в composition.
 
-## Isolation composition
-
-Учебный container-like stack:
+## Composition
 
 ```text
-process
-+ namespaces (views)
-+ filesystem view
-+ cgroup limits/accounting
-+ reduced capabilities
-+ optional seccomp/LSM
-+ kernel boundary shared
+process lifecycle
++ namespaces (views/identities)
++ filesystem/mount view
++ cgroup resource controls
++ user namespace/capability model
++ optional syscall/LSM restrictions
++ shared host kernel
 ```
 
-## Project
+## Project slice
 
-Выполни [`project/SPEC.md`](project/SPEC.md).
+По [`project/SPEC.md`](project/SPEC.md):
 
-Минимум:
-
-- launcher child;
-- UTS namespace;
-- PID или mount namespace;
-- inspect namespace IDs;
-- observe cgroup v2 membership;
-- если environment безопасно позволяет — controlled pids/memory/CPU experiment;
-- explicit limitations.
-
-C wrapper можно писать после `unshare` experiments.
+1. baseline inspect `/proc/.../ns` + cgroup membership;
+2. UTS + PID/mount namespace experiments;
+3. C launcher child lifecycle;
+4. observe cgroup v2 membership;
+5. resource-limit experiment только если environment checklist говорит, что это безопасно/delegated;
+6. README с threat/non-goal section.
 
 ## Causal questions
 
-1. Что ограничивает namespace, а что cgroup?
-2. Почему root inside user namespace не равен host root?
-3. Почему cgroup memory limit не исправляет memory-corruption bug?
-4. Почему production container всё равно разделяет host kernel?
+1. Почему memory cgroup не исправляет use-after-free?
+2. Почему namespace root и host root — разные security contexts?
+3. Почему pids limit полезен, но не запрещает чтение файла?
+4. Как shared kernel влияет на claim «полная виртуальная машина»?
 
 ## Exit check
 
-Утверждение «процесс в container, значит host полностью защищён» должно вызывать список конкретных проверок, а не согласие.
+Для любого «container изолирует X» назови конкретный kernel mechanism и его non-goals.

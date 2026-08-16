@@ -2,8 +2,15 @@
 
 **Цель:** собрать coherent OS model: scheduling, VM under pressure, synchronization, IPC, process inspection, namespaces, cgroup v2 и ограничения container-style isolation.
 
-**Оценка:** ~40–55 часов.  
+**Оценка:** ~42–58 часов.  
 **Core milestone:** Modern Linux Isolation Lab.
+
+## Prerequisites
+
+- Unix processes/signals/descriptors;
+- virtual memory/performance;
+- concurrency primitives;
+- test/failure reasoning.
 
 ## Уроки
 
@@ -18,6 +25,6 @@
 
 ## Проект
 
-[`project/SPEC.md`](project/SPEC.md)
+[`project/SPEC.md`](project/SPEC.md) · [`project/ENVIRONMENT_CHECKLIST.md`](project/ENVIRONMENT_CHECKLIST.md) · [`project/README.md`](project/README.md)
 
-Проект — учебный launcher/isolation lab, **не production container runtime**.
+Проект — учебный launcher/isolation lab, **не production container runtime и не security sandbox**. Если WSL/host не даёт безопасно выполнить kernel-specific часть, используй Ubuntu VM/native Linux fallback и зафиксируй различие.
