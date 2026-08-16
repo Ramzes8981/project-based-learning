@@ -1,72 +1,71 @@
-# 1C.3 — Testability, dependency boundaries и test doubles
+# 1C.3 — Как отделить логику от зависимости, которая мешает воспроизводимому тесту
 
-**Теория:** ~70 мин  
-**Упражнение:** ~50 мин  
-**С телефона:** да
+**Теория:** ~65 мин · **Практика:** ~75 мин · **С телефона:** теория — да
 
 ← [`02-invariants-properties-regressions.md`](02-invariants-properties-regressions.md) · → [`04-negative-testing-fuzzing.md`](04-negative-testing-fuzzing.md)
 
-## Цель
+## Проблема
 
-Понимать, когда зависимость мешает тесту, и отделять core logic от I/O/time/randomness без архитектуры «ради mock».
+Vector grow должен правильно вести себя при allocation failure. Но «надеяться, что `malloc` случайно вернёт NULL`» — плохой test: он опасен и невоспроизводим.
 
-## Hard-coded dependency
+Нужна controlled boundary.
 
-Если parser сам читает stdin, сам пишет файл и сам вызывает clock, unit test вынужден поднимать весь мир.
+## Testability
 
-Лучше разделить:
+Code **тестопригоден (testable)**, когда важные decisions можно проверить без недетерминированного внешнего мира.
 
-```text
-I/O boundary -> bytes/data -> pure-ish core -> result -> I/O boundary
-```
+Один способ — передать dependency явно.
 
-Не всё обязано быть pure, но side effects должны иметь понятные boundaries.
-
-## Dependency injection — идея
-
-Dependency передаётся компоненту вместо жёсткого создания внутри.
-
-В C это может быть function pointer + context struct. В Rust — trait/reference/closure или простой параметр.
-
-Цель — не framework, а возможность заменить expensive/nondeterministic boundary контролируемой реализацией.
-
-## Test doubles
-
-**Stub:** возвращает заранее заданные данные.  
-**Fake:** упрощённая рабочая implementation, например in-memory storage вместо file.  
-**Spy:** записывает, что было вызвано.  
-**Mock:** test задаёт expected interactions и проверяет их.
-
-Термины в индустрии иногда смешивают. Важнее описывать поведение double, чем спорить о названии.
-
-## Не mock everything
-
-Если тест знает каждый внутренний function call, рефакторинг ломает tests без изменения behavior. Предпочитай public state/output, а interaction checks используй там, где само взаимодействие является contract (например `fsync` policy abstraction в специальном test).
-
-## C example pattern
+Для allocator-like boundary можно концептуально иметь:
 
 ```c
-typedef ssize_t (*ReadFn)(void *ctx, void *buf, size_t n);
+typedef void *(*AllocFn)(size_t bytes, void *ctx);
+typedef void (*FreeFn)(void *ptr, void *ctx);
 ```
 
-Core reader получает `ReadFn + ctx`; production context вызывает real fd, test context отдаёт chunked fixture. Это позже поможет тестировать partial I/O.
+Production передаёт wrappers around normal allocator; test передаёт deterministic fake that fails on N-th call.
 
-## Rust example pattern
+Function pointer/callback уже знаком из 1.9, поэтому hidden prerequisite нет.
 
-Функция может принимать `impl Read`/`&mut dyn Read` или generic parameter, а test использовать byte slice/cursor.
+## Double
 
-## Упражнение
+Controlled replacement dependency в тесте часто называют **test double**. Это umbrella term; mock/stub/fake имеют более узкие meanings, но core не требует taxonomy ради taxonomy.
 
-Возьми функцию, которая сейчас напрямую читает/пишет внешний ресурс, или спроектируй маленькую parser function. Раздели:
+Главное:
 
-1. acquisition of bytes;
-2. parsing/validation;
-3. side effect/result.
+```text
+production contract and test replacement must obey same interface assumptions
+```
 
-Покажи, какой тест теперь можно выполнить без real file/network.
+## Не делай internal implementation public только ради теста
+
+Лучше вынести meaningful boundary, чем expose private fields и проверять каждую строку implementation. Тест должен защищать behavior/invariant.
+
+## Пример: deterministic allocation failure
+
+State double-а:
+
+```text
+call_count
+fail_on_call
+```
+
+Он возвращает failure exactly on configured call. Теперь можно проверить:
+
+```text
+Vector grow fails
+→ old data/len/capacity remain valid
+→ destroy still safe
+```
+
+Никаких `fd`, socket, syscall или short I/O здесь ещё не нужно. Они получат собственные seams после соответствующих lessons.
+
+## Практика
+
+Добавь test allocator seam в Vector или Hash Table только настолько, насколько нужно для deterministic failure injection. Не усложняй production API без причины.
 
 Разбор: [`03-testability-dependencies-doubles.solution.md`](03-testability-dependencies-doubles.solution.md).
 
 ## Exit check
 
-Можешь ли ты объяснить, почему dependency injection — это прежде всего control over dependency, а не обязательный OOP container?
+Почему controlled allocator failure даёт более сильное evidence, чем попытка «забить всю RAM и посмотреть»?

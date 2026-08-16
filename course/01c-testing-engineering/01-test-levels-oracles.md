@@ -1,70 +1,76 @@
-# 1C.1 — Test levels и test oracle
+# 1C.1 — Откуда тест знает правильный ответ
 
-**Теория:** ~60 мин  
-**Упражнение:** ~45 мин  
-**С телефона:** да
+**Теория:** ~55 мин · **Практика:** ~60 мин · **С телефона:** теория — да
 
 ← [`README`](README.md) · → [`02-invariants-properties-regressions.md`](02-invariants-properties-regressions.md)
 
-## Цель
+## Проблема
 
-Выбирать уровень теста по риску и понимать, **кто решает, что результат правильный**.
+Программа завершилась без crash. Это ещё не означает, что результат правильный.
 
-## Test oracle
+Тесту нужен критерий, позволяющий различить correct/incorrect behavior. Такой критерий называют **оракулом (test oracle)**.
 
-Test oracle — правило/наблюдение, по которому тест отличает корректный результат от некорректного.
+## Простой oracle
+
+Для `clamp_score`:
 
 ```text
-input + execution + oracle -> pass/fail evidence
+input -1  → 0
+input 50  → 50
+input 101 → 100
 ```
 
-`program did not crash` — слабый oracle. Для `SET k=v; GET k` oracle может быть exact returned value + unchanged unrelated entries + valid counters.
+Expected values — oracle.
 
-## Unit test
+## Уровни тестов — разные boundaries
 
-Проверяет маленький компонент/функцию в изоляции настолько, насколько это полезно.
+Названия не важны сами по себе; важен scope evidence.
 
-Подходит для hash function determinism, parser helper, heap sift operation. Unit test быстрый и локализует defect, но не доказывает integration.
+### Unit
 
-## Integration test
+Проверяет небольшой component/function in isolation enough to diagnose logic quickly.
 
-Проверяет несколько реальных компонентов вместе: parser + storage, allocator + user, file format + pager.
+### Integration
 
-Главный вопрос — interfaces согласованы ли в реальной композиции.
+Проверяет, что несколько real components правильно договариваются о contract.
 
-## System / black-box test
+### System/end-to-end
 
-Запускает систему через внешний contract: process CLI, socket protocol, file format. Не обязан знать внутренние structs.
+Проверяет observable behavior всей программы через внешний interface.
 
-Shell и KV Server особенно хорошо проверяются так.
+Один end-to-end test не заменяет unit tests: он может сказать «что-то сломано», но не локализует механизм.
 
-## Acceptance test
+## Arrange → Act → Assert
 
-Проверяет пользовательское/проектное требование из SPEC. Acceptance может быть system test, но понятия не тождественны: acceptance говорит **зачем**, system — **на каком уровне**.
+Полезная структура:
 
-## Test pyramid не закон природы
+```text
+prepare known state
+perform one behavior
+compare result/state with oracle
+```
 
-Много быстрых narrow tests полезно, но systems software часто требует серьёзных integration/system checks. Не оптимизируй число тестов под красивую геометрию.
+Не обязательно использовать framework, чтобы мыслить так.
 
 ## Determinism
 
-Тест должен по возможности контролировать time/randomness/environment. Flaky test уничтожает доверие: случайный green больше не является evidence.
+Если test зависит от текущего времени, random input, global mutable state или ordering, который contract не обещает, failure трудно воспроизвести.
 
-## Упражнение
+Первый вопрос flaky test:
 
-Возьми 12 tests своего Hash Table/Vector/MiniKV и классифицируй:
+> какая скрытая dependency меняется между runs?
 
-```text
-unit / integration / system / acceptance
-oracle
-what bug class it detects
-what it cannot prove
-```
+## Практика
 
-Добавь один test на public behavior, который не зависит от internal representation.
+Для C Vector придумай по одному unit/integration-like/system-like check. Для каждого напиши:
+
+- boundary;
+- oracle;
+- failure, который он ловит;
+- failure, который он **не** ловит.
 
 Разбор: [`01-test-levels-oracles.solution.md`](01-test-levels-oracles.solution.md).
 
 ## Exit check
 
-Если test падает, можешь ли ты объяснить, какой contract был oracle и какой уровень системы реально проверялся?
+Почему test without oracle может успешно запускаться и почти ничего не доказывать?

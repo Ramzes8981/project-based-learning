@@ -1,85 +1,64 @@
-# 1C.4 — Negative testing, fault injection и fuzzing intuition
+# 1C.4 — Почему неправильный input нужно генерировать намеренно
 
-**Теория:** ~75 мин  
-**Упражнение:** ~60 мин  
-**С телефона:** теория — да
+**Теория:** ~65 мин · **Практика:** ~80 мин · **С телефона:** теория — да
 
 ← [`03-testability-dependencies-doubles.md`](03-testability-dependencies-doubles.md) · → [`05-module-checkpoint.md`](05-module-checkpoint.md)
 
-## Цель
+## Проблема
 
-Проверять систему в состояниях, которые happy-path developer предпочёл бы не видеть.
+Happy-path tests доказывают только happy path. Systems/security code особенно часто ломается на длинах, malformed states и sequences, которые «нормальный пользователь не введёт».
 
-## Negative tests
+## Negative testing
 
-Проверяют invalid/malformed/forbidden input:
+Мы намеренно подаём invalid/boundary input и проверяем controlled failure:
 
-- overlong key;
-- truncated frame;
-- invalid enum/opcode;
-- impossible length combination;
-- duplicate insertion по запрещённому contract;
-- empty file/header.
+- zero/maximum lengths;
+- one beyond maximum;
+- empty input;
+- duplicate operations;
+- truncated representation;
+- impossible enum/tag;
+- forced dependency failure.
 
-Главный oracle часто не «вернул красивый error», а ещё и:
+Rule:
 
-```text
-state не повреждён
-resource не утёк
-process не crash
-subsequent valid operation всё ещё работает
-```
+> invalid input must not silently corrupt owned state.
 
-## Fault injection
+## Fuzzing intuition
 
-Искусственно создаём failure dependency:
+**Fuzzing** автоматически генерирует/мутирует inputs и ищет crashes, sanitizer findings, hangs или violated assertions.
 
-- allocation failure;
-- short read/write;
-- interrupted syscall;
-- disk write error;
-- worker rejects task;
-- peer disconnect mid-frame.
-
-Для C allocation failure удобно тестировать через wrapper/dependency boundary, а не ждать реального OOM.
-
-## Fuzzing
-
-Fuzzer генерирует/мутирует много inputs и ищет crashes, sanitizer findings, hangs или violated properties.
-
-Fuzzing особенно силён для parser boundaries. Он не заменяет spec-based tests: если программа стабильно возвращает неправильный ответ без crash и oracle не проверяет semantics, fuzzer может быть доволен.
-
-## Fuzz target
-
-Хорошая цель:
+Fuzzer особенно полезен, если есть:
 
 ```text
-arbitrary bytes -> parser
+cheap parser/operation
+clear oracle/invariant
+fast reset
+sanitizers
 ```
 
-с properties:
-
-- no UB/crash;
-- execution bounded;
-- accepted result satisfies structural invariants;
-- rejected input leaves no leaked state.
+Fuzzing не доказывает absence of bugs; он исследует large input space efficiently.
 
 ## Seed corpus
 
-Начни с маленьких meaningful examples: empty, minimum valid, maximum valid, each opcode, truncated cases. Mutation от них эффективнее случайных bytes без структуры.
+Начинай с meaningful small seeds: empty, smallest valid, boundary valid, one-past invalid, collision sequence. Pure random bytes without structure иногда плохо проходят parser front door.
 
-## Sanitizers + fuzzing
+## Minimize
 
-ASan/UBSan превращают многие скрытые memory errors в observable failures. Но отсутствие crash за миллион inputs не доказывает correctness.
+Найденный failure полезнее после minimization: smallest input makes root cause/debugging/regression clearer.
 
-## Упражнение
+## Практика
 
-Для MiniKV/Hash Table составь 12 negative/fault cases. Реализуй минимум 3: over-limit input, operation on boundary/full state, и simulated failure path, если архитектура уже позволяет.
+Для одной pure function/parser из уже пройденного:
 
-Для pure parser можешь написать простой loop-mutator на Python: менять byte в fixture и запускать parser test harness. Это инфраструктура, не основной C/Rust skill.
+1. define validity boundary;
+2. add deterministic negative cases;
+3. make a tiny mutation loop or use available fuzzer if environment supports it;
+4. run with sanitizers;
+5. save minimized reproducer as regression.
 
 Разбор: [`04-negative-testing-fuzzing.solution.md`](04-negative-testing-fuzzing.solution.md).
 
 ## Exit check
 
-После failure можешь ли ты проверить не только error code, но и сохранность invariants/resources?
+Почему «10 000 random inputs without crash» слабее, чем «property + sanitizer + minimized boundary corpus»?
