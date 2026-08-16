@@ -98,6 +98,16 @@ def check_duplicate_lesson_prefixes(errors: list[str]) -> None:
             seen[prefix] = path
 
 
+def check_orphan_solutions(errors: list[str]) -> None:
+    for solution in COURSE.rglob("*.solution.md"):
+        lesson_name = solution.name.removesuffix(".solution.md") + ".md"
+        lesson = solution.with_name(lesson_name)
+        if not lesson.exists():
+            errors.append(
+                f"{solution.relative_to(ROOT)}: orphan solution; missing lesson {lesson.name}"
+            )
+
+
 def gha_escape(text: str) -> str:
     return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
@@ -111,6 +121,7 @@ def main() -> int:
         check_links(path, text, errors)
     check_projects(errors)
     check_duplicate_lesson_prefixes(errors)
+    check_orphan_solutions(errors)
 
     if errors:
         print(f"course audit: FAIL ({len(errors)} issue(s))")
