@@ -1,9 +1,15 @@
 # Module 4 — Virtual Memory, Performance & Allocators
 
-**Цель:** связать process address space, page translation, cache locality и custom allocation policy.
+**Цель:** связать process address space, page translation, cache locality, measurement discipline и custom allocation policy.
 
-**Оценка:** ~35–50 часов.  
+**Оценка:** ~38–55 часов.  
 **Core milestone:** Arena Allocator.
+
+## Prerequisites
+
+- C ownership/heap/UB из Module 1;
+- Testing Engineering: invariants, fault paths, regression tests;
+- architecture basics: addresses, caches, machine representation.
 
 ## Уроки
 
@@ -16,6 +22,6 @@
 
 ## Проект
 
-[`project/SPEC.md`](project/SPEC.md)
+[`project/SPEC.md`](project/SPEC.md) · [`project/README.md`](project/README.md)
 
-Allocator управляет памятью **внутри заранее полученной arena**, а не пытается повторить production `malloc` целиком.
+Allocator управляет sub-blocks **внутри заранее полученной arena**. API проекта выбираешь сам; поэтому executable public harness не навязывает signatures. Вместо этого `make test` обязан запускать твои unit/property tests из `TESTS.md`, а review добавляет unseen operation sequences.
