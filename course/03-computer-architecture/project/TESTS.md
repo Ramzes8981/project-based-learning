@@ -1,16 +1,30 @@
-# Tiny16 — Public scenarios
+# Tiny16 — public test scenarios
 
-1. encode/decode every instruction;
-2. LOADI positive/negative boundaries;
-3. ADD/SUB wrap at ISA 16-bit level;
-4. LOAD/STORE;
-5. JZ taken/not taken;
-6. JMP;
-7. forward/backward labels;
-8. duplicate label error;
-9. unknown label error;
-10. immediate out-of-range;
-11. invalid opcode emulator error;
-12. loop program sum/count;
-13. trace mode;
-14. transfer feature.
+## Assembler
+
+1. empty/comment-only source;
+2. one instruction per core opcode;
+3. decimal/hex immediates;
+4. labels forward/backward;
+5. duplicate label rejected;
+6. unknown label rejected;
+7. register/immediate out of range rejected;
+8. malformed operand count rejected;
+9. deterministic machine-word output.
+
+## Emulator
+
+1. NOP/HALT;
+2. ADD/SUB wrap according to 16-bit ISA;
+3. bitwise ops;
+4. LOADI sign extension;
+5. LOAD/STORE bounds;
+6. JZ taken/not taken and relative-to-next-PC semantics;
+7. JMP absolute range;
+8. unknown opcode controlled error;
+9. step limit prevents accidental infinite-test hang;
+10. trace state matches executed instructions.
+
+## Integration
+
+Assemble every program in `tests/programs/`, run emulator, compare expected final state documented in `tests/EXPECTED.md`.

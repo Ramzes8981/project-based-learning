@@ -4,7 +4,7 @@
 **Упражнение:** ~60 мин  
 **С телефона:** теория — да
 
-← [`07-dynamic-array.md`](07-dynamic-array.md) · → [`09-complexity-search-sort-recursion.md`](09-complexity-search-sort-recursion.md)
+← [`07-dynamic-array.md`](07-dynamic-array.md) · → [`09-function-pointers-callbacks.md`](09-function-pointers-callbacks.md)
 
 ## Цель
 
@@ -64,12 +64,7 @@ pop
 peek
 ```
 
-Его можно реализовать:
-
-- dynamic array;
-- linked list.
-
-ADT описывает поведение, data structure — конкретное representation.
+Его можно реализовать dynamic array или linked list. ADT описывает behavior, data structure — representation.
 
 ## Queue ADT
 
@@ -77,12 +72,10 @@ Queue — FIFO:
 
 ```text
 enqueue
- dequeue
+dequeue
 ```
 
-В linked representation полезно хранить и head, и tail, чтобы append был `O(1)`.
-
-В array representation production queue часто использует ring buffer вместо постоянного сдвига элементов.
+В linked representation полезно хранить head+tail для `O(1)` append. В array representation production queue часто использует ring buffer вместо постоянного shift.
 
 ## Causal questions
 
@@ -95,18 +88,10 @@ enqueue
 
 Реализуй маленький integer stack **одним** способом на выбор: vector-backed или singly-linked.
 
-Требования:
-
-- push/pop/peek;
-- empty handling;
-- deterministic cleanup;
-- ASan clean;
-- не превращать это в portfolio project.
-
-После реализации письменно опиши, как выглядел бы второй вариант и какие trade-offs изменились бы.
+Требования: push/pop/peek, empty handling, deterministic cleanup, ASan clean. После реализации письменно опиши второй вариант и trade-offs.
 
 Разбор архитектуры: [`08-linked-structures.solution.md`](08-linked-structures.solution.md).
 
 ## Exit check
 
-Для workload «миллионы sequential scans + редкие appends» выбери между vector и linked list и объясни решение через layout + operations, а не только Big O.
+Для workload «миллионы sequential scans + редкие appends» выбери vector или linked list через layout + operations, не только Big O.

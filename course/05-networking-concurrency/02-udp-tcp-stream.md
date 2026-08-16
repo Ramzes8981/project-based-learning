@@ -8,27 +8,17 @@
 
 ## Цель
 
-Перестать воспринимать TCP как «надёжные сообщения» и понять, почему application framing — ответственность протокола приложения.
+Перестать воспринимать TCP как «надёжные сообщения» и понять, почему application framing — ответственность application protocol.
 
 ## UDP
 
-UDP предоставляет datagram service:
+UDP предоставляет datagrams: одна отправка создаёт datagram boundary, которую receiver получает как datagram, если она доставлена. Сам UDP не обещает delivery, ordering или retransmission.
 
-```text
-send datagram
-→ network may deliver, drop, duplicate/reorder depending conditions
-→ receiver gets datagram boundary when delivered
-```
-
-UDP не гарантирует reliability/ordering/retransmission сам по себе.
-
-Это не делает UDP «плохим TCP»: real-time/media/DNS/custom protocols могут предпочитать его semantics.
+Это не «плохой TCP»: DNS, real-time media и custom protocols могут выбирать datagram semantics сознательно.
 
 ## TCP
 
 TCP connection предоставляет ordered reliable **byte stream**.
-
-Ключевое слово — stream.
 
 Если sender сделал:
 
@@ -37,84 +27,60 @@ send 100 bytes
 send 50 bytes
 ```
 
-receiver не обязан увидеть:
+receiver не имеет contract получить именно `100`, затем `50` bytes одним-в-один. `recv` может вернуть любой положительный chunk доступного stream вплоть до requested buffer size.
 
 ```text
-recv -> 100
-recv -> 50
-```
-
-Возможны chunks:
-
-```text
-30, 120
+30 + 120
 150
-80, 70
+80 + 70
 ...
 ```
 
-в рамках ordered stream semantics.
+Order bytes сохраняется, boundaries `send` — нет.
 
-POSIX `recv` возвращает столько bytes, сколько реально доступно/получено в рамках API contract; orderly peer shutdown даёт `0`. citeturn932665search0
+`recv == 0` после чтения уже buffered data означает orderly peer shutdown на stream side. Negative result означает error; для nonblocking режима отдельными нормальными состояниями станут `EAGAIN/EWOULDBLOCK`.
 
-## Reliability intuition
+## Reliability mechanisms intuition
 
-TCP использует sequence numbers, acknowledgements, retransmission, flow control и congestion control.
+TCP internally использует sequence numbers, acknowledgements, retransmission, flow control и congestion control. Application получает stream abstraction, а не обязана самостоятельно собирать lost packets.
 
-Application видит ordered bytes, а не packet retransmission details.
+### Flow control
 
-## Flow control vs congestion control
+Не даёт sender переполнить advertised receive capacity peer.
 
-Flow control защищает receiver buffer capacity.
+### Congestion control
 
-Congestion control адаптирует sending rate к network path congestion.
+Адаптирует sending behavior к network path congestion.
 
-Не смешивай их в одно «TCP сам регулирует скорость».
+Это разные feedback problems.
 
-## Connection establishment
+## Connection lifecycle
 
-Classic conceptual handshake:
+Application обычно видит `connect/accept`, а kernel ведёт TCP state machine. Classic three-way handshake — полезная модель establishment, но не повод вручную реализовывать TCP в socket application.
 
-```text
-SYN
-SYN-ACK
-ACK
-```
+## Half-close
 
-Но application code обычно работает через `connect/accept`, а kernel реализует protocol state machine.
-
-## Close
-
-TCP двунаправленный. `shutdown` может закрывать только send/receive half; `close` освобождает descriptor reference. Peer `recv == 0` означает orderly shutdown receive side stream after buffered data drained.
+TCP full-duplex. `shutdown` может запретить дальнейшую send/receive direction отдельно; `close` освобождает descriptor reference. Это важно для protocols, где одна сторона сообщает EOF, но ещё читает response.
 
 ## Head-of-line blocking
 
-TCP сохраняет byte order. Потерянный segment может задерживать delivery последующих bytes application even if они физически arrived.
-
-Это один trade-off stream reliability.
+TCP обязан выдавать application bytes по порядку. Если segment потерян, более поздние bytes не могут быть delivered application раньше gap, даже если физически уже пришли.
 
 ## Exercise
 
-Дан application protocol, где message = JSON line 1–100 KiB.
+Protocol: JSON message 1–100 KiB.
 
-Объясни, почему код:
+Объясни, почему неверно:
 
 ```text
 recv(fd, buf, 65536)
-parse buf as one JSON message
+parse buffer as exactly one JSON message
 ```
 
-неверен.
-
-Предложи два framing designs:
-
-- delimiter-based;
-- length-prefixed.
-
-Для каждого назови edge cases.
+Спроектируй delimiter framing и length-prefix framing. Для каждого перечисли partial read, multiple messages per recv, overlong message, EOF mid-message.
 
 Разбор: [`02-udp-tcp-stream.solution.md`](02-udp-tcp-stream.solution.md).
 
 ## Exit check
 
-Одной фразой: что TCP гарантирует application, а чего он **не** гарантирует про boundaries?
+TCP гарантирует ordered stream bytes; application message boundaries создаёт наш protocol/parser.

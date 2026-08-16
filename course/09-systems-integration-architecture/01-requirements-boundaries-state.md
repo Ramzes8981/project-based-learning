@@ -1,121 +1,128 @@
-# 9.1 — Requirements, boundaries и state ownership
+# 9.1 — Requirements, workload, boundaries и state ownership
 
-**Теория:** ~65 мин  
-**Design exercise:** ~90 мин  
-**Project slice:** ~60 мин  
+**Теория:** ~90 мин  
+**Design exercise:** ~2 часа  
+**Project slice:** ~90 мин  
 **С телефона:** да
 
-← [`README`](README.md) · → [`02-protocol-idempotency-contracts.md`](02-protocol-idempotency-contracts.md)
+← [`README`](README.md) · → [`01b-computational-limits-p-np.md`](01b-computational-limits-p-np.md)
 
 ## Цель
 
-Перевести расплывчатое «сделать быстрый KV-сервис» в проверяемые functional/non-functional requirements и component boundaries.
+Перевести «сделать быстрый KV-сервис» в измеримый workload/constraints contract до выбора architecture.
 
 ## Functional requirements
 
-Функция описывает **что** service делает:
+Минимум capstone:
 
-- `GET key`;
-- `SET key value`;
-- `DELETE key`;
-- persistence across restart;
-- multiple clients.
+```text
+GET / SET / DELETE
+multiple clients
+persistent state after clean restart
+graceful shutdown
+metrics/status
+```
 
-Но этого недостаточно для architecture.
+Functional список говорит **что**, но почти не отвечает **сколько/как хорошо**.
 
-## Non-functional requirements
+## Quantitative workload model
 
-Нужно определить ограничения/targets:
+До architecture задай baseline **гипотезы**, не «истину рынка»:
 
-- maximum key/value/frame size;
-- expected concurrent connections;
-- target request rate workload;
-- latency objective;
-- memory bound;
-- durability expectation;
-- graceful shutdown behavior;
-- operating environment.
+```text
+steady RPS:
+burst RPS + duration:
+read/write/delete ratio:
+concurrent connections:
+key size distribution:
+value size distribution:
+working-set size:
+total records / storage growth:
+restart/recovery time target:
+```
 
-Target — не bragging number. Он должен иметь workload и test method.
+Для учебного локального сервиса числа могут быть скромными. Главное — один и тот же workload использовать при сравнении designs.
+
+## Service targets
+
+Пример структуры, а не готовые числа:
+
+```text
+p95 latency <= target at baseline load
+p99 <= target at burst load or explicit overload begins
+resident memory <= budget
+queue capacity <= bound
+storage file growth <= explained model
+shutdown <= target when queue has N items
+```
+
+Каждый target содержит **metric + workload + observation window/tool**. `fast`, `scalable`, `low memory` без этого — не requirements.
+
+## Rough capacity arithmetic
+
+До benchmark полезны sanity estimates:
+
+```text
+memory ≈ records × (key + value + index/allocator overhead)
+network ingress ≈ RPS × average request bytes
+storage growth/day ≈ successful writes/day × average durable bytes/write
+```
+
+Это order-of-magnitude model. Затем измерение уточняет assumptions.
 
 ## Component boundaries
 
-Capstone можно разложить:
-
 ```text
-network listener
-  ↓
-protocol decode/encode
-  ↓
-work scheduling / queue
-  ↓
-KV service logic
-  ↓
+listener/connection lifecycle
+↓
+protocol codec
+↓
+bounded scheduler/queue
+↓
+KV semantics
+↓
 storage/index
-  ↓
+↓
 pager/filesystem
 ```
 
-Boundary полезна, если имеет contract и ownership, а не просто box on diagram.
+Boundary обязан иметь:
+
+```text
+input/output contract
+state owner
+threading/synchronization rule
+failure behavior
+resource limit
+observability
+```
 
 ## State inventory
 
-Для каждого state:
+Для listening fd, connections, tasks, index, persistent file, metrics, shutdown state запиши:
 
 ```text
-state
 owner
-mutable by whom
 lifetime
-persistence
+mutable by whom
+persistent/ephemeral
 synchronization
+recovery source of truth
 failure impact
 ```
 
-Примеры:
+## Architecture exercise
 
-- listening fd;
-- client connection;
-- work queue;
-- in-memory index;
-- persistent file;
-- metrics counters;
-- shutdown flag.
+Создай/обнови:
 
-## Single source of truth
+- [`project/WORKLOAD.md`](project/WORKLOAD.md);
+- `ARCHITECTURE.md` с components/data flow/state ownership;
+- 5–10 functional requirements;
+- quantitative non-functional targets;
+- минимум 5 non-goals.
 
-Если одна logical сущность хранится в двух местах, нужно определить synchronization/recovery contract.
-
-Например in-memory index + disk log/pages: кто authoritative после restart?
-
-## Architecture diagram
-
-Диаграмма должна показывать:
-
-- components;
-- data/control flow;
-- state placement;
-- concurrency boundaries.
-
-Не рисуй future Kafka/Redis/Kubernetes, которых нет в requirements.
-
-## Exercise
-
-Перед code напиши `ARCHITECTURE.md` v0:
-
-1. 5–10 functional requirements;
-2. 5–10 non-functional constraints;
-3. component diagram;
-4. state ownership table/list;
-5. three known non-goals.
-
-## Causal questions
-
-1. Почему `fast` не requirement без workload/metric?
-2. Почему component boundary без contract мало полезна?
-3. Чем in-memory state отличается от durable source of truth?
-4. Почему early microservices могут добавить failure modes без solving bottleneck?
+Сделай две оценки: baseline и hypothetical 10×. Не добавляй второй узел — только покажи, какой resource первым может стать bottleneck.
 
 ## Exit check
 
-Каждый box диаграммы должен отвечать: что входит, что выходит, какое state owns и как ломается.
+Любое число в architecture review должно отвечать: откуда hypothesis, чем измерим и какое решение оно способно изменить?

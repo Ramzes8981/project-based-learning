@@ -1,9 +1,16 @@
 # Module 5 — Networking & Concurrency
 
-**Цель:** понять TCP/IP ниже уровня HTTP library и построить bounded concurrent KV server.
+**Цель:** понять TCP/IP ниже уровня HTTP library и построить bounded concurrent KV server с измеряемым поведением под нагрузкой.
 
-**Оценка:** ~55–70 часов.  
+**Оценка:** ~60–80 часов.  
 **Core milestone:** Concurrent KV Server.
+
+## Prerequisites
+
+- Hash Table, heap/Priority Queue и graph basics из Module 1;
+- Testing Engineering;
+- Unix file descriptors/process model;
+- performance measurement basics из Module 4.
 
 ## Уроки
 
@@ -20,4 +27,6 @@
 
 ## Проект
 
-[`project/SPEC.md`](project/SPEC.md)
+[`project/SPEC.md`](project/SPEC.md) · [`project/PROTOCOL.md`](project/PROTOCOL.md) · [`project/README.md`](project/README.md)
+
+Course-provided `tools/client.py` и `tools/loadgen.py` проверяют внешний protocol contract, но не содержат server implementation.

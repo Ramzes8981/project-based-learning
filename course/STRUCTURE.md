@@ -1,90 +1,84 @@
 # Структура курса
 
-Этот репозиторий — единое учебное пространство. Для обязательного прохождения курса не нужно постоянно переходить на внешние сайты.
+Репозиторий — единое учебное пространство: теория, упражнения, решения маленьких упражнений, project contracts и student project code живут рядом.
 
-## Главный принцип
+## Learning cycle
 
 ```text
-урок с теорией
-    ↓
-вопросы на понимание
-    ↓
-небольшое упражнение
-    ↓
-кусок активного проекта
-    ↓
-разбор ошибок и edge cases
-    ↓
-следующий урок
+concept/problem
+↓
+self-contained theory
+↓
+questions/scenario
+↓
+exercise
+↓
+project slice (если concept уже нужен milestone)
+↓
+debug/test/review
 ```
+
+Не каждый теоретический CS lesson обязан искусственно менять текущий project. Consolidation lesson может завершаться transfer exercise/exit check, если project slice неестественен.
+
+## Два типа lesson
+
+### Project lesson
+
+Новая concept напрямую нужна активному milestone. Обычно содержит theory → exercise → project slice → debugging → exit check.
+
+### Theory / consolidation lesson
+
+Фундаментальная тема (например P/NP, probability, часть algorithms), которой нужно собственное закрепление. Обязательны цель, самостоятельная теория, causal/situational questions, exercise/transfer и exit check; project slice добавляется только если органичен.
 
 ## Файловая модель
 
 ```text
-course/
+course/<module>/
 ├── README.md
-├── STRUCTURE.md
-├── AUTHORING_STANDARD.md
-├── ASSESSMENT_AND_STUDY_RULES.md
-├── OPTIONAL_READING.md
-├── 00-c-fast-start/
-│   ├── README.md
-│   ├── 01-source-build-run.md
-│   ├── 01-source-build-run.solution.md
-│   ├── 02-types-values.md
-│   ├── 02-types-values.solution.md
-│   ├── ...
-│   └── project/
-│       ├── SPEC.md
-│       ├── ACCEPTANCE.md
-│       ├── TESTS.md
-│       └── HINTS.md
-├── 01-memory-data-structures/
-├── 01b-rust-systems-bridge/
-└── ...
+├── 01-topic.md
+├── 01-topic.solution.md      # разбор небольшого exercise, если нужен
+├── ...
+└── project/
+    ├── README.md             # learner-owned design/build/debug log
+    ├── SPEC.md
+    ├── ACCEPTANCE.md
+    ├── TESTS.md              # known scenarios, not necessarily executable
+    ├── HINTS.md
+    ├── tests/                # executable public fixtures/harness when useful
+    └── tools/                # infrastructure, not milestone solution
 ```
+
+Если в модуле несколько проектов, каждый имеет собственный directory с этим contract.
 
 ## Где писать решения
 
-### Упражнения уроков
-
-Решение ученика хранится рядом с соответствующим уроком. Имена файлов можно делать, например:
+Small lesson solution можно хранить рядом:
 
 ```text
-03-control-flow-functions.md
-03-control-flow-functions.solution.md   # эталон/разбор курса
-03-control-flow-functions.my.c          # решение ученика, если удобно
+03-topic.my.c
+03-topic.my.rs
 ```
 
-Формат имени пользовательского файла не является частью проверки: главное — чтобы решение не терялось и было привязано к уроку.
+Reference `.solution.md` открывается после самостоятельной попытки.
 
-### Milestone-проекты
+Milestone implementation создаётся **в его project-folder**, без отдельного глобального `work/`.
 
-Каждый проект живёт в своей `project/` папке текущего модуля. Курс предоставляет ТЗ, критерии, сценарии тестирования и подсказки. Основной код проекта пишет ученик прямо в этой папке.
+## Три слоя проверки
 
-Курс **не** создаёт отдельный глобальный `work/` и не хранит готовую reference implementation milestone-проектов.
+### 1. `TESTS.md` — public scenarios
 
-## Public и дополнительные проверки
+Человек заранее знает requirements/edge cases. Это часть specification.
 
-В репозитории могут лежать видимые публичные тесты и сценарии. Они нужны для быстрой обратной связи.
+### 2. Executable public tests/tools
 
-Финальная проверка не ограничивается этими тестами: преподаватель может предложить дополнительные edge cases, чтобы проект не сводился к подгонке под известный test suite.
+Присутствуют, когда внешний contract стабилен и harness не навязывает внутренний design: Shell CLI, Tiny16 files, network protocol, DB format, debugger target fixtures.
+
+Для Vector/Hash Table/Allocator signatures выбирает ученик, поэтому он сам строит unit suite по public scenarios.
+
+### 3. Review/unseen tests
+
+Дополнительные edge cases/operation sequences проверяют transfer и не дают свести project к hardcode public suite.
 
 ## Внешние материалы
 
-Обязательная теория находится внутри `course/`.
-
-Внешняя ссылка допускается только как:
-
-- документация для дополнительной детализации;
-- спецификация/стандарт;
-- хорошая книга или бесплатный курс для углубления;
-- альтернативное объяснение.
-
-Если ссылка недоступна, обязательное прохождение курса не должно ломаться.
-
-## Rust
-
-После C-модуля про память и Hash Table вводится обязательный `Rust Systems Bridge`. Rust не дублирует весь курс: он показывает, как ownership, borrowing, lifetimes, `Result`, `Option`, `Drop`, `unsafe` и `Send/Sync` переосмысливают проблемы, которые уже были прожиты в C.
-
-Основные low-level проекты по-прежнему остаются C-first, а отдельные сравнительные labs выполняются на Rust.
+Required path не ломается без internet. External URL допустим в optional/reference documents, но обязательный lesson должен объяснять concept и достаточный API contract локально.

@@ -1,129 +1,94 @@
 # Стандарт написания уроков
 
-Этот файл задаёт обязательный формат новых материалов курса.
-
 ## 1. Язык
 
-Основной язык — русский.
+Русский, с английским original term при первом важном появлении. API/type/register/protocol names не переводятся искусственно.
 
-При первом появлении важного англоязычного термина даётся оригинал:
+## 2. Self-contained
 
-> куча (**heap**), время жизни (**lifetime**), системный вызов (**system call / syscall**)
-
-Имена API, типов, функций, регистров, протокольных полей и сообщения инструментов не переводятся искусственно.
-
-## 2. Самодостаточность
-
-Урок должен содержать достаточно теории, чтобы выполнить упражнение и project slice без обязательного чтения внешнего источника.
-
-Недопустимо:
-
-> Прочитай главу про pointers в книге X и выполни задание.
-
-Допустимо:
-
-> В уроке полностью объяснена модель pointers. В конце есть необязательная книга X для более глубокого чтения.
+Lesson содержит достаточно theory/API semantics, чтобы выполнить обязательное упражнение/project slice без внешней статьи/видео. Official docs/book могут быть optional reference.
 
 ## 3. Mobile-first
 
-Урок должен нормально читаться на телефоне.
+- один learning cycle = один `.md`;
+- короткие секции/абзацы;
+- избегать wide tables;
+- code lines желательно ≤100 chars;
+- diagrams преимущественно vertical;
+- lesson header указывает theory/practice/project estimate и пригодность телефона.
 
-Правила:
+## 4. Lesson types
 
-- один `.md` = один learning cycle;
-- небольшие секции;
-- абзацы обычно 2–5 предложений;
-- избегать широких таблиц;
-- строки кода желательно держать до ~100 символов;
-- длинные схемы строить вертикально;
-- к Mermaid-схеме добавлять текстовое описание, если без неё теряется смысл;
-- не делать урок огромной главой на десятки тысяч слов.
+### Project lesson — обязательные блоки
 
-В начале урока указывать:
+1. цель;
+2. prerequisite check/context, если prerequisite неочевиден;
+3. engineering problem;
+4. self-contained theory;
+5. minimal examples;
+6. causal/situational questions;
+7. focused exercise + self-check;
+8. project slice;
+9. edge cases/debugging;
+10. exit check.
 
-```text
-Теория: ~N минут
-Упражнение: ~N минут
-Project slice: ~N минут
-С телефона: Да / частично / Нет
-```
+### Theory / consolidation lesson
 
-## 4. Обязательные блоки урока
+Не требует искусственного project slice. Обязательно:
 
-Каждый полноценный урок содержит:
+1. цель;
+2. self-contained model;
+3. examples/diagrams;
+4. causal/situational questions;
+5. exercise/transfer;
+6. edge cases/limits;
+7. exit check.
 
-1. **Цель** — что ученик должен уметь после урока.
-2. **Prerequisite check** — 2–5 коротких вопросов на базу.
-3. **Инженерный контекст** — конкретная проблема, которую объясняет тема.
-4. **Теория** — собственный текст курса.
-5. **Рабочие примеры** — небольшие, не решающие milestone за ученика.
-6. **Causal questions** — «что изменится, если…», «почему сломается…».
-7. **Упражнение** — одна фокусная компетенция.
-8. **Self-check** — наблюдаемое поведение и edge cases.
-9. **Project slice** — применение в активном проекте.
-10. **Debugging / типовые ошибки**.
-11. **Exit check**.
-12. **Дополнительное чтение** — только optional.
+## 5. Code quality
 
-## 5. Код
+- no unexplained UB/data races/ownership ambiguity;
+- examples define input/domain preconditions;
+- allocation/I/O/error paths are not silently ignored;
+- arithmetic on sizes/offsets has overflow/bounds reasoning;
+- C examples compile warning-clean under course flags when complete;
+- Rust examples prefer safe code; every `unsafe` has explicit checkable invariant;
+- examples never reveal current milestone implementation.
 
-Примеры кода в теории должны быть минимальными и предназначаться для объяснения одной идеи.
+## 6. Project folder
 
-Курс не публикует готовую реализацию текущего milestone.
-
-Для упражнения допустим отдельный файл `.solution.md`, но ученику рекомендуется открывать его только после своей попытки.
-
-## 6. Проекты
-
-Проектный каталог содержит минимум:
+Every directory containing `SPEC.md` also contains:
 
 ```text
-project/
-├── SPEC.md
-├── ACCEPTANCE.md
-├── TESTS.md
-└── HINTS.md
+README.md
+SPEC.md
+ACCEPTANCE.md
+TESTS.md
+HINTS.md
 ```
 
-Код проекта создаёт ученик.
+`README.md` is learner-owned. Course infrastructure may add fixtures/targets/Python clients/load generators, but no core solution/starter TODO implementation.
 
-Допустимая инфраструктура курса:
+## 7. Hints
 
-- тестовые targets;
-- fixtures;
-- Python test/load generator;
-- build/run helper, если он не является проверяемым навыком;
-- входные файлы.
-
-Недопустимо давать основную проектную логику под видом starter skeleton.
-
-## 7. Подсказки
-
-`HINTS.md` строится по уровням:
+Progressive:
 
 ```text
-Hint 1 — диагностический вопрос
-Hint 2 — направление
-Hint 3 — псевдокод/структура
-Hint 4 — более конкретный совет
+diagnostic question
+→ direction
+→ pseudocode/structure
+→ concrete local hint
 ```
 
-Готовый milestone-код не является последним hint.
+No complete milestone code as final hint.
 
-## 8. Проверка знаний
+## 8. Assessment questions
 
-Основные вопросы должны проверять модель, а не терминологическую память.
+Prefer «что сломается, если…», invariant/ownership/failure reasoning over definition recall.
 
-Хорошо:
+## 9. External references
 
-> Почему `sizeof(array)` внутри одной функции может вести себя иначе, чем `sizeof(parameter)`?
+Strong books/docs belong in `OPTIONAL_READING.md`/reference docs. Required lesson should not contain a URL as substitute for theory.
 
-Плохо:
+## 10. Repository QA
 
-> Дайте определение массива.
-
-## 9. Книги и внешние ресурсы
-
-Если есть действительно сильная книга, документация или курс, которые стоит изучить дополнительно, они указываются в `OPTIONAL_READING.md` и/или в конце урока.
-
-Они никогда не заменяют обязательную теорию курса.
+Learner materials must not contain internal assistant citation markers, unresolved TODO/TBD/FIXME placeholders, broken relative links or missing project contract docs. CI runs `scripts/course_audit.py`.

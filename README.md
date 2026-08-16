@@ -1,6 +1,6 @@
 # Systems Engineering Course
 
-Личный self-contained курс по Computer Science и systems engineering: C, Rust, память, алгоритмы, Unix, архитектура CPU, виртуальная память, сети, concurrency, ОС, storage/database internals, binaries/debugging/security и system architecture.
+Личный self-contained курс по Computer Science и systems engineering: C, Rust, алгоритмы/структуры данных, тестирование, Unix, архитектура CPU, виртуальная память, сети, concurrency, ОС, storage/database internals, binaries/debugging/security и system architecture.
 
 > **Главная точка входа:** [`course/README.md`](course/README.md)
 
@@ -8,20 +8,20 @@
 
 Исходный `project-based-learning` — большой каталог внешних project tutorials. Он сохранён в [`PROJECT_CATALOG.md`](PROJECT_CATALOG.md) как источник дополнительных идей.
 
-Основная часть этого fork теперь — собственный курс, где обязательные знания находятся внутри репозитория:
+Основная часть fork теперь — собственный курс, где обязательные знания находятся внутри репозитория:
 
 ```text
-теория в Markdown
+самодостаточная теория в Markdown
     ↓
 вопросы на понимание
     ↓
 небольшое упражнение
     ↓
-project slice
+project slice, когда тема уже нужна milestone
     ↓
-debug/review
+tests / debugging / review
     ↓
-следующий урок
+следующий learning cycle
 ```
 
 Внешние книги, курсы, стандарты и документация используются как **optional/reference**, а не как обязательная замена уроков.
@@ -30,8 +30,9 @@ debug/review
 
 ```text
 0.  C Fast Start
-1.  Memory, Pointers & Data Structures
+1.  Memory, Pointers, Algorithms & Data Structures
 1B. Rust Systems Bridge
+1C. Testing Engineering
 2.  Unix, Processes & Shell
 3.  Computer Architecture & Machine Code
 4.  Virtual Memory, Performance & Allocators
@@ -54,6 +55,7 @@ debug/review
 
 Milestone-код пишет ученик с нуля. В `project/` каталогах лежат:
 
+- `README.md` — learner-owned design/build/debug log;
 - `SPEC.md` — ТЗ/контракт;
 - `ACCEPTANCE.md` — критерии сдачи;
 - `TESTS.md` — public test scenarios;
@@ -65,6 +67,10 @@ Milestone-код пишет ученик с нуля. В `project/` катало
 ## Mobile-first
 
 Уроки разбиты на небольшие `.md` learning cycles и рассчитаны на чтение с телефона. Большая практическая разработка выполняется в Linux-среде на ПК.
+
+## Quality gates
+
+`scripts/course_audit.py` и GitHub Actions проверяют learner path на broken relative links, служебные assistant markers, незакрытые placeholders и отсутствие обязательных project docs.
 
 ## Дополнительные материалы
 

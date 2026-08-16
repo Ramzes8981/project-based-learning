@@ -1,11 +1,16 @@
-# Isolation Lab — Public scenarios
+# Modern Linux Isolation Lab — evidence scenarios
 
-1. host vs isolated UTS hostname differs;
-2. namespace identifiers demonstrate separation;
-3. PID view experiment matches documented model;
-4. mount created inside private mount namespace does not unexpectedly alter host view (where supported);
-5. child termination/reaping;
-6. `/proc/<pid>/cgroup` inspected;
-7. controlled resource-limit behavior or documented inability due delegation;
-8. cleanup repeated twice without stale resources;
-9. transfer feature.
+Здесь tests часто являются observation/integration checks, потому что exact namespace/cgroup availability зависит от Linux environment.
+
+1. baseline `/proc/self/ns` recorded;
+2. child UTS namespace has distinct namespace id and hostname view;
+3. parent hostname remains unchanged;
+4. PID namespace experiment demonstrates different PID view according to chosen launch method;
+5. mount namespace change does not leak into parent mount view;
+6. launcher reaps child and leaves no accidental zombie;
+7. exec failure path cleans/reports correctly;
+8. `/proc/<pid>/cgroup` membership observed;
+9. optional delegated cgroup: limit applied to only test workload and removed afterward;
+10. process cannot escape parent-imposed cgroup restriction merely by creating child subtree;
+11. README explicitly lists non-goals/security gaps;
+12. cleanup script/manual checklist restores created mounts/cgroups/temp files.

@@ -1,6 +1,6 @@
 # Systems Engineering Progress
 
-Небольшой evidence tracker. Детальные чек-листы находятся в уроках и project acceptance files; этот файл не должен дублировать весь syllabus.
+Небольшой evidence tracker. Детальные чек-листы находятся в уроках и project acceptance files; этот файл не должен дублировать syllabus.
 
 ## Current status
 
@@ -15,8 +15,9 @@
 | Module | Status | Core artifact |
 |---|---|---|
 | 0 — C Fast Start | ⬜ Not started | MiniKV v0 |
-| 1 — Memory & Data Structures | ⬜ | Vector + Hash Table |
+| 1 — Memory / Algorithms / Data Structures | ⬜ | Vector + Hash Table |
 | 1B — Rust Systems Bridge | ⬜ | Rust MiniKV |
+| 1C — Testing Engineering | ⬜ | Test strategy upgrade |
 | 2 — Unix & Shell | ⬜ | Unix Shell |
 | 3 — Computer Architecture | ⬜ | Tiny16 assembler/emulator |
 | 4 — VM & Performance | ⬜ | Arena Allocator |
@@ -94,3 +95,4 @@ After approximately every two large modules record one short cross-layer exercis
 | 2026-08-15 | Project-first redesign | Interleave theory, exercises and milestone slices |
 | 2026-08-15 | Professional prerequisite audit | Remove hidden prerequisites/outdated project assumptions |
 | 2026-08-16 | Self-contained course v3 | Move required theory into repo; add Rust Bridge and course-owned project specs |
+| 2026-08-16 | Course v3.1 quality pass | Deepen CS core, add Testing Engineering, executable fixtures/tools, internal FUSE/FFI references and CI validation |

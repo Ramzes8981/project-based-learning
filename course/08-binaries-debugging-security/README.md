@@ -1,9 +1,13 @@
 # Module 8 — Binaries, Debugging & Security Bridge
 
-**Цель:** связать ELF file, runtime mappings, registers/signals и debugger state machine; научиться диагностировать memory-corruption mechanisms и mitigations.
+**Цель:** связать ELF file, runtime mappings, registers/signals и debugger state machine; научиться диагностировать memory-corruption mechanisms и mitigations на контролируемых локальных targets.
 
-**Оценка:** ~40–55 часов.  
+**Оценка:** ~45–62 часа.  
 **Core milestone:** `minidbg-c` — минимальный Linux/x86-64 debugger на C.
+
+## Platform boundary
+
+Core намеренно **Linux + x86-64 + single-threaded tracee**. `ptrace`, register layout и `INT3` semantics не выдаются за portable C.
 
 ## Уроки
 
@@ -19,6 +23,8 @@
 
 ## Проект
 
-[`project/SPEC.md`](project/SPEC.md)
+[`project/SPEC.md`](project/SPEC.md) · [`project/README.md`](project/README.md)
 
-Core debugger не требует C++ и не реализует полноценный DWARF parser. Source-level debugging — Stretch после понимания machine-level core.
+`project/tests/targets/` содержит только **контролируемые учебные tracees**, которые можно собирать non-PIE/PIE с известными symbols. Debugger implementation курс не предоставляет.
+
+Core не требует C++ и не реализует полноценный DWARF parser. Source-level debugging — Stretch после machine-level core.

@@ -1,157 +1,96 @@
 # Правила обучения и проверки
 
-Курс рассчитан на устойчивый темп около 6–8 часов в неделю. Он должен быть сложным, но не ощущаться как несколько университетских дисциплин, идущих параллельно.
+Курс рассчитан на устойчивые ~6–8 часов/неделю. Скорость не является gate: understanding/project evidence важнее календаря.
 
-## 1. Единица обучения — learning cycle
+## Learning cycle
 
 ```text
-одна концепция
-    ↓
-вопросы на понимание
-    ↓
-небольшое упражнение
-    ↓
-применение в текущем проекте
-    ↓
-объяснение результата
+concept
+→ explain
+→ focused exercise
+→ project application when relevant
+→ debug/test
+→ transfer scenario
 ```
 
-Не нужно сначала «закончить всю теорию», а потом приступать к проекту.
+Не нужно «закончить всю теорию» до проектов.
 
-## 2. Один большой проект одновременно
-
-В модуле могут быть:
+## Один большой milestone одновременно
 
 - **Core milestone** — обязателен;
-- **Guided lab** — выполняется только указанный кусок;
-- **Stretch** — необязательное углубление.
+- **Guided lab** — только заданный scope;
+- **Stretch** — optional.
 
-Не держим несколько больших незавершённых milestone одновременно без причины.
+## Lesson readiness
 
-## 3. Canonical lesson template
+Prerequisite gap ремонтируется локально: короткое повторение + одно упражнение, затем возвращаемся. Не перепроходим модуль целиком.
 
-Каждый урок следует [`AUTHORING_STANDARD.md`](AUTHORING_STANDARD.md).
+## Lesson exit
 
-Ключевое изменение self-contained версии: вместо блока «прочитай внешний источник» урок содержит **полную собственную теорию**.
+- Explain model своими словами;
+- Apply в exercise;
+- project slice, если lesson project-oriented;
+- ответить на новый scenario/edge case.
 
-Внешние материалы указываются только в конце как дополнительное чтение.
+## Module gate: пять доказательств
 
-## 4. Lesson readiness
+**Explain** — модели без копирования определения.  
+**Build** — milestone/lab required scope работает.  
+**Transfer** — новая feature/scenario.  
+**Debug** — реальный bug: symptom → hypothesis → evidence → root cause → fix → regression.  
+**Review** — representation, ownership/state, complexity/resources, failures, tests, security assumptions, 10× trade-offs.
 
-Перед зависимым уроком выполняется 2–5 вопросов prerequisite check.
+## Knowledge states
 
-Если обнаружен пробел:
+`Seen → Explain → Apply → Transfer`.
 
-1. ремонтируем конкретную тему;
-2. делаем одно маленькое упражнение;
-3. возвращаемся к текущему уроку.
+## Test model
 
-Не нужно перепроходить весь предыдущий модуль.
+### Public scenario
 
-## 5. Exit check урока
+`project/TESTS.md`: known behavior/edge cases, часть specification.
 
-Урок завершён, когда ученик:
+### Executable public infrastructure
 
-1. объясняет модель своими словами;
-2. выполняет фокусное упражнение;
-3. применяет идею в project slice, если он есть;
-4. отвечает хотя бы на один новый сценарий «что пойдёт не так, если…?».
+Course может дать black-box harness, fixture, controlled target, protocol client/load generator. Она не должна содержать solution проверяемого компонента.
 
-## 6. Module gate
+### Student tests
 
-Модуль закрывается только при наличии пяти доказательств.
+Обязательны всегда. Для API-flexible C structures именно student suite реализует `make test` по public scenarios/invariants.
 
-### Explain
+### Review/unseen
 
-Ключевые модели можно объяснить без копирования определения.
+Дополнительные cases проверяют generalization. Они не изменяют SPEC задним числом; только комбинируют/напрягают уже заданный contract.
 
-### Build
+## AI policy
 
-Core milestone работает в согласованном объёме.
-
-### Transfer
-
-Есть хотя бы одно изменение, не скопированное из tutorial/примера.
-
-### Debug
-
-Разобран хотя бы один нетривиальный баг с подходящим инструментом.
-
-### Review
-
-Можно ответить:
-
-- из каких компонентов состоит система;
-- где хранится состояние;
-- кто владеет ресурсами;
-- что может сломаться;
-- как это наблюдать;
-- каковы time/memory/resource costs;
-- что изменится при 10× масштабе;
-- какие security assumptions существуют.
-
-## 7. Knowledge states
-
-- **Seen** — узнаю.
-- **Explain** — могу объяснить.
-- **Apply** — использовал самостоятельно.
-- **Transfer** — применяю в новом контексте.
-
-Core concepts обычно должны дойти до `Apply`, а defining concepts milestone — до `Transfer`.
-
-## 8. Public tests и дополнительные edge cases
-
-Публичные тесты и сценарии доступны заранее и служат обратной связью.
-
-Они не являются полным контрактом. На review преподаватель может предложить дополнительные случаи, чтобы проверить понимание, а не способность подогнать реализацию под известные проверки.
-
-## 9. AI policy
-
-AI — преподаватель, reviewer и debugging assistant, а не implementation engine.
-
-Для milestone используется лестница:
+AI — teacher/reviewer/debugger, не implementation engine:
 
 ```text
-диагностический вопрос
-→ направление
-→ маленький hint
-→ псевдокод
-→ более сильный hint
-→ конкретное решение только если учебная ценность исчерпана
+symptom/question
+→ hypothesis/diagnostic
+→ hint
+→ pseudocode
+→ stronger local hint
+→ full solution only after learning value is exhausted
 ```
 
-Финальный проектный код пишет ученик.
+Milestone code пишет ученик.
 
-## 10. Вспомогательный Python
+## Python infrastructure
 
-Python допустим для:
+Допустим для test harness, fixtures, load generation/analysis, failure-injection on disposable local artifacts. Если tooling itself — learning target, его пишет ученик.
 
-- test harness;
-- fixtures;
-- load generation;
-- benchmark analysis;
-- tooling, не являющегося целью конкретного урока.
+## Consolidation
 
-Если само написание такого инструмента является полезной инженерной задачей, его пишет ученик. Если нет — курс может предоставить готовую инфраструктуру.
+После milestone или ~4–6 недель можно выделить session/week на refactor, tests, review или отдых без «учебного долга».
 
-## 11. Consolidation
+## Artifact after milestone
 
-После большого milestone или примерно каждые 4–6 недель допускается отдельная сессия/неделя на:
-
-- рефакторинг;
-- исправление тестов;
-- повторение;
-- закрытие хвостов;
-- отдых без создания «долга».
-
-## 12. Что остаётся после milestone
-
-- исходный код;
-- тесты;
-- README проекта;
+- student source/build files;
+- tests;
+- learner README;
 - transfer feature;
 - debugging story;
 - engineering review;
-- осмысленная Git-история.
-
-Проект должен демонстрировать reasoning, а не только наличие работающего бинарника.
+- meaningful Git history.

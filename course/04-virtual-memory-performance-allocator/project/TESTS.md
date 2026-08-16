@@ -1,13 +1,23 @@
-# Arena Allocator — Public scenarios
+# Arena Allocator — public scenarios
 
-1. tiny arena create/destroy;
-2. allocation sizes 1, alignment-1, alignment, alignment+1;
-3. fill arena to exhaustion;
-4. free/reuse one block;
-5. split large free block;
-6. free adjacent blocks and allocate larger request after coalesce;
-7. non-adjacent free blocks do not coalesce;
-8. repeated alloc/free patterns;
-9. metrics sum plausibility;
-10. policy comparison workload;
-11. transfer feature.
+Точные C signatures выбирает ученик; эти сценарии должны быть представлены в его `make test`.
+
+1. create/destroy empty arena;
+2. zero-size allocation policy documented/tested;
+3. allocations of 1 byte and several alignments;
+4. returned pointers satisfy chosen alignment;
+5. fill until explicit allocation failure without corruption;
+6. free then reuse block;
+7. split leaves valid remainder only when it can hold metadata + aligned payload;
+8. free adjacent blocks and coalesce;
+9. non-adjacent free-list neighbors are not coalesced merely because they are list neighbors;
+10. repeated alloc/free sequences preserve invariants;
+11. double-free/invalid-free debug policy produces controlled failure or detection according to contract;
+12. allocation-size/align arithmetic overflow is rejected before pointer arithmetic;
+13. destroy releases arena exactly once;
+14. stats match independently counted layout;
+15. compare first-fit with second placement policy on same deterministic workload.
+
+## Review-only
+
+Unseen fragmentation patterns, awkward sizes near split threshold, many tiny blocks, alternating free pattern, randomized deterministic seed.

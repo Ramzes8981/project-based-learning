@@ -1,6 +1,6 @@
 # 5.3 — Socket API и address-independent client/server
 
-**Теория:** ~85 мин  
+**Теория:** ~90 мин  
 **Lab:** ~2–3 часа  
 **С телефона:** теория — да
 
@@ -10,106 +10,89 @@
 
 Собрать TCP echo client/server через `getaddrinfo`, `socket`, `bind`, `listen`, `accept`, `connect`, `send/recv` без IPv4-only hardcoding.
 
-## Socket как FD
+## Socket descriptor
 
-POSIX socket represented file descriptor и участвует в close/poll/read/write model. Но socket имеет network-specific state/options.
+В Unix socket представлен file descriptor и участвует в `close`/readiness model, но underlying kernel object имеет network state/options.
 
 ## Server lifecycle
 
 ```text
-getaddrinfo(local addr/service)
+getaddrinfo(local/service)
 ↓
-socket
-↓
-bind
+for candidate addresses: socket -> bind
 ↓
 listen
 ↓
 accept loop
 ↓
-connected client sockets
+one connected descriptor per accepted connection
 ```
 
-Listening socket и accepted connection socket — **разные descriptors/resources**. `accept` создаёт новый connected socket descriptor для конкретного connection. citeturn932665search4
+Listening descriptor **не становится клиентским**. Успешный `accept` возвращает новый connected descriptor; listening socket остаётся доступен для следующих connections.
+
+Ownership rule: каждый успешно созданный descriptor должен иметь ясного owner и ровно один eventual close path.
 
 ## Client lifecycle
 
 ```text
-getaddrinfo(server)
+getaddrinfo(server/service)
 ↓
-for candidate addresses:
+for candidate:
     socket
     connect
-    if success -> use
-    else close and try next
-```
-
-## `getaddrinfo`
-
-Не строй address parsing вручную вокруг `inet_addr` и IPv4-only assumptions.
-
-`getaddrinfo` возвращает linked list candidate socket addresses согласно hints.
-
-Pattern:
-
-```text
-resolve
-for each result:
-   create socket matching family/type/protocol
-   attempt operation
-   on failure close
+    success -> keep fd, stop
+    failure -> close fd, try next
+↓
 freeaddrinfo
 ```
 
-## `sockaddr`
+`getaddrinfo` даёт list candidates с family/type/protocol/address. Это убирает hard-coded assumption «address всегда IPv4 text».
 
-Socket API использует generic `struct sockaddr*`, а concrete IPv4/IPv6 structures имеют family-specific layouts. `sockaddr_storage` достаточно велик/aligned для supported address structures according to POSIX header contract. citeturn932665search1
+## Address storage
 
-## `bind` и address reuse
+Socket APIs принимают generic address pointer + explicit length. Для peer/local address buffers используют family-appropriate struct; `sockaddr_storage` предназначен как sufficiently large/aligned storage для socket address families поддерживаемого API.
 
-`bind` назначает local address. Server restart может столкнуться с address state/TIME_WAIT-like effects; `SO_REUSEADDR` имеет protocol/platform semantics и должен использоваться осознанно, а не как magic fix всех bind errors.
+Главная мысль: не cast arbitrary short object к `sockaddr *`; storage/length должны соответствовать реальному address object.
 
-## `listen` backlog
+## `bind`, `listen`, backlog
 
-`listen` переводит socket в passive/listening state. Backlog связан с pending connection queue semantics; не интерпретируй число как exact universal «максимум клиентов одновременно».
+`bind` назначает local endpoint. `SO_REUSEADDR` — конкретная socket option с platform/protocol semantics, не магическое лечение любой bind error.
 
-## Partial I/O снова
+`listen` делает stream socket passive. `backlog` связан с pending connection handling и не равен простому universal «максимум одновременных клиентов».
 
-Connected socket использует тот же robustness mindset:
+## Partial I/O
 
-- send may be partial/error;
-- recv may return any positive chunk up to buffer size;
-- `0` = orderly peer shutdown;
-- nonblocking later adds EAGAIN/EWOULDBLOCK.
+Connected stream socket сохраняет правила Lesson 5.2:
 
-## SIGPIPE
+- `send` может обработать меньше bytes, чем просили;
+- `recv` может вернуть любой positive chunk;
+- `recv == 0` — EOF/orderly shutdown;
+- `EINTR` требует retry/policy;
+- nonblocking later добавит `EAGAIN/EWOULDBLOCK`.
 
-Writing to closed stream может trigger `SIGPIPE`/`EPIPE` depending API/options. Server должен иметь explicit policy, а не неожиданно погибать целиком из-за одного client.
+## `SIGPIPE` / broken peer
+
+Write to connection, где peer больше не читает, может приводить к `EPIPE` и signal behavior в зависимости от API/options/platform. Server обязан иметь process-wide policy, чтобы один disconnect не завершал весь service неожиданно.
 
 ## Lab — echo
 
-Сделай:
+Сделай address-independent client/server:
 
-- address-independent server;
-- sequential accept loop;
-- one connection at a time initially;
-- client;
-- full/partial I/O helpers;
-- clean close/error paths.
-
-Test IPv4 и, если environment configured, IPv6 localhost.
+1. sequential accept;
+2. one client handler at a time;
+3. helper loops для write-all/read-until-EOF or chosen echo behavior;
+4. every error path closes only resources it owns;
+5. IPv4 localhost и IPv6 localhost, если IPv6 доступен в environment.
 
 ## Causal questions
 
-1. Почему listening fd нельзя использовать как «fd конкретного клиента»?
-2. Почему resolve возвращает список candidates?
-3. Что ownership policy для accepted fd?
-4. Почему `recv == 0` не error?
+1. Почему `accept` возвращает новый fd?
+2. Почему failed connect candidate надо close перед следующим?
+3. Кто владеет `addrinfo` list?
+4. Почему `recv == 0` не означает «получен пустой message»?
 
-## Разбор
-
-[`03-socket-api-getaddrinfo.solution.md`](03-socket-api-getaddrinfo.solution.md) содержит lifecycle checklist, не готовый server code.
+Разбор: [`03-socket-api-getaddrinfo.solution.md`](03-socket-api-getaddrinfo.solution.md).
 
 ## Exit check
 
-Нарисуй resource ownership server: addrinfo list → listening socket → accepted socket → buffers → close.
+Нарисуй ownership: addrinfo list → listening fd → accepted fd → buffers → cleanup.

@@ -2,16 +2,16 @@
 
 **Цель:** понять системный интерфейс процесса и самостоятельно построить ограниченный Unix shell на C.
 
-**Оценка:** ~40–55 часов.  
+**Оценка:** ~45–60 часов.  
 **Core milestone:** Unix Shell.  
 **Guided lab:** terminal/raw mode.
 
 ## Prerequisites
 
-- C pointers/memory уверенно используются;
-- bit masks знакомы;
-- Hash Table milestone закрыт;
-- Rust Bridge закрыт, но основной код этого модуля C-first.
+- Module 1 закрыт: pointers/memory/ownership и Hash Table уверенно используются;
+- Module 1B Rust Bridge закрыт;
+- Module 1C Testing Engineering закрыт;
+- bit masks, callbacks и Make знакомы.
 
 ## Уроки
 
@@ -26,6 +26,6 @@
 
 ## Проект
 
-[`project/SPEC.md`](project/SPEC.md)
+[`project/SPEC.md`](project/SPEC.md) · [`project/README.md`](project/README.md)
 
-Курс сознательно строит **ограниченный shell grammar**, а не обещает POSIX-complete shell.
+Курс строит **ограниченный shell grammar**, а не POSIX-complete shell. В `project/tests/` есть black-box harness для внешнего поведения; parser/unit tests и сам shell пишешь ты.

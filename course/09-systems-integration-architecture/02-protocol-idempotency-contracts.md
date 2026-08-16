@@ -4,105 +4,48 @@
 **Design/project:** ~2–3 часа  
 **С телефона:** да
 
-← [`01-requirements-boundaries-state.md`](01-requirements-boundaries-state.md) · → [`03-queueing-latency-capacity.md`](03-queueing-latency-capacity.md)
+← [`01b-computational-limits-p-np.md`](01b-computational-limits-p-np.md) · → [`03-queueing-latency-capacity.md`](03-queueing-latency-capacity.md)
 
 ## Цель
 
 Спроектировать network API так, чтобы timeout/retry semantics были явными.
 
-## Request/response contract
+## Failure ambiguity
 
-Protocol должен задавать:
-
-- version;
-- operation;
-- request identifier where useful;
-- size limits;
-- encoding/byte order;
-- success/error codes;
-- malformed-input behavior.
-
-Это продолжение Module 5 framing, но теперь API рассматривается как long-lived compatibility boundary.
-
-## At-most-once illusion
-
-Сценарий:
+Client отправил SET и получил timeout. Возможны:
 
 ```text
-client sends SET
-server applies SET
-response lost
-client timeout
+request не дошёл
+server выполнил, response потерян
+server умер во время operation
+response задержался дольше client deadline
 ```
 
-Client не знает, была operation applied или нет.
-
-Network timeout означает **неизвестный outcome**, а не доказанный failure server operation.
+Timeout не доказывает, что operation не выполнена.
 
 ## Idempotency
 
-Operation idempotent, если повторение того же logical request не меняет final state сверх первого применения.
+Operation idempotent, если повторное применение с тем же semantic input оставляет state таким же после первого успешного применения.
 
-`SET key = value` обычно naturally idempotent по final state.
+`GET` обычно idempotent. `SET key=value` может быть idempotent относительно конечного value, но side effects/metrics/version increments способны сделать full semantics неидемпотентными. `increment` не idempotent.
 
-`INCREMENT key` — нет: retry может примениться дважды.
+## Request identity
 
-`DELETE key` может быть idempotent по state, но response semantics first/repeat могут различаться.
+Если protocol поддерживает dedup/retry-safe mutations, request ID должен иметь scope/lifetime/storage policy. «Добавим UUID» без server memory/recovery contract не решает ambiguous retry.
 
-## Request ID / deduplication
+## Capstone decision
 
-Для non-idempotent operations server может хранить processed request IDs + result.
+Ты можешь **не реализовывать** durable dedup в core. Но `PROTOCOL.md` обязан явно написать:
 
-Trade-offs:
-
-- memory/storage;
-- retention window;
-- client identity/scope;
-- recovery after restart;
-- collision/uniqueness contract.
-
-Capstone core не обязан реализовывать dedup, но protocol design должен объяснить retry policy.
-
-## Versioning
-
-Protocol version должен позволять reject incompatible request cleanly. Не assume future fields can be inserted arbitrary into binary layout without framing/version rules.
-
-## Errors
-
-Различай:
-
-```text
-client input error
-not found/conflict
-server overload
-server internal/storage error
-protocol version error
-```
-
-Error taxonomy помогает retry decisions. Например malformed request retry без изменения бессмысленен; overload может быть retryable with backoff.
+- какие operations client может retry;
+- что означает timeout;
+- есть ли request ID;
+- какие duplicate effects возможны после restart.
 
 ## Project slice
 
-Зафиксируй `PROTOCOL.md`:
-
-- wire format;
-- operations;
-- idempotency/retry table;
-- errors;
-- max sizes;
-- version behavior.
-
-## Exercise
-
-Для `GET`, `SET`, `DELETE`, hypothetical `INCR` заполни:
-
-```text
-idempotent?
-retry after timeout safe?
-what ambiguity remains?
-dedup needed?
-```
+Начни `PROTOCOL.md` как evolution Module 5 protocol и добавь response/error/deadline/retry semantics. Не добавляй distributed consensus ради one-node service.
 
 ## Exit check
 
-Timeout — это observation клиента, не автоматический statement «server ничего не сделал».
+Для каждого client retry ответь: может ли first attempt уже изменить state и как duplicate detect/semantics это учитывают?

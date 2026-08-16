@@ -18,13 +18,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run project catalog link state checker
+      - name: Validate project catalog grammar
+        run: python scripts/check_readme.py lint --readme PROJECT_CATALOG.md
+      - name: Check preserved catalog links
         run: |
-          python scripts/check_readme.py \
-            --mode link-state \
+          python scripts/check_readme.py check-links \
+            --all \
             --readme PROJECT_CATALOG.md \
             --state .github/link-rot-state.json \
-            --report .github/link-rot-report.json
+            --json > .github/link-rot-report.json || true
       - name: Commit state changes
         run: |
           if git diff --quiet -- .github/link-rot-state.json; then

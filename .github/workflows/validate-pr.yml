@@ -2,6 +2,11 @@ name: Validate project catalog
 
 on:
   pull_request:
+    paths:
+      - 'PROJECT_CATALOG.md'
+      - 'scripts/check_readme.py'
+      - 'scripts/lint-allow-duplicates.txt'
+      - '.github/workflows/validate-pr.yml'
   workflow_dispatch:
 
 permissions:
@@ -13,4 +18,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate preserved project catalog
-        run: python scripts/check_readme.py --mode pr --readme PROJECT_CATALOG.md
+        run: python scripts/check_readme.py lint --readme PROJECT_CATALOG.md

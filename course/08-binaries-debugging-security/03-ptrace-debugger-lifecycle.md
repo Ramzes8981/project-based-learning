@@ -1,6 +1,6 @@
 # 8.3 — `ptrace` и debugger state machine
 
-**Теория:** ~100 мин  
+**Теория:** ~105 мин  
 **Project slice:** ~4–6 часов  
 **С телефона:** теория — да
 
@@ -8,98 +8,80 @@
 
 ## Цель
 
-Построить tracer/tracee lifecycle и никогда не путать `stopped`, `exited`, `signaled` states.
+Построить Linux tracer/tracee lifecycle и правильно различать running/stopped/exited/signaled states.
 
 ## Scope
 
-`ptrace` — Linux-specific process/thread tracing API. Core debugger targeting **Linux x86-64**, single-threaded tracee first.
+`ptrace` — Linux process/thread tracing API. `pid` в большинстве requests обозначает конкретный tracee thread ID. Большинство inspect/modify/restart operations требуют, чтобы tracee находился в **ptrace-stop**; attach/seize/interrupt имеют отдельные rules.
 
-Linux `ptrace` позволяет tracer наблюдать/управлять tracee memory/registers; commands addressed to a specific tracee thread. Большинство operations требуют, чтобы tracee уже был в ptrace-stop. citeturn857293search1
+Это не portable POSIX debugger abstraction.
 
-## Launch model
+## Launch path
 
-Course uses:
+Course core:
 
 ```text
-parent debugger forks
-child:
-    PTRACE_TRACEME
-    exec target
-parent:
-    waitpid child stop
-    debugger loop
+parent fork
+├─ child:
+│    PTRACE_TRACEME
+│    execve/execvp target
+└─ parent:
+     waitpid initial traced stop
+     inspect / command loop
 ```
 
-Successful traced `exec` causes debugger-visible stop/event under normal ptrace setup before ordinary execution continues. Exact options/events must be handled deliberately.
+`PTRACE_TRACEME` вызывается tracee. После traced `exec` parent получает debugger-visible stop (`SIGTRAP`-style event in this simple setup) и только после `waitpid` может безопасно считать child stopped.
 
 ## State machine
 
 ```text
-NEW
- ↓ launch
-RUNNING
- ↓ stop/event/signal
-STOPPED ── inspect/modify ──┐
-  │                         │
-  ├─ PTRACE_CONT ─────────> RUNNING
-  ├─ PTRACE_SINGLESTEP ───> RUNNING
-  └─ detach -> RUNNING untraced
-
-RUNNING -> EXITED/SIGNALED
+NEW -> RUNNING -> STOPPED -> RUNNING ... -> EXITED
+                          \              -> SIGNALED
+                           -> DETACHED -> normal process
 ```
 
-Debugger commands that inspect memory/registers only valid in appropriate STOPPED state.
+Debugger не вызывает memory/register requests «пока target вроде стоит»: у него должен быть explicit state derived from successful `waitpid` decode.
 
-## `waitpid`
+## `waitpid` decoding
 
-Wait status must be decoded:
+Status — packed process state, не exit code.
 
 ```text
-WIFEXITED
-WEXITSTATUS
-WIFSIGNALED
-WTERMSIG
-WIFSTOPPED
-WSTOPSIG
+WIFEXITED    -> WEXITSTATUS valid
+WIFSIGNALED  -> WTERMSIG valid
+WIFSTOPPED   -> WSTOPSIG valid
 ```
 
-Linux wait docs explicitly distinguish termination, signal stop and resumed state. citeturn857293search0
+Для traced child stop reports доступны даже без обычного job-control use of `WUNTRACED`.
 
-## Signal-delivery stop
+## Restart и signals
 
-Tracee can stop because of a signal. Tracer decides how to restart and whether to deliver/suppress signal in relevant ptrace stop.
+`PTRACE_CONT`/`PTRACE_SINGLESTEP` переводят stopped tracee обратно в execution; tracer затем **снова** ждёт state change.
 
-Naively continuing with signal 0 always can change program semantics by swallowing real signals.
+Некоторые stops соответствуют signal delivery. Restart request может передать signal tracee или подавить его. Поэтому «всегда continue с signal=0» способен менять semantics программы. Core обрабатывает собственные `SIGTRAP` stops и явно сообщает остальные; полноценная signal forwarding policy — transfer.
 
-Core first handles SIGTRAP from debugger actions and reports other signals; deeper signal forwarding can be transfer.
+## Error nuance: peek result `-1`
 
-## Errors
+Некоторые ptrace peek requests возвращают прочитанное machine word как return value. Data word сам может быть `-1`. Правильный pattern:
 
-`ptrace` returns `-1` on error, but some read operations can legitimately return word value `-1`. Therefore check/reset `errno` according to specific request contract rather than equating value `-1` with error blindly.
+```text
+errno = 0
+value = ptrace(PEEK...)
+if value == -1 AND errno != 0 -> error
+otherwise value is legitimate data
+```
 
 ## Project slice
 
-Implement `minidbg-c v0`:
+`minidbg-c ./target [args...]`:
 
-```text
-minidbg ./target
-```
-
-- fork child;
-- TRACEME;
-- exec;
-- parent waits initial stop;
-- commands: `continue`, `quit`;
-- reports exit/signal status;
-- no zombie tracee left.
-
-## Causal questions
-
-1. Почему ptrace debugger — state machine, а не набор random functions?
-2. Почему inspect while tracee running обычно invalid?
-3. Почему `waitpid` status нельзя считать raw exit code?
-4. Почему signal forwarding требует intent?
+- fork/TRACEME/exec;
+- wait initial stop;
+- `continue`, `quit`;
+- exact reporting exited/signaled/stopped;
+- quit/detach/kill policy documented;
+- no zombie tracee.
 
 ## Exit check
 
-Нарисуй all allowed transitions твоего debugger core.
+Каждая debugger command должна иметь допустимый source state и ожидаемый next state. Если такого mapping нет — implementation уже хрупкая.
