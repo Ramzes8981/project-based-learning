@@ -45,6 +45,8 @@ def read_response(sock: socket.socket, expected_op: int) -> tuple[int, bytes]:
     version, op, status = struct.unpack("!BBH", body[:4])
     if version != VERSION or op != (expected_op | 0x80):
         raise ValueError("unexpected response header")
+    if status not in STATUS:
+        raise ValueError(f"unknown response status {status}")
     payload = body[4:]
     if expected_op == 0x01 and status == 0:
         if len(payload) < 4:
@@ -75,7 +77,7 @@ def main() -> None:
     with socket.create_connection((args.host, args.port), timeout=3) as s:
         s.sendall(frame(op, args.key.encode(), value))
         status, payload = read_response(s, op)
-    print(STATUS.get(status, f"STATUS_{status}"))
+    print(STATUS[status])
     if payload:
         print(payload.decode("utf-8", errors="backslashreplace"))
 
