@@ -56,7 +56,7 @@
 11..0  = absolute 12-bit code address
 ```
 
-Это ограничивает simple program area 0..4095 для JMP. Emulator должен reject/out-of-range assembler target согласно spec.
+Это ограничивает assembler-visible `JMP` target диапазоном `0..4095`: assembler обязан отклонять label/address, который не представим в 12 bits. Emulator после decode дополнительно проверяет, что encoded target попадает в configured instruction memory.
 
 ## PC semantics
 
