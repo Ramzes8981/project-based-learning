@@ -1,158 +1,74 @@
-# 1B.2 — Ownership, move и `Drop`
+# 1B.2 — Как язык выбирает одного ответственного за resource
 
-**Теория:** ~60 мин  
-**Упражнение:** ~45 мин  
-**Project slice:** ~40 мин  
-**С телефона:** да
+**Теория:** ~65 мин · **Практика:** ~60 мин · **С телефона:** теория — да
 
 ← [`01-cargo-rust-model.md`](01-cargo-rust-model.md) · → [`03-borrowing-references.md`](03-borrowing-references.md)
 
-## Цель
+## Проблема из C
 
-Связать ручной C ownership contract с Rust ownership rules: один owner value, move semantics и deterministic cleanup через `Drop`.
-
-## C-проблема, которую мы уже видели
-
-В C:
-
-```c
-char *p = malloc(...);
-```
-
-тип `char *` не говорит compiler:
-
-- кто owner;
-- кто должен `free`;
-- можно ли передать ownership;
-- какие aliases существуют.
-
-В Rust ownership является частью semantic model языка.
-
-## `String` как owned value
-
-```rust
-let s = String::from("hello");
-```
-
-`String` владеет heap-backed buffer. Когда owner выходит из scope, вызывается cleanup (`Drop`).
-
-Conceptually:
+Для dynamic allocation мы сами писали contract:
 
 ```text
-String value
-  owns
-    ↓
-heap allocation
+кто owner?
+кто free?
+можно ли копировать pointer?
 ```
 
-Не нужно вручную писать `free`.
+Ошибки owner convention давали leak/double free/UAF.
 
-## Move
+## Ownership
+
+В Rust каждое значение имеет **владельца (owner)** — binding/object context, ответственный за cleanup согласно типу. Когда owner уходит из scope, cleanup вызывается автоматически через `Drop` semantics.
+
+Для owning type вроде `String` простое присваивание обычно не делает независимую копию heap data:
 
 ```rust
 let a = String::from("hello");
 let b = a;
 ```
 
-Для `String` ownership **moves** в `b`. Использовать `a` после move нельзя.
+Ownership переходит к `b`. Это **перемещение (move)**. Использовать `a` после move compiler не разрешает.
 
-Почему compiler запрещает?
+## Почему это не «Rust странно копирует переменные»
 
-Если бы обе переменные считались независимыми owners одного buffer и обе cleanup'или его, возник бы аналог C double free.
-
-Rust делает старый binding недоступным вместо implicit deep copy.
+Если бы два independent owners считали один allocation своим, оба попытались бы cleanup. Move invalidates old binding at type-check level and preserves single-owner contract.
 
 ## `Copy`
 
-Простые scalar types вроде `i32` обычно implement `Copy`:
+Небольшие types без ownership resource, например многие integers, реализуют `Copy`:
 
 ```rust
-let a = 5;
+let a = 10i32;
 let b = a;
-println!("{a} {b}");
 ```
 
-Здесь значение дешёво копируется, ownership resource не требует уникального cleanup.
+После этого оба доступны, потому что независимое bitwise copy безопасно для данного type contract.
 
-Не пытайся запоминать список `Copy`; смотри semantic: type с resource ownership/`Drop` обычно не должен иметь trivially duplicated ownership.
+Не выводи правило «маленькое = Copy»; это trait/semantic property type-а.
 
-## `Clone`
+## `clone()` — явная стоимость
 
-Если нужен explicit duplicate owned data:
+Если действительно нужен независимый owned duplicate:
 
 ```rust
-let a = String::from("hello");
 let b = a.clone();
 ```
 
-Теперь две независимые `String` allocations/owners.
+Для `String` это обычно означает новую owned allocation/copy data. `clone()` не должен быть рефлексом для борьбы с compiler errors: сначала уточни desired ownership.
 
-`clone()` может быть дорогой операцией. Явность — плюс: code review видит, где попросили duplication.
+## Drop
 
-## Function ownership
+Когда owning value заканчивает lifetime, Rust вызывает destructor logic. Это снижает риск forgotten cleanup, но не означает, что любой resource lifetime автоматически идеален: можно держать owner слишком долго или создавать reference cycles через advanced smart pointers.
 
-```rust
-fn consume(s: String) {
-    println!("{s}");
-}
+## Практика
 
-let s = String::from("x");
-consume(s);
-// s moved
-```
+Возьми `String`, покажи move compiler error, затем реши две разные задачи:
 
-Function parameter by value принимает ownership.
-
-Можно вернуть ownership обратно, но обычно для временного доступа лучше borrow — следующий урок.
-
-## `Drop`
-
-Types могут выполнять cleanup при завершении lifetime owner value.
-
-RAII-модель:
-
-```text
-resource acquisition tied to object construction
-resource release tied to Drop/end of lifetime
-```
-
-Это работает не только для memory: files, locks, sockets wrappers тоже могут cleanup через destructors/Drop guards.
-
-## Causal questions
-
-1. Как move предотвращает класс double-free bugs?
-2. Почему `clone()` не эквивалентен move?
-3. Почему `i32` удобно Copy, а `String` — нет?
-4. Какие C ownership comments становятся compiler-enforced в Rust, а какие нет?
-
-## Упражнение
-
-Создай последовательность с `String`:
-
-1. `a` owns string;
-2. move в `b`;
-3. попробуй использовать `a`, прочитай error;
-4. измени программу так, чтобы нужны были две независимые strings через `clone`;
-5. передай одну `String` by value в function и объясни ownership после call.
+1. ownership должен перейти — без clone;
+2. нужны две независимые строки — explicit clone.
 
 Разбор: [`02-ownership-moves-drop.solution.md`](02-ownership-moves-drop.solution.md).
 
-## Project slice
-
-В Rust MiniKV реши ownership policy:
-
-- store owns keys/values как `String`;
-- insertion принимает ownership или borrowed input и копирует?
-
-Пока только задокументируй два варианта и выбери один. В следующем уроке borrow model позволит сформулировать API лучше.
-
 ## Exit check
 
-Сравни:
-
-```text
-C: malloc pointer + ownership convention + free
-Rust: owned value + move rules + Drop
-```
-
-Не говори «Rust не имеет heap» — `String`/`Vec` активно используют heap, просто cleanup управляется иначе.
+Почему move решает именно проблему double ownership, а не просто является синтаксическим ограничением?

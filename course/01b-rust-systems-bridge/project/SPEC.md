@@ -1,41 +1,33 @@
-# Rust MiniKV — SPEC
+# Rust MiniKV — staged SPEC
 
-Bridge-проект переносит **поведение** MiniKV в idiomatic Rust, но не требует повторной реализации hash table.
+## Prerequisites
 
-## Storage
+Start implementation after 1B.6. FFI and concurrency are not prerequisites.
 
-Используй стандартный `Vec<Entry>` для хранения небольшого числа entries. Линейный lookup допустим и намерен.
+## Behavior
 
-Цель проекта — ownership/API/error design.
+- insert new `String` key/value or integer value according to chosen model;
+- update existing key without duplicate logical entry;
+- lookup by borrowed key (`&str`) without allocating a temporary owned key;
+- delete returns explicit found/not-found semantics;
+- length remains correct.
 
-## Entry
+## Ownership contract
 
-Каждая entry владеет key/value как `String` или другим осмысленным owned representation.
+Store owns inserted keys and values. Caller may borrow returned data only for lifetime allowed by Rust API. Mutation that requires `&mut self` cannot overlap incompatible borrows.
 
-## Required operations
+## Error/absence model
 
-- create empty Store;
-- set/insert/update;
-- get;
-- delete или другая небольшая transfer feature;
-- len/is_empty;
-- tests.
+Use `Option` for ordinary missing lookup where appropriate. Use `Result` only for actual failure category that has meaningful error information; do not wrap every operation in `Result` by ritual.
 
-## API goals
+## Clone policy
 
-- read-only methods используют `&self`;
-- mutation — `&mut self`;
-- lookup input принимает borrowed text (`&str`) без обязательной allocation;
-- missing lookup моделируется `Option`;
-- constraint/input errors — `Result` с собственным error enum;
-- lookup result по возможности borrowed, а не clone по умолчанию.
+A clone is acceptable only when semantic result requires a new independent owner. README must explain any clone on hot lookup/update path.
 
-## Constraints
+## Safety
 
-Можно сохранить maximum key/value length из C MiniKV как domain limits, даже несмотря на growable `String`. Это полезно для error-contract comparison.
+Core project uses safe Rust. Adding `unsafe` to bypass borrow checker is not an accepted solution.
 
-## Forbidden shortcuts
+## Transfer task
 
-- не использовать `HashMap` как способ скрыть цель bridge;
-- не `clone()` всё подряд, чтобы «успокоить borrow checker»;
-- не использовать `unsafe` в основной Store implementation без отдельного обоснования.
+Add one API that returns a borrowed view, then explain its lifetime relationship in words before code.

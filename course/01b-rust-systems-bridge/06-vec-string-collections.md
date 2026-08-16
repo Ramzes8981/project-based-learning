@@ -1,82 +1,44 @@
-# 1B.6 — `Vec`, `String`, iteration и idiomatic ownership
+# 1B.6 — Как знакомые dynamic collections выглядят при compiler-checked ownership
 
-**Теория:** ~55 мин  
-**Упражнение:** ~50 мин  
-**Project slice:** ~2–4 часа  
-**С телефона:** теория — да
+**Теория:** ~65 мин · **Практика/project:** ~90 мин · **С телефона:** теория — да
 
 ← [`05-option-result-errors.md`](05-option-result-errors.md) · → [`07-text-bytes-unicode-utf8.md`](07-text-bytes-unicode-utf8.md)
 
-## Цель
+## Vector bridge
 
-Использовать standard collections осознанно и увидеть связь с C Vector, который уже реализован вручную.
-
-## `Vec<T>`
-
-`Vec<T>` conceptually хранит:
-
-```text
-pointer to allocation
-length
-capacity
-```
-
-Rust encapsulates unsafe allocation machinery внутри standard library и exposes safe API при соблюдении её invariants.
+C Vector явно хранил `data/len/capacity` и вручную управлял `realloc`. Rust `Vec<T>` инкапсулирует тот же общий класс задачи, но ownership и destruction encoded in type.
 
 ```rust
 let mut v = Vec::new();
 v.push(10);
-v.push(20);
 ```
 
-`v[index]` может panic при invalid index; `v.get(index)` возвращает `Option<&T>`. Выбор — часть error contract.
-
-## Reallocation всё ещё существует
-
-`Vec::push` может reallocate buffer. Borrow checker защищает references от использования через mutation, которая потенциально invalidates их.
+`len()` — logical elements; `capacity()` — storage available before grow. Growth may invalidate references exactly по той же физической причине, что C `realloc`; borrow rules не позволяют safe code держать incompatible reference через mutation.
 
 ## `String`
 
-`String` — owned growable UTF-8 bytes с string-specific invariants. Это не `Vec<char>`: code points и UTF-8 bytes — разные уровни. Следующий урок разбирает это отдельно.
+`String` — owned growable UTF-8 text. `&str` — borrowed UTF-8 string slice.
 
-Для binary protocols используй `Vec<u8>`/`&[u8]`.
+Не путай `String` с arbitrary byte buffer. Для bytes обычно `Vec<u8>` / `&[u8]`.
 
-## Iteration ownership modes
+## HashMap bridge
 
-```rust
-for x in &v      // shared borrow items
-for x in &mut v  // mutable borrow items
-for x in v       // consume collection into iteration
-```
+`std::collections::HashMap<K,V>` владеет inserted keys/values according to operations/types. Lookup может использовать borrowed form when traits support it, например `HashMap<String, V>` обычно читается по `&str` without allocating new `String`.
 
-Осознанно различай `iter`, `iter_mut`, `into_iter` и receiver ownership.
+## Не клонируй key ради каждого GET
 
-## Struct methods
-
-```rust
-struct Store {
-    entries: Vec<Entry>,
-}
-
-impl Store {
-    fn len(&self) -> usize {
-        self.entries.len()
-    }
-}
-```
-
-`&self` — shared borrow, `&mut self` — exclusive mutable borrow, `self` — ownership-consuming receiver.
-
-## Упражнение
-
-Создай `Inventory` с `Vec<Item>`: add, find borrowed item, read-only aggregate, remove по документированной semantics. Добавь tests.
-
-Разбор: [`06-vec-string-collections.solution.md`](06-vec-string-collections.solution.md).
+Если API lookup принимает borrowed key, unnecessary `to_string()`/`clone()` создаёт лишнюю allocation/copy и маскирует understanding borrowing.
 
 ## Project slice
 
-Заверши Rust MiniKV basic implementation с `Vec<Entry>`; `HashMap` не нужен. README сравнивает C/Rust cleanup, borrowed lookup, errors, mutation/invalidation.
+После этого урока можно начать [`project/SPEC.md`](project/SPEC.md): behavior-first map, borrowed lookup, explicit results. Не добавляй FFI/unsafe.
+
+## Практика
+
+Сделай tiny map `String -> i32`, вставь owned keys, выполни lookup по `&str`, update/delete, объясни, кто owns key/value после insert/remove.
+
+Разбор: [`06-vec-string-collections.solution.md`](06-vec-string-collections.solution.md).
 
 ## Exit check
 
-Rust `Vec` не убрал realloc: он спрятал memory invariants за safe API и borrow rules.
+Почему `Vec` growth и C `realloc` создают одну и ту же reference-invalidation проблему, хотя Rust чаще ловит её compile-time?

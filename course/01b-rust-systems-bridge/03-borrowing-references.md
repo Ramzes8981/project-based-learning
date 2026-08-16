@@ -1,117 +1,70 @@
-# 1B.3 — Borrowing: `&T` и `&mut T`
+# 1B.3 — Как временно дать доступ, не передавая владение
 
-**Теория:** ~65 мин  
-**Упражнение:** ~50 мин  
-**Project slice:** ~60 мин  
-**С телефона:** да
+**Теория:** ~70 мин · **Практика:** ~65 мин · **С телефона:** теория — да
 
 ← [`02-ownership-moves-drop.md`](02-ownership-moves-drop.md) · → [`04-lifetimes-slices.md`](04-lifetimes-slices.md)
 
-## Цель
+## Проблема
 
-Понять Rust borrowing как compiler-enforced правило aliasing/mutation, а не как «ссылки похожие на pointers».
+Function должна прочитать `String`, но caller хочет оставить ownership у себя. Передавать `String` by value означало бы move.
 
-## Shared borrow
+## Borrowing
+
+Rust reference `&T` даёт временный borrowed access:
 
 ```rust
-fn len(s: &String) -> usize {
+fn len_of(s: &String) -> usize {
     s.len()
 }
 ```
 
-`&String` — shared reference. Function получает временный доступ и не становится owner.
+Caller остаётся owner.
 
-После call original owner продолжает использовать `String`.
+Чаще API принимает string slice `&str`, если ему нужны только text bytes/text operations, а не конкретный `String` container.
 
-Чаще API лучше принимать `&str`, а не `&String`; к slices перейдём дальше.
-
-## Mutable borrow
+## Shared vs mutable borrow
 
 ```rust
-fn append_marker(s: &mut String) {
-    s.push('!');
-}
+&T      // shared borrow
+&mut T  // exclusive mutable borrow
 ```
 
-`&mut` даёт exclusive mutable access на время borrow.
-
-## Главное правило aliasing
-
-В safe Rust в один момент для одного region/value разрешено концептуально:
+Ключевой rule в безопасной модели:
 
 ```text
-много shared references (&T)
-ИЛИ
-одна mutable reference (&mut T)
+many shared references
+OR
+one active mutable reference
 ```
 
-Не одновременно shared readers + mutable writer к тому же state.
+Именно active/overlapping access matters; modern borrow checker often ends a borrow at last use, not necessarily lexical block end.
 
-Это предотвращает большой класс iterator invalidation/data-race-like alias bugs ещё в single-threaded code.
+## Почему mutation требует exclusivity
 
-## Почему это связано с C
-
-В C:
-
-```c
-int *a = &x;
-int *b = &x;
-```
-
-compiler обычно не запрещает менять `x` через один alias, пока другой code считает его стабильным. Нужно manually maintain invariants.
-
-Rust делает aliasing discipline частью type/borrow checking.
-
-## Borrow scope
-
-Современный Rust использует non-lexical lifetimes: borrow часто заканчивается после последнего использования reference, а не обязательно в конце всего `{}` block.
+Если один reference меняет object while другой считает его state stable, invariants могут ломаться. Для `Vec`, mutation вроде `push` ещё и способна reallocate storage и invalidates references to elements.
 
 ```rust
-let mut s = String::from("x");
-let r = &s;
-println!("{r}");
-s.push('!'); // shared borrow уже больше не используется
+let mut v = vec![1, 2, 3];
+let first = &v[0];
+// v.push(4); // may need mutable borrow/reallocation while first is live
+println!("{first}");
 ```
 
-## Reborrow
+Compiler блокирует unsafe overlap на type/borrow level.
 
-`&mut T` можно временно reborrow для вызова функции, после чего original mutable reference снова может использоваться при корректных lifetimes.
+## Практика
 
-Не нужно рассматривать `&mut` как freely copyable raw address.
+Сделай functions:
 
-## Causal questions
+```rust
+fn count_bytes(s: &str) -> usize
+fn append_suffix(s: &mut String, suffix: &str)
+```
 
-1. Почему shared borrow не передаёт ownership?
-2. Почему Rust запрещает `&mut` одновременно с active `&` к тому же state?
-3. Как это связано с iterator invalidation?
-4. Почему borrow checker не «мешает mutation», а требует доказать exclusive access?
-
-## Упражнение
-
-Создай `Vec<i32>`.
-
-1. Возьми shared reference на первый element и используй его.
-2. Попробуй `push` в vector до последнего использования reference — прочитай compiler error.
-3. Перестрой code так, чтобы borrow закончился до `push`.
-4. Напиши function `increment_all(&mut [i32])` позже через slice syntax (можно пока `&mut Vec<i32>`), которая изменяет collection без ownership transfer.
+Затем намеренно создай overlapping borrow conflict, предскажи diagnostic и исправь **ownership design**, а не добавлением clone без причины.
 
 Разбор: [`03-borrowing-references.solution.md`](03-borrowing-references.solution.md).
 
-## Project slice
-
-Спроектируй Rust MiniKV API:
-
-```text
-set: нужна mutation Store -> &mut self
-get: только чтение -> &self
-```
-
-Не копируй exact method signatures из solution. Сначала определи:
-
-- принимает ли `set` owned `String` или `&str`;
-- что возвращает `get`: cloned `String` или borrowed `&str`/`&String`;
-- как это влияет на lifetime результата.
-
 ## Exit check
 
-Объясни, почему `&mut` — это не просто «pointer, через который можно писать», а временное право exclusive access.
+Почему `&mut T` — не просто «reference, через который разрешена запись», а exclusive access contract?

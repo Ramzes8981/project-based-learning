@@ -1,111 +1,58 @@
-# 1B.4 — Lifetimes и slices
+# 1B.4 — Почему reference не может пережить данные
 
-**Теория:** ~70 мин  
-**Упражнение:** ~50 мин  
-**Project slice:** ~45 мин  
-**С телефона:** да
+**Теория:** ~70 мин · **Практика:** ~65 мин · **С телефона:** теория — да
 
 ← [`03-borrowing-references.md`](03-borrowing-references.md) · → [`05-option-result-errors.md`](05-option-result-errors.md)
 
-## Цель
+## Проблема из C
 
-Понять lifetime как статическое отношение между references и owner data, а slices — как borrowed region с длиной.
+Dangling pointer возникал, когда pointer жил дольше target object. Rust reference тоже не «магически бессмертен» — compiler должен доказать, что borrowed data живёт достаточно долго.
 
-## Lifetime не runtime timer
+## Lifetime как relationship
 
-Lifetime annotation не продлевает жизнь объекта. Она описывает relation, которую compiler должен проверить.
+**Время жизни (lifetime)** в Rust annotation описывает relationship между references, а не timer и не ручное продление object lifetime.
 
-## Почему reference на local нельзя вернуть
-
-Неправильная идея:
+Плохая идея:
 
 ```rust
-fn local_view<'a>() -> &'a str {
-    let s = String::from("abc");
+fn bad() -> &str {
+    let s = String::from("temporary");
     &s
 }
 ```
 
-Caller пытается выбрать произвольный `'a`, но локальный `s` уничтожается при return. Никакой annotation не способна создать owner, который живёт дольше.
-
-Правильные варианты зависят от цели:
-
-- вернуть owned `String`;
-- вернуть reference на input data;
-- хранить data в более долгоживущем owner.
-
-Например relation между input/output:
-
-```rust
-fn prefix<'a>(input: &'a str, n: usize) -> &'a str {
-    &input[..n]
-}
-```
-
-Такая функция может вернуть borrow, потому что source lifetime приходит от caller. Для `str` `n` обязан быть UTF-8 character boundary; позже разберём это отдельно.
-
-## Несколько input references
-
-```rust
-fn longer<'a>(a: &'a str, b: &'a str) -> &'a str {
-    if a.len() >= b.len() { a } else { b }
-}
-```
-
-`'a` не заставляет объекты иметь одинаковую физическую жизнь. Returned reference ограничивается временем, безопасным для выбранного input.
-
-## Lifetime elision
-
-Common cases compiler выводит сам:
-
-```rust
-fn first(s: &str) -> &str
-```
-
-Explicit lifetimes нужны для выражения relation, а не для украшения signatures.
+Такой reference пережил бы owner `s`; safe Rust rejects program.
 
 ## Slice
 
-C часто использует:
-
-```text
-T *ptr + size_t len
-```
-
-Rust связывает это в type:
+Slice — borrowed view на contiguous sequence:
 
 ```rust
 &[T]
 &mut [T]
+&str
 ```
 
-Reference добавляет lifetime/aliasing contract, slice — length/bounds model.
+Он несёт pointer-like location + length contract, поэтому caller не должен отдельно угадывать array length как в C pointer API.
 
-## `String` / `&str` / `&[u8]`
+`&str` дополнительно гарантирует valid UTF-8 bytes.
 
-- `String` — owner growable valid UTF-8 bytes;
-- `&str` — borrowed valid UTF-8 view;
-- `&[u8]` — arbitrary bytes, text validity не обещается.
+## Lifetime elision
 
-Для binary protocols почти всегда начинать нужно с bytes, а превращать в `&str` только после validation.
+Во многих function signatures compiler выводит lifetime relationships автоматически:
 
-## Упражнение
+```rust
+fn first(xs: &[i32]) -> Option<&i32>
+```
 
-Напиши `first_word(&str) -> &str`, который возвращает slice до первого ASCII space или весь input без allocation.
+Explicit annotations нужны, когда relationship неоднозначен/важен для API, а не для украшения каждой reference.
 
-Tests: empty, leading space, no spaces, ordinary ASCII phrase, non-ASCII text before ASCII space.
+## Практика
+
+Напиши function, возвращающую slice-prefix входного slice при допустимой длине через `Option<&[T]>`. Затем объясни, почему result не может быть used после owner input data.
 
 Разбор: [`04-lifetimes-slices.solution.md`](04-lifetimes-slices.solution.md).
 
-## Project slice
-
-Rust MiniKV:
-
-- lookup input: `&str`;
-- storage: owned `String`;
-- lookup result: borrowed reference/view;
-- mutation требует `&mut self`, поэтому compiler не даст мутировать Store пока жив borrow из `&self`.
-
 ## Exit check
 
-Объясни, почему lifetime annotation описывает связь с owner, но не может сделать local `String` вечным.
+Что lifetime annotation **не** делает с runtime lifetime object-а?

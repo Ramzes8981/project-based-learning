@@ -1,7 +1,36 @@
-# Разбор упражнения 1B.8
+# Разбор 1B.8
 
-Минимальный raw-pointer блок безопасен только пока source object жив и не нарушены aliasing/alignment rules.
+Minimal shape, not a project solution.
 
-Для FFI основная мысль не в строке `unsafe`: Rust compiler **доверяет твоему extern declaration**. Если C symbol имеет другую signature/layout, unsafe obligation нарушен ещё до meaningful business logic.
+C header:
 
-Для `add_two` ограничивай test inputs так, чтобы C `int` addition не overflow: FFI не отменяет C undefined behavior.
+```c
+struct Pair {
+    int a;
+    int b;
+};
+
+int pair_sum(const struct Pair *p, int *out);
+```
+
+C implementation validates pointers according to its contract and writes result only on success.
+
+Rust side:
+
+```rust
+use std::os::raw::c_int;
+
+#[repr(C)]
+struct Pair {
+    a: c_int,
+    b: c_int,
+}
+
+unsafe extern "C" {
+    fn pair_sum(p: *const Pair, out: *mut c_int) -> c_int;
+}
+```
+
+The important correction is **not** hard-coding the teaching rule “C `int` always equals Rust `i32`”. `c_int` follows the target C ABI. For fixed-width C types, use matching fixed-width Rust types according to that explicit API contract.
+
+No ownership transfer occurs in this lab: pointers are borrowed for the duration of the call only.
