@@ -9,41 +9,42 @@
 
 ## Цель
 
-Понять lifetime как отношение между references и owned data, а slices — как безопасную пару «address region + length».
+Понять lifetime как статическое отношение между references и owner data, а slices — как borrowed region с длиной.
 
-## Lifetime не равно runtime timer
+## Lifetime не runtime timer
 
-Lifetime в Rust — часть static reasoning о том, сколько reference может считаться валидной относительно owner data.
+Lifetime annotation не продлевает жизнь объекта. Она описывает relation, которую compiler должен проверить.
 
-Compiler обычно выводит lifetimes сам. Annotation нужна, когда relation между input/output references неоднозначна.
+## Почему reference на local нельзя вернуть
 
-## Dangling C function
-
-В C:
-
-```c
-char *bad(void) {
-    char local[4] = "abc";
-    return local;
-}
-```
-
-pointer переживает object lifetime.
-
-Rust safe code не позволит вернуть reference на local owned data:
+Неправильная идея:
 
 ```rust
-fn bad() -> &str {
+fn local_view<'a>() -> &'a str {
     let s = String::from("abc");
     &s
 }
 ```
 
-такой код не компилируется, потому что `s` будет dropped.
+Caller пытается выбрать произвольный `'a`, но локальный `s` уничтожается при return. Никакой annotation не способна создать owner, который живёт дольше.
 
-## Lifetime relation
+Правильные варианты зависят от цели:
 
-Пример функции, возвращающей один из двух references:
+- вернуть owned `String`;
+- вернуть reference на input data;
+- хранить data в более долгоживущем owner.
+
+Например relation между input/output:
+
+```rust
+fn prefix<'a>(input: &'a str, n: usize) -> &'a str {
+    &input[..n]
+}
+```
+
+Такая функция может вернуть borrow, потому что source lifetime приходит от caller. Для `str` `n` обязан быть UTF-8 character boundary; позже разберём это отдельно.
+
+## Несколько input references
 
 ```rust
 fn longer<'a>(a: &'a str, b: &'a str) -> &'a str {
@@ -51,107 +52,60 @@ fn longer<'a>(a: &'a str, b: &'a str) -> &'a str {
 }
 ```
 
-`'a` не означает, что inputs живут «одинаково долго» физически. Контракт говорит: returned reference не может использоваться дольше lifetime, совместимого с обоими inputs.
+`'a` не заставляет объекты иметь одинаковую физическую жизнь. Returned reference ограничивается временем, безопасным для выбранного input.
 
 ## Lifetime elision
 
-Во многих common signatures annotations не нужны:
+Common cases compiler выводит сам:
 
 ```rust
 fn first(s: &str) -> &str
 ```
 
-compiler применяет elision rules.
-
-Не добавляй explicit lifetimes просто «для серьёзности».
+Explicit lifetimes нужны для выражения relation, а не для украшения signatures.
 
 ## Slice
 
-C API часто передаёт:
+C часто использует:
 
 ```text
 T *ptr + size_t len
 ```
 
-Rust slice:
+Rust связывает это в type:
 
 ```rust
 &[T]
 &mut [T]
 ```
 
-связывает borrowed region и length в одном type.
+Reference добавляет lifetime/aliasing contract, slice — length/bounds model.
 
-String slice:
+## `String` / `&str` / `&[u8]`
 
-```rust
-&str
-```
+- `String` — owner growable valid UTF-8 bytes;
+- `&str` — borrowed valid UTF-8 view;
+- `&[u8]` — arbitrary bytes, text validity не обещается.
 
-— borrowed UTF-8 text view.
-
-Важно: индексирование Rust `str` по integer character index не поддерживается, потому что UTF-8 characters имеют variable byte length.
-
-## `String` vs `&str`
-
-- `String` — owned growable UTF-8 buffer;
-- `&str` — borrowed view на valid UTF-8 bytes.
-
-Хороший API часто принимает `&str`, если ownership не нужен.
-
-## Slice boundaries
-
-```rust
-let s = String::from("hello");
-let part = &s[0..2];
-```
-
-Для UTF-8 boundaries должны попадать на character boundaries; arbitrary byte split может panic.
-
-Для binary data используй `&[u8]`, а не `&str`.
-
-## Causal questions
-
-1. Почему lifetime annotation не «продлевает жизнь» data?
-2. Что slice добавляет к raw pointer сравнению с C?
-3. Почему `&str` удобнее `&String` как read-only string parameter?
-4. Почему text protocol parsing и binary parsing требуют разных типов/view assumptions?
+Для binary protocols почти всегда начинать нужно с bytes, а превращать в `&str` только после validation.
 
 ## Упражнение
 
-Напиши:
+Напиши `first_word(&str) -> &str`, который возвращает slice до первого ASCII space или весь input без allocation.
 
-```text
-first_word(&str) -> &str
-```
-
-которая возвращает slice до первого ASCII space или весь input.
-
-Требования:
-
-- empty string;
-- no spaces;
-- leading space;
-- обычная ASCII phrase;
-- не создаёт новый `String`.
+Tests: empty, leading space, no spaces, ordinary ASCII phrase, non-ASCII text before ASCII space.
 
 Разбор: [`04-lifetimes-slices.solution.md`](04-lifetimes-slices.solution.md).
 
 ## Project slice
 
-Для Rust MiniKV предпочти:
+Rust MiniKV:
 
-- input lookup key как `&str`;
-- owned storage как `String`;
-- return lookup как borrowed view/reference там, где это безопасно и удобно.
-
-Зафиксируй invalidation semantics: если caller держит borrow результата, какие mutations Store compiler не позволит сделать одновременно?
+- lookup input: `&str`;
+- storage: owned `String`;
+- lookup result: borrowed reference/view;
+- mutation требует `&mut self`, поэтому compiler не даст мутировать Store пока жив borrow из `&self`.
 
 ## Exit check
 
-Сравни:
-
-```text
-C: const char * + implicit terminator contract
-Rust: &str + tracked length + UTF-8 validity + lifetime
-```
+Объясни, почему lifetime annotation описывает связь с owner, но не может сделать local `String` вечным.
