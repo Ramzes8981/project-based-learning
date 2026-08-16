@@ -1,6 +1,6 @@
 # 5.5 — Threads, races, mutexes и condition variables
 
-**Теория:** ~90 мин  
+**Теория:** ~95 мин  
 **Lab:** ~90 мин  
 **С телефона:** теория — да
 
@@ -12,97 +12,90 @@
 
 ## Process vs thread
 
-Threads одного process разделяют address space/resources, но имеют independent execution contexts/stacks/register state.
+Threads одного process разделяют address space и многие process resources, но имеют собственные execution stacks/register context.
 
-Shared memory делает communication дешёвой, но создаёт races.
+Shared memory уменьшает copying, но создаёт synchronization obligations.
 
-## Data race
+## C data race
 
-Conceptually:
+Если два threads обращаются к одному ordinary object concurrently, минимум один access write и нет требуемой synchronization/happens-before relation, C program имеет data race и undefined behavior.
 
-- два threads concurrently access same memory location;
-- минимум один access write;
-- нет required synchronization ordering.
-
-В C data race на ordinary non-atomic objects приводит к undefined behavior.
-
-## `counter++` не atomic
-
-Source expression может стать:
+`counter++` концептуально:
 
 ```text
-load counter
-add 1
-store counter
+load
+add
+store
 ```
 
-Interleaving двух threads теряет update.
+и не становится atomic только потому, что source line одна.
 
 ## Mutex
 
-Mutex обеспечивает mutual exclusion critical section.
+Mutex сериализует critical section и создаёт synchronization around shared invariant:
 
 ```text
 lock
-read/modify shared invariant
+check/change shared state
 unlock
 ```
 
-POSIX model делает locking thread owner mutex до unlock; это synchronization primitive для shared address space. citeturn932665search2turn932665search5
+Для POSIX mutex normal rule: thread, который успешно владеет mutex, освобождает его согласно выбранному mutex type/contract. Не проектируй code, где arbitrary thread «на всякий случай unlock чужой mutex».
 
-## Lock granularity
+## Lock scope
 
-Один global mutex проще, но может serialize throughput.
+Начинай с coarse lock, если так correctness очевиднее, затем измеряй. Fine-grained locks могут повысить parallelism, но добавляют lock-order/deadlock/state complexity.
 
-Много fine-grained locks повышают potential concurrency, но увеличивают complexity/deadlock risk.
-
-Начинай с simple correct design, потом measure.
+Не держи store mutex вокруг slow network read/write без необходимости: один client способен задержать всех workers.
 
 ## Deadlock
 
-Классический cycle:
-
 ```text
-Thread A holds L1, waits L2
-Thread B holds L2, waits L1
+A holds L1 -> waits L2
+B holds L2 -> waits L1
 ```
 
-Practical prevention: global lock ordering, минимизация nested locks, bounded lock scope.
+Практические техники:
 
-## Condition variable
+- global lock ordering;
+- minimal nested locks;
+- не вызывать unknown callbacks под lock без contract;
+- не делать blocking I/O под shared-state lock без причины.
 
-Condition variable позволяет thread спать до изменения predicate/state.
+## Condition variable = wait for predicate
 
-Правильная mental model:
+Правильная форма:
 
 ```text
 lock mutex
-while !predicate:
+while predicate false:
     cond_wait(cond, mutex)
-// predicate true under lock
-use state
+use/update state
 unlock
 ```
 
-`while`, не `if`: wakeups могут быть spurious, а другой thread может забрать resource до reacquire.
+`cond_wait` conceptually atomically releases associated mutex while sleeping and reacquires it before return. Проверка — `while`, не `if`: wakeup не является доказательством, что predicate всё ещё true; возможны spurious wakeups/competition.
 
-`cond_wait` atomically releases mutex while waiting и reacquires before return according to pthread semantics.
+## Bounded queue predicates
 
-## Lab — counter/race
+```text
+not_empty: size > 0
+not_full:  size < capacity
+```
 
-1. Несколько threads increment shared counter без lock → наблюдай problem (не полагайся, что проявится каждый run).
-2. Исправь mutex.
-3. Собери bounded queue с mutex+condition variables.
+Producer waits `not_full`, pushes under lock, signals/broadcasts `not_empty`. Consumer зеркально.
 
-Если ThreadSanitizer доступен/совместим, используй как diagnostic tool; отсутствие report не proof.
+## Shutdown state
 
-## Causal questions
+Queue обычно требует дополнительный state `stopping/closed`. Иначе workers могут навсегда ждать empty queue во время server shutdown.
 
-1. Почему `counter++` может race?
-2. Почему держать mutex вокруг blocking network I/O плохо?
-3. Почему `cond_wait` в `while`?
-4. Как lock order предотвращает cycle?
+## Lab
+
+1. Counter race experiment — наблюдение, не «доказательство отсутствия race», если value случайно правильный.
+2. Исправить mutex.
+3. Bounded queue + two condvars + shutdown flag.
+4. Если ThreadSanitizer совместим с environment, использовать как diagnostic; clean run не proof.
 
 ## Exit check
 
-Нарисуй producer/consumer queue state и predicates `not_empty`, `not_full`.
+Нарисуй queue state machine и точно напиши predicates, которые проверяются в `while`.

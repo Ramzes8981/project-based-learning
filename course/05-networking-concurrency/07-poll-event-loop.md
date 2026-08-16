@@ -1,6 +1,6 @@
 # 5.7 — Non-blocking I/O, `poll` и event loop
 
-**Теория:** ~85 мин  
+**Теория:** ~90 мин  
 **Guided lab:** ~3–5 часов  
 **С телефона:** теория — да
 
@@ -8,76 +8,72 @@
 
 ## Цель
 
-Понять alternative concurrency model: один/few event-loop threads + per-connection state machines.
+Понять альтернативную concurrency model: один/few event-loop threads + explicit per-connection state.
 
-## Blocking
+## Blocking vs nonblocking
 
-Blocking `recv` может остановить thread до появления data.
+Blocking `recv` может остановить worker до progress.
 
-Thread pool компенсирует это несколькими threads.
-
-## Non-blocking
-
-`O_NONBLOCK` заставляет I/O operations вернуть сразу столько, сколько возможно, либо EAGAIN/EWOULDBLOCK, если сейчас progress невозможен. POSIX socket model определяет такое поведение для nonblocking transfer. citeturn932665search2
+При `O_NONBLOCK` operation должна вернуть без обычного ожидания: если сейчас нельзя прочитать/записать, появляется `EAGAIN`/`EWOULDBLOCK` как **нормальное состояние**, а не broken connection.
 
 ## Readiness
 
-`poll()` принимает set file descriptors/events и сообщает, где можно **попытаться** выполнить I/O без обычного blocking. citeturn932665search3
+`poll` получает array descriptors + requested events и возвращает descriptors с событиями/readiness/error/hangup indications.
 
-Readiness не означает:
+Readiness означает «попытка соответствующей операции может сделать progress или обнаружить состояние». Она **не** означает:
 
-- «полный application frame уже доступен»;
-- «send всей response завершится за один вызов».
+- полный application frame готов;
+- whole response запишется за один `send`;
+- после readiness невозможно получить error/EOF.
 
-## Per-connection state
+## Per-connection state machine
 
-Blocking handler мог сделать:
+Blocking code:
 
 ```text
-read_exact length
-read_exact payload
+read_exact prefix
+read_exact body
 process
-write_all response
+write_all
 ```
 
-Event loop должен сохранять state между readiness events:
+Event loop:
 
 ```text
-READ_PREFIX (have 2/4 bytes)
-READ_BODY   (have 800/2000)
-WRITE_RESP  (sent 300/900)
+READ_PREFIX have 0..4
+READ_BODY   have 0..body_len
+PROCESS
+WRITE_RESP  sent 0..response_len
+CLOSING
 ```
 
-Это главный complexity cost event-driven design.
+State хранит input/output buffers, offsets и protocol phase между iterations.
 
-## `pollfd`
+## `pollfd` lifecycle
 
-Каждый fd имеет requested events и returned revents. Нужно обрабатывать errors/hangup независимо от desired read/write state.
+У каждого fd requested `events`, returned `revents`. Error/hangup bits надо рассматривать независимо от желаемого state; stale/closed descriptor нельзя оставлять в active set.
 
-## `epoll`
+## Writable readiness и backpressure
 
-Linux `epoll` масштабирует large descriptor sets эффективнее определённых `poll` workloads и имеет свои level/edge-trigger semantics. Но core сначала учит `poll`, потому что model проще и portable POSIX-like.
+Если output не помещается kernel send buffer, сохранить unsent suffix и ждать future write readiness. Busy-loop повторный `send` после `EAGAIN` сжигает CPU.
+
+## Level vs edge preview
+
+Linux `epoll` добавляет более scalable registration API и level/edge-triggered modes. Core использует `poll`, пока readiness/state model не стала прозрачной. Переход к `epoll` без state machine не устраняет protocol complexity.
 
 ## Guided lab
 
-Сделай маленький nonblocking echo/multi-client server через `poll`.
+Multi-client nonblocking echo через `poll`:
 
-Не нужно переписывать весь KV milestone второй раз.
+- fixed maximum clients;
+- per-client receive/send state;
+- partial reads/writes;
+- EOF/error cleanup;
+- no busy loops;
+- one slow client не блокирует progress других.
 
-Сравни:
-
-```text
-thread pool: control flow простой, OS threads/state stacks
-poll loop: explicit state machines, меньше blocking threads
-```
-
-## Causal questions
-
-1. Почему readability не означает complete frame?
-2. Почему event loop требует output buffer state?
-3. Что будет, если после EAGAIN считать connection broken?
-4. Почему `epoll` не стоит учить до понимания readiness/state machine?
+Не переписывай весь KV milestone второй раз: lab нужен для сравнения architectural models.
 
 ## Exit check
 
-Для partial frame нарисуй state transitions через три `poll/read` events.
+Нарисуй один connection, где 4-byte prefix приходит 2+1+1 bytes, body двумя reads, response двумя writes с `EAGAIN` между ними.

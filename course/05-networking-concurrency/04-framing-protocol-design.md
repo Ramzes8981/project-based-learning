@@ -1,6 +1,6 @@
 # 5.4 — Framing и binary application protocol
 
-**Теория:** ~80 мин  
+**Теория:** ~90 мин  
 **Project slice:** ~4–7 часов  
 **С телефона:** теория — да
 
@@ -8,115 +8,90 @@
 
 ## Цель
 
-Спроектировать bounded length-prefixed KV protocol и parser state machine, который корректен при произвольном TCP chunking.
+Спроектировать bounded length-prefixed KV protocol и parser state machine, корректный при произвольном TCP chunking.
 
-## Frame format
+## Frame envelope
 
-Course protocol v1:
-
-```text
-4 bytes total_payload_length (network/big-endian)
-1 byte  version
-1 byte  opcode
-2 bytes reserved/flags
-payload...
-```
-
-`total_payload_length` описывает bytes **после** 4-byte prefix.
-
-## Operations
-
-Минимум:
+Course protocol v1 подробно зафиксирован в [`project/PROTOCOL.md`](project/PROTOCOL.md). Общий envelope:
 
 ```text
-GET
-SET
-DELETE optional/transfer
+u32 body_len (big-endian; bytes after prefix)
+u8  version
+u8  opcode
+u16 flags/status
+operation-specific payload
 ```
 
-Payload имеет explicit lengths, а не C `\0` contracts.
+Никакой raw `send(struct Request)`: C padding, host endianness, ABI layout и pointer fields делают такой wire format непереносимым.
 
-Например SET:
+## Bounds before allocation
+
+Для untrusted `body_len`:
 
 ```text
-u16 key_len
-u32 value_len
-key bytes
-value bytes
+read exactly 4-byte prefix
+parse u32
+validate MIN <= body_len <= MAX_FRAME
+only then allocate/read body
 ```
 
-## Network byte order
-
-Multi-byte integers serializing protocol должны иметь fixed byte order. Используй big-endian/network order conversion functions или explicit encode/decode helpers.
-
-Не `send(struct Request)` raw: padding, endianness, ABI layout и pointer fields делают такой формат непереносимым/опасным.
-
-## Bounds first
-
-До allocation payload:
-
-```text
-read length prefix fully
-validate <= MAX_FRAME
-validate >= minimum header
-only then allocate/read remainder
-```
-
-Если peer объявляет 4 GiB length, server не должен blindly `malloc`.
-
-## Partial prefix
-
-Даже 4-byte prefix может прийти в нескольких `recv` calls. Parser/reader должен уметь собирать exact N bytes.
-
-## EOF mid-frame
-
-Peer может закрыться после половины frame. Это malformed/incomplete request, connection закрывается по policy без чтения uninitialized memory.
+Даже 4-byte prefix может прийти несколькими `recv` calls.
 
 ## Integer arithmetic
 
-При проверке:
+Нельзя сначала бездумно вычислить:
 
 ```text
 header + key_len + value_len
 ```
 
-нужно избежать overflow. Лучше проверять каждое component и subtract-from-available pattern, чем сначала складывать untrusted lengths без guard.
+на untrusted lengths и только потом проверить. Используй checked/add-subtract-from-remaining logic:
+
+```text
+remaining >= key_len
+remaining - key_len >= value_len
+```
+
+и protocol-specific maximums.
 
 ## Parser phases
 
 ```text
-READ_LENGTH
-↓
+READ_PREFIX
 VALIDATE_LENGTH
-↓
-READ_FRAME_BYTES
-↓
-PARSE_HEADER
-↓
-VALIDATE_FIELDS
-↓
+READ_BODY
+PARSE_FIXED_HEADER
+VALIDATE_VERSION/OPCODE/FLAGS
+PARSE_LENGTH FIELDS
+VALIDATE PAYLOAD BOUNDS
 EXECUTE
-↓
-ENCODE_RESPONSE
+ENCODE RESPONSE
 ```
 
-Для blocking per-client code helper `read_exact` может скрыть chunking. Event loop позже потребует explicit state between readiness events.
+Blocking helper `read_exact` может скрыть transport chunks, но обязан корректно обрабатывать EOF/error. Event loop позже сохранит эти phases как persistent connection state.
+
+## Bytes vs text
+
+Wire payload — bytes. Если project contract определяет keys/values как UTF-8 text, validation выполняется **после** structural lengths. C core server может считать payload arbitrary bytes до NUL-free/string conversion policy; exact project v1 contract описан в `PROTOCOL.md`.
+
+## Security/error cases
+
+- overlarge frame;
+- too-small body;
+- unknown version/opcode;
+- reserved flags nonzero;
+- inconsistent lengths;
+- EOF mid-prefix/body;
+- allocation failure;
+- slow peer;
+- response length overflow.
 
 ## Project slice
 
-Перенеси C Hash Table из Module 1 как storage и реализуй single-client/sequential server protocol до concurrency.
+Сначала sequential single-client KV protocol на собственной Hash Table. Concurrency добавляется только после deterministic protocol tests.
 
-## Security edge cases
-
-- oversized frame;
-- zero/minimum length;
-- unknown version/opcode;
-- duplicate/inconsistent lengths;
-- non-terminated arbitrary bytes;
-- peer close mid-frame;
-- allocation failure;
-- slow client.
+Course-provided `tools/client.py` — reference peer для wire contract, не server solution.
 
 ## Exit check
 
-Почему `recv` result нельзя напрямую трактовать как `Request struct`?
+Почему transport `recv` result нельзя напрямую трактовать как one request или C struct?
