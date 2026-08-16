@@ -1,11 +1,11 @@
 # 0.5 — Struct, enum, headers и linker
 
-**Теория:** ~45 мин  
-**Упражнение:** ~35 мин  
+**Теория:** ~50 мин  
+**Упражнение:** ~40 мин  
 **Project slice:** ~60–90 мин  
 **С телефона:** теория — да; project slice — ПК
 
-← [`04-arrays-strings.md`](04-arrays-strings.md) · → [`06-module-checkpoint.md`](06-module-checkpoint.md)
+← [`04-arrays-strings.md`](04-arrays-strings.md) · → [`06-make-build-test.md`](06-make-build-test.md)
 
 ## Цель
 
@@ -88,6 +88,15 @@ int point_manhattan(struct Point p);
 #endif
 ```
 
+Для учебного примера зададим **precondition**:
+
+```text
+-10000 <= p.x <= 10000
+-10000 <= p.y <= 10000
+```
+
+При таком контракте абсолютные значения и их сумма гарантированно помещаются в обычный `int` в нашей учебной среде.
+
 `point.c`:
 
 ```c
@@ -101,7 +110,15 @@ int point_manhattan(struct Point p)
 }
 ```
 
-`main.c` включает header и вызывает функцию.
+### Почему здесь нужен явный precondition
+
+Без ограничения входного диапазона похожий код имеет опасный edge case: для `INT_MIN` выражение `-p.x` не представимо в `int`, а signed overflow в C — undefined behavior. Даже если отдельные модули координат помещаются, сумма тоже должна помещаться в return type.
+
+На этом этапе мы не строим полноценную checked-arithmetic библиотеку. Важно другое: **тип функции сам по себе не всегда описывает весь допустимый входной домен**. Если корректность зависит от диапазона, это часть API contract и тестов.
+
+Позже мы разберём fixed-width integers, overflow checks и проектирование API, которые могут сообщать об арифметической ошибке явно.
+
+`main.c` включает header и вызывает функцию только на значениях, удовлетворяющих контракту.
 
 ### Зачем include guard
 
@@ -155,6 +172,7 @@ int point_manhattan(struct Point p);
 2. Почему public header не должен без необходимости раскрывать каждый implementation detail?
 3. Почему программа может успешно скомпилировать `.c` файлы и всё равно провалиться на linking?
 4. Чем named enum status лучше случайных integer codes?
+5. Почему precondition диапазона является частью корректности функции, а не «комментарием для красоты»?
 
 ## Упражнение
 
@@ -170,18 +188,21 @@ main.c
 
 - `Point` содержит `x/y`;
 - одна функция вычисляет Manhattan distance до начала координат;
-- declaration находится в header;
+- допустимый диапазон каждой координаты: `[-10000, 10000]`;
+- declaration и precondition находятся в header/документации API;
 - definition — в `.c`;
-- main создаёт несколько points и проверяет функцию через `assert`.
+- main создаёт несколько points и проверяет функцию через `assert`, включая boundary values диапазона.
 
 Сначала собери object files отдельно, затем link.
 
 ### Self-check
 
 - нет warnings;
+- тесты не нарушают declared precondition;
 - умеешь показать object files;
 - если временно удалить definition, понимаешь linker error;
-- header имеет include guard.
+- header имеет include guard;
+- можешь объяснить, почему вариант без ограничения диапазона имеет `INT_MIN` edge case.
 
 Разбор: [`05-structs-modules.solution.md`](05-structs-modules.solution.md).
 
@@ -221,4 +242,4 @@ main.c   -> main.o
        executable
 ```
 
-и указать, какая часть является public contract?
+и указать, какая часть является public contract, включая допустимый домен входных значений?
