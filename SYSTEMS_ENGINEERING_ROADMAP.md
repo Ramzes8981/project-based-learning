@@ -1,48 +1,45 @@
 # Systems Engineering Roadmap
 
-Краткая карта. **Исполняемый курс находится в [`course/README.md`](course/README.md).** Этот файл не дублирует lesson-level syllabus.
+Краткая карта. **Исполняемый курс находится в [`course/README.md`](course/README.md).**
 
 ## Цель
 
-Получить цельную инженерную модель:
+Вырастить не «человека, знающего синтаксис C», а инженера, который способен связать:
 
 ```text
-source code
-→ algorithms / data structures / testing
-→ memory / ownership
-→ compiler / ABI / machine code
-→ process / OS
-→ network / concurrency
-→ storage / database
-→ binary / debugger / security
-→ integrated service / architecture
+source
+→ data/memory
+→ algorithms/invariants
+→ ownership
+→ process/OS
+→ CPU/ABI
+→ virtual memory/cache
+→ network/concurrency
+→ storage/database
+→ binary/debugger/security
+→ measurable architecture decisions
 ```
 
 Темп: **6–8 часов в неделю**.
 
 ## Core path
 
-```mermaid
-flowchart TD
-    M0[0 C Fast Start] --> M1[1 Memory / Algorithms / DS]
-    M1 --> MR[1B Rust Systems Bridge]
-    MR --> MT[1C Testing Engineering]
-    MT --> M2[2 Unix & Shell]
-    M2 --> M3[3 Computer Architecture]
-    M3 --> M4[4 Virtual Memory & Allocators]
-    M4 --> M5[5 Networking & Concurrency]
-    M5 --> M6[6 OS & Isolation]
-    M6 --> M7[7 Filesystems & Databases]
-    M7 --> M8[8 Binaries / Debugging / Security]
-    M8 --> M9[9 Integration / Architecture]
-    M9 --> ADV[Advanced branches]
-```
-
-Текстовая версия той же цепочки есть в `course/README.md`; Mermaid не обязателен для mobile navigation.
+1. C foundations — из текста в программу, значения, функции, arrays/text, records, separate build.
+2. C memory + core DS&A — addresses/pointers/lifetime/allocation/UB, Vector, complexity/invariants, trees/heaps/hashing.
+3. Rust bridge — compiler-checked ownership/borrowing and explicit unsafe/FFI boundary.
+4. Testing engineering — oracles, invariants, negative/property/fuzzing intuition.
+5. Unix process model + shell.
+6. Computer architecture + Tiny16.
+7. Virtual memory, cache locality, performance, allocator.
+8. Networking + concurrency + backpressure.
+9. OS scheduling/resources/isolation.
+10. Filesystems, durability, database storage/indexes.
+11. ELF/debugging/security mitigations.
+12. Single-node systems integration/capstone.
 
 ## Core projects
 
-- MiniKV v0;
+- behavior-first fixed-size record store;
 - Vector in C;
 - Hash Table in C;
 - Rust MiniKV bridge;
@@ -55,50 +52,24 @@ flowchart TD
 - `minidbg-c`;
 - Persistent KV Service capstone.
 
-## CS fundamentals
+## Optional, not gates
 
-Курс больше не ограничивается обзорным Big-O блоком. В core входят:
+Курс сознательно не задерживает systems path отдельными большими блоками DP, KMP/Rabin–Karp, Trie, P/NP, FUSE implementation или distributed consensus. Они остаются полезными optional/advanced темами и изучаются, когда появляется соответствующая задача.
 
-- asymptotic analysis, invariants, binary search;
-- insertion/selection/merge/quick/heap sorting trade-offs;
-- recursion/recurrence intuition;
-- BST/traversals/balancing motivation;
-- binary heap/Priority Queue;
-- dynamic programming;
-- string searching (naive, KMP intuition, Rabin–Karp);
-- Trie;
-- probability intuition для hashing;
-- graphs/BFS/DFS/Dijkstra;
-- IEEE 754 floating point;
-- Unicode/UTF-8 boundary;
-- testing engineering/fuzzing intuition;
-- Boolean logic/CPU/ISA;
-- compact P/NP/NP-complete/reduction intuition;
-- scheduling/queueing/Little's Law;
-- B+tree/fan-out/storage cost.
-
-## C → Rust
-
-Сначала вручную изучаются pointers, lifetime, ownership, `malloc/free`, UB и Hash Table. Затем Rust показывает, какие contracts compiler проверяет через ownership, borrowing, lifetimes, typed errors, safe abstractions и explicit `unsafe` boundaries.
-
-Rust не дублирует каждый C-project.
-
-## Source policy
-
-Обязательная теория находится в репозитории. Внешние материалы — optional deep dive, текущая API/standard документация, альтернативное объяснение или дополнительный проект. Недоступность внешнего курса не блокирует core path.
-
-## Advanced branches
-
-После core выбирается направление:
+## Advanced branches after core
 
 - Security / Reverse Engineering / Binary Exploitation labs;
-- Distributed Systems / Architecture;
-- Kernel / OS;
-- Rust Systems deeper;
-- Compilers / Language Runtimes;
+- Distributed Systems;
+- Kernel / OS internals;
+- Rust systems deeper;
+- Compilers / runtimes;
 - Performance Engineering;
 - Embedded / Hardware.
 
-## Прогресс
+## Source policy
+
+Mandatory theory self-contained. External docs/books/tutorials — reference/deep dive, not prerequisites.
+
+## Progress
 
 [`SYSTEMS_ENGINEERING_PROGRESS.md`](SYSTEMS_ENGINEERING_PROGRESS.md)
