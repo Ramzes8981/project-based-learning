@@ -51,7 +51,7 @@ Mutex protects an invariant/resource, not arbitrary lines because they “look d
 
 Too narrow → invariant may still race. Too broad → unrelated work serializes, increasing queue/wait time. Never hold application lock across slow blocking I/O unless design explicitly requires it.
 
-## Deadlock preview
+## Deadlock
 
 If code acquires multiple locks in inconsistent order:
 
@@ -60,29 +60,31 @@ T1 owns A, waits B
 T2 owns B, waits A
 ```
 
-neither progresses. Full resource-wait analysis returns in OS module; core prevention here: minimize lock count and define global lock order when multiple locks are unavoidable.
+neither progresses. Это **взаимная блокировка (deadlock)**. Более системный анализ wait-for dependencies вернётся в OS-модуле; базовая профилактика здесь — минимизировать lock count и задавать единый lock order, если locks несколько.
 
-## Atomics — only for the right invariant
+## Atomics — только для простого отдельного state
 
-Atomic integer can make one read-modify-write indivisible, but does not automatically protect multi-field Hash Table invariants. Use atomics for clearly independent atomic state/counters; use higher-level synchronization for compound structures.
+C11/C17 предоставляет **атомарные объекты (atomic objects)** через `<stdatomic.h>`. Например, отдельный counter можно хранить как `atomic_int` и обновлять atomic operation.
 
-Memory ordering details beyond simple counters are optional advanced concurrency.
+Это не превращает несколько полей Hash Table в одну атомарную транзакцию. Atomics подходят для invariants, которые действительно выражаются отдельным atomic state; compound structures обычно требуют более высокого уровня synchronization.
 
-## Rust bridge: `Send` and `Sync` now have a reason
+Детали memory ordering beyond простых counters — optional advanced concurrency.
 
-Only now, after real threads exist:
+## Rust bridge: `Send` и `Sync` теперь имеют причину
 
-- `Send` means ownership of a value may be transferred to another thread when the type's contract allows it;
-- `Sync` means shared references to the type may be used across threads safely according to its contract.
+Только теперь, после появления реальных threads, полезно раскрыть два Rust contracts:
 
-They are marker traits expressing type-level concurrency safety properties. `Sync` does **not** mean “contains a mutex”, and compiler approval does not prove your business invariant or absence of deadlock.
+- `Send` — ownership значения разрешено переносить между threads;
+- `Sync` — shared references к типу разрешено использовать между threads согласно его safety contract.
+
+Это marker traits. `Sync` не означает «внутри есть mutex» и не доказывает отсутствие deadlock/business-logic race.
 
 ## Практика
 
-1. Build controlled counter race fixture **marked BROKEN EXAMPLE** and observe with ThreadSanitizer where supported.
-2. Fix with mutex and explain guarded invariant.
-3. For KV store list which fields need same lock to preserve one logical operation.
+1. Собери controlled counter race fixture, явно помеченный **BROKEN EXAMPLE**, и проверь ThreadSanitizer там, где он поддерживается.
+2. Исправь вариант mutex-ом и объясни guarded invariant.
+3. Отдельно сделай простой atomic counter и объясни, почему этот приём нельзя механически перенести на всю Hash Table.
 
 ## Exit check
 
-Why can `atomic<int> size` coexist with a broken non-atomic Hash Table state, and why does one mutex around entire request hurt concurrency even if correct?
+Почему atomic counter может быть полностью корректен рядом с логически сломанным shared Hash Table state, и почему один mutex вокруг всего request может быть корректным, но плохо масштабироваться?

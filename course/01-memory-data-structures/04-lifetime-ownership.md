@@ -30,7 +30,7 @@ int *bad(void)
 
 ## Call stack — ментальная модель, не магическая зона безопасности
 
-Типичные local variables автоматического storage duration связаны с **стеком вызовов (call stack)**: каждый активный function call имеет frame с частью локального состояния; при возврате этот frame больше не принадлежит вызову.
+Типичные local variables автоматического storage duration связаны со **стеком вызовов (call stack)**: каждый активный function call имеет frame с частью локального состояния; при возврате этот frame больше не принадлежит вызову.
 
 Для курса достаточно модели:
 
@@ -56,7 +56,9 @@ object lifetime ended
 
 ## Ownership как инженерный договор в C
 
-C compiler обычно не сообщает, кто обязан освободить будущий dynamically allocated resource. Поэтому API должен явно определять **владение (ownership)** как договор ответственности:
+Как только API создаёт ресурс, чья жизнь не совпадает автоматически с одним коротким function call, появляется вопрос: **кто отвечает за окончание его lifetime?**
+
+Такой договор ответственности будем называть **владением (ownership)**:
 
 - кто создаёт resource;
 - кто обязан закончить его lifetime;
@@ -90,10 +92,10 @@ void print_entry(const Entry *entry);
 
 Классифицируй A–E и объясни **причину**, не только verdict:
 
-A. Pointer на caller variable используется только пока caller variable ещё жив.
-B. Функция возвращает address local automatic variable.
-C. Pointer на элемент массива сохраняется, массив продолжает существовать и не меняет storage.
-D. Pointer передан read-only helper только на время helper call.
+A. Pointer на caller variable используется только пока caller variable ещё жив.  
+B. Функция возвращает address local automatic variable.  
+C. Pointer на элемент массива сохраняется, массив продолжает существовать и не меняет storage.  
+D. Pointer передан read-only helper только на время helper call.  
 E. Pointer сохранён в global/static variable, а исходный local object уже вышел из lifetime.
 
 Разбор: [`04-lifetime-ownership.solution.md`](04-lifetime-ownership.solution.md).
