@@ -1,38 +1,63 @@
 # Persistent KV Service — рабочий README
 
-## Status / Build / Run
+Этот файл заполняется по мере проекта. Не копируй сюда SPEC целиком — фиксируй **своё реализованное решение и evidence**.
 
-## Requirements
+## Build / Run
 
-Links to `WORKLOAD.md`, `ARCHITECTURE.md`, `PROTOCOL.md`, `RECOVERY.md`, `METRICS.md`, ADRs and security limitations.
+Exact commands, platform assumptions, compiler flags.
 
-## Reused components
+## Requirements / workload
 
-Что действительно reused/adapted из Hash Table/KV Server/SimpleDB и какие contracts изменились. Не copy-paste без ownership review.
+Ссылки на `WORKLOAD.md` и список guarantees/non-goals.
 
-## State ownership
+## Architecture
 
-Connections/tasks/index/storage/metrics/shutdown state.
+Ссылка на `ARCHITECTURE.md` и кратко:
 
-## Resource bounds
+```text
+boundaries
+state owners
+threading/synchronization
+resource bounds
+```
 
-Connections, frame size, queue, worker count, memory/storage growth.
+## Protocol
 
-## Test strategy
+Ссылка на `PROTOCOL.md`: framing, limits, errors, timeout/retry semantics.
 
-Unit/property/integration/system/load/failure injection/regressions.
+## Persistence / recovery
+
+Ссылка на `RECOVERY.md`: acknowledgement guarantee и known failure limits.
+
+## Observability
+
+Ссылка на `METRICS.md`: definitions и способ получить measurements.
+
+## Tests
+
+Unit/property/integration/system/load/failure-injection strategy и exact commands.
 
 ## Benchmark evidence
 
-Exact build, hardware/environment, workload, warmup/run duration, sample count, p50/p95/p99, throughput, CPU/memory/disk observations.
+Запиши hardware/OS/build, workload, duration/sample count, throughput, p50/p95/p99, queue/service latency и saturation observations.
 
-## Failure evidence
+## Debugging story
 
-Overload, malformed input, forced process stop on disposable data copy, storage corruption copy, injected I/O failure boundary, restart/recovery.
+Минимум один реальный случай:
+
+```text
+symptom
+hypotheses
+evidence/tool
+root cause
+fix
+regression test
+```
+
+## ADR / security limitations
+
+Ссылки на решения, alternatives и trust/resource boundaries.
 
 ## 10× / second-node conclusion
 
-What breaks first? Can vertical/design change solve it? What new failure modes would second node introduce?
-
-## Debugging story / transfer / limitations
-
+Что ломается первым по измерениям? Можно ли исправить local design? Какие новые state/failure problems добавит второй узел?

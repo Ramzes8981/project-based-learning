@@ -1,113 +1,73 @@
-# 9.8 — Capacity planning и вопрос «добавить второй узел»
+# 9.8 — Почему «добавим второй сервер» меняет саму задачу
 
-**Теория:** ~90 мин  
-**Design exercise:** ~90 мин  
-**С телефона:** да
+**Теория:** ~85 мин · **Design:** ~90 мин · **С телефона:** да
 
 ← [`07-architecture-decisions-security.md`](07-architecture-decisions-security.md) · → [`09-final-review.md`](09-final-review.md)
 
-## Цель
+## Проблема
 
-Понять, почему horizontal scaling stateful service создаёт distributed-systems problems, а не просто удваивает throughput.
+Single-node benchmark не достигает target. Кажется естественным добавить второй узел.
 
-## Сначала bottleneck
+Но сначала нужно доказать, **что именно является bottleneck**.
 
-Перед second node ответь measured evidence:
+## Сначала evidence
 
-- CPU saturated?
-- network bandwidth?
-- storage IOPS/latency?
-- global lock?
-- queue/worker capacity?
-- memory/cache?
+Проверь:
 
-Если bottleneck single global mutex, второй process/node may help only if state partition/coordination redesigned.
+- CPU saturation;
+- network bandwidth;
+- storage latency/throughput;
+- global lock;
+- queue/worker capacity;
+- memory/working set.
 
-## Vertical improvement
+Если bottleneck — неудачный O(n) scan или global mutex, второй host может лишь дороже скрыть локальную проблему.
 
-Иногда дешевле:
+## Stateless и stateful — разные случаи
 
-- better algorithm/index;
-- batching;
-- larger cache;
-- faster storage;
-- reduce copies/locks;
-- more cores/RAM.
+Stateless frontend часто можно реплицировать сравнительно просто.
 
-Distributed system adds operational/failure complexity.
+KV service хранит authoritative mutable state. Два узла сразу создают вопрос:
 
-## Stateless frontends
-
-Stateless service легко replicate behind load balancing because requests don't require local authoritative mutable state.
-
-KV storage is stateful: two nodes need decide how data is distributed/replicated.
+> кто владеет каким состоянием и что видит клиент при partial failure?
 
 ## Partitioning
 
-Key space divided:
+Разделяем keys между owners.
 
-```text
-node A owns subset
-node B owns subset
-```
-
-Questions:
-
-- routing;
-- rebalancing;
-- hot keys;
-- node failure;
-- cross-partition operations.
+Новые вопросы: routing, rebalance, hot keys, node failure, cross-partition operations.
 
 ## Replication
 
-Same data on multiple nodes:
+Несколько nodes имеют копии state.
 
-Questions:
+Новые вопросы:
 
-- which node accepts writes?;
-- when is write acknowledged?;
-- what if follower is down?;
-- stale reads?;
-- ordering/conflicts?;
-- failover authority?
+- кто принимает writes;
+- когда write acknowledged;
+- stale reads;
+- ordering/conflicts;
+- failover authority;
+- replication lag.
 
-## Consistency
+## Timeout снова становится ambiguity
 
-Once replicas exist, concurrent/failure timing creates observations impossible in single process.
+Node failure и network partition нельзя надёжно различить по одному timeout. Автоматический failover без coordination может породить split brain.
 
-Linearizable/strong/eventual models belong advanced Distributed Systems branch. Core only identifies need for explicit model.
+Consensus/quorum/fencing — реальные следующие темы, но **не core capstone**.
 
-## Network partitions
+## Практика
 
-Node failure vs network partition cannot be perfectly distinguished just from timeout. Automatic failover can risk split-brain if multiple leaders believe they own writes.
+На основе измеренного bottleneck ответь:
 
-Consensus/quorum/fencing become real topics.
+1. поможет ли second instance;
+2. что произойдёт со state;
+3. нужен partitioning или replication;
+4. какие guarantees изменятся;
+5. какие минимум 5 failure modes появятся.
 
-## New failure modes from node 2
-
-- partial failure;
-- network partition;
-- clock skew;
-- replication lag;
-- duplicate/reordered requests;
-- leader election;
-- split brain;
-- rebalancing;
-- cross-node observability.
-
-## Exercise
-
-На основе **твоего measured bottleneck** capstone ответь:
-
-1. поможет ли second instance?
-2. что делать with state?
-3. partition or replication?
-4. какие guarantees потеряются/нужны?
-5. какие 5 new failure modes появятся?
-
-Не реализуй distributed version в core.
+Не реализуй distributed version только ради галочки.
 
 ## Exit check
 
-«Добавить сервер» для stateful system должно автоматически вызывать вопросы consistency/ownership/failure, а не только load balancer diagram.
+Почему второй узел для stateful service — это не просто «в два раза больше throughput»?

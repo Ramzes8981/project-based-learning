@@ -1,122 +1,89 @@
-# 9.3 — Latency, utilization, queueing и Little's Law
+# 9.3 — Почему запрос может быть медленным, даже когда сама работа быстрая
 
-**Теория:** ~85 мин  
-**Exercise:** ~60 мин  
-**Project slice:** ~90 мин  
-**С телефона:** да
+**Теория:** ~80 мин · **Упражнение:** ~60 мин · **Project:** ~90 мин · **С телефона:** да
 
 ← [`02-protocol-idempotency-contracts.md`](02-protocol-idempotency-contracts.md) · → [`04-backpressure-timeouts-overload.md`](04-backpressure-timeouts-overload.md)
 
-## Цель
+## Проблема
 
-Рассуждать о capacity через arrival/service rates, queue time и measured saturation.
+Storage operation занимает 2 ms, но клиент видит p99 = 150 ms. Значит, большая часть времени живёт **не там, где выполняется storage code**.
 
-## Service time vs response time
-
-Request latency:
+## Разложи latency
 
 ```text
-network/input wait
+input/network wait
 + queue wait
-+ service/lock/storage work
++ lock/service/storage work
 + output wait
+= observed request latency
 ```
 
-Если optimization ускоряет storage, но request 90% времени стоит в queue, p99 почти не улучшится.
+До оптимизации спроси: **где находится время?**
 
-## Utilization
+## Очередь появляется из разницы скоростей
 
-Для одного idealized server resource:
+Если work приходит быстрее, чем resource обслуживает его в конкретный момент, requests ждут.
+
+Для упрощённого одного bottleneck resource:
 
 ```text
-rho = arrival_rate / service_capacity
+utilization ≈ arrival_rate / service_capacity
 ```
 
-Когда utilization приближается к 1, queueing delay обычно растёт резко. Exact curve зависит arrival/service distributions и model.
+При приближении к saturation queueing delay обычно резко растёт. Точная форма зависит от workload distributions и architecture.
 
-Не нужно считать «80% CPU всегда предел» — важна measured workload/saturation.
+Нет универсального правила вроде «80% CPU всегда предел».
 
 ## Little's Law
 
-Для стабильной системы в steady-state:
+Для стабильной системы в steady state:
 
 ```text
-L = lambda * W
+L = λ × W
 ```
 
 где:
 
-- `L` — average number items in system;
-- `lambda` — average throughput/arrival rate for stable flow;
-- `W` — average time in system.
+- `L` — среднее число элементов в системе;
+- `λ` — средняя пропускная способность потока;
+- `W` — среднее время элемента в системе.
 
-Example:
+Пример:
 
 ```text
-throughput = 1000 req/s
-average latency = 20 ms = 0.020 s
-L ≈ 20 requests in system on average
+500 req/s × 0.040 s ≈ 20 requests in flight average
 ```
 
-Это не формула для arbitrary transient/unbounded overload; assumptions matter.
+Это consistency relation для подходящих steady-state measurements, не магическая capacity formula.
 
-## Concurrency != throughput automatically
+## Concurrency не равна throughput
 
-More workers help если workload waits on I/O/parallel cores are available. Но могут ухудшить:
+Больше workers помогают, если есть параллельный CPU/I/O capacity. Они могут и ухудшить систему через:
 
 - lock contention;
 - context switching;
-- cache locality;
-- DB serialization;
-- queue competition.
+- cache locality loss;
+- serialized storage;
+- competition за общую очередь.
 
 ## Tail latency
 
-p99 может расти из-за rare storage flush, lock convoy, page fault, GC in auxiliary components, scheduler delay, slow client.
+p95/p99 показывают хвост distribution. Редкие fsync, page fault, lock convoy, scheduler delay или slow client могут почти не менять median, но сильно менять p99.
 
-Нужно correlate metrics/traces, а не оптимизировать median only.
+## Практика
 
-## Capacity test
-
-Build load steps:
+Инструментируй как минимум:
 
 ```text
-low
-medium
-near saturation
-overload
+enqueue timestamp
+service start timestamp
+service finish timestamp
 ```
 
-Для каждого:
+Сравни queue latency и service latency на low/medium/near-saturation load.
 
-- offered rate/concurrency;
-- completed throughput;
-- p50/p95/p99;
-- errors/rejects;
-- queue depth;
-- CPU/memory;
-- storage metrics.
-
-## Exercise
-
-1. Используй Little's Law на трёх toy cases.
-2. Найди inconsistent measurements (например reported throughput/latency/concurrency impossible under stable assumptions).
-3. Предложи metric, distinguishing service time vs queue time.
-
-Разбор: [`03-queueing-latency-capacity.solution.md`](03-queueing-latency-capacity.solution.md).
-
-## Project slice
-
-Добавь instrumentation timestamps минимум:
-
-```text
-enqueue time
-start service
-finish service
-```
-
-Теперь измеряй queue latency отдельно от service latency.
+Разбор toy checks: [`03-queueing-latency-capacity.solution.md`](03-queueing-latency-capacity.solution.md).
 
 ## Exit check
 
-При high p99 сначала спроси «где время?» прежде чем добавлять threads.
+При высоком p99 какой первый вопрос полезнее: «сколько ещё threads добавить?» или «в каком участке пути находится время?» Почему?

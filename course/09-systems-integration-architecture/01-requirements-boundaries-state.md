@@ -1,128 +1,125 @@
-# 9.1 — Requirements, workload, boundaries и state ownership
+# 9.1 — Как понять, что именно должна выдерживать система
 
-**Теория:** ~90 мин  
-**Design exercise:** ~2 часа  
-**Project slice:** ~90 мин  
-**С телефона:** да
+**Теория:** ~75 мин · **Design:** ~2–3 часа · **С телефона:** да
 
-← [`README`](README.md) · → [`01b-computational-limits-p-np.md`](01b-computational-limits-p-np.md)
+← [`README`](README.md) · → [`02-protocol-idempotency-contracts.md`](02-protocol-idempotency-contracts.md)
 
-## Цель
+## Проблема
 
-Перевести «сделать быстрый KV-сервис» в измеримый workload/constraints contract до выбора architecture.
+Фраза «сделать быстрый надёжный KV-сервис» почти ничего не говорит инженеру.
 
-## Functional requirements
+Нельзя выбрать очередь, число workers или durability policy, пока неизвестно:
 
-Минимум capstone:
+- сколько запросов приходит;
+- какого они размера;
+- сколько клиентов одновременно;
+- что считается приемлемой задержкой;
+- сколько памяти/диска можно потратить;
+- какие данные обязаны пережить restart.
+
+## Ментальная модель
+
+Сначала описываем **наблюдаемое поведение и ограничения**, затем строим систему.
+
+```text
+workload + guarantees + resource limits
+                 ↓
+           design choices
+                 ↓
+             evidence
+```
+
+## Требования
+
+**Функциональные требования (functional requirements)** отвечают «что система делает»:
 
 ```text
 GET / SET / DELETE
-multiple clients
-persistent state after clean restart
-graceful shutdown
-metrics/status
+несколько клиентов
+состояние переживает оговорённый restart
+есть graceful shutdown
+можно посмотреть health/metrics
 ```
 
-Functional список говорит **что**, но почти не отвечает **сколько/как хорошо**.
+**Нефункциональные требования (non-functional requirements)** отвечают «при каких условиях и насколько хорошо».
 
-## Quantitative workload model
+Плохое требование:
 
-До architecture задай baseline **гипотезы**, не «истину рынка»:
+> сервис должен быть быстрым.
+
+Проверяемое:
 
 ```text
-steady RPS:
-burst RPS + duration:
-read/write/delete ratio:
-concurrent connections:
-key size distribution:
-value size distribution:
-working-set size:
-total records / storage growth:
-restart/recovery time target:
+при workload X p95 latency <= target
+очередь ограничена N элементами
+RSS <= memory budget
+shutdown <= target при очереди размера M
 ```
 
-Для учебного локального сервиса числа могут быть скромными. Главное — один и тот же workload использовать при сравнении designs.
+Числа в учебном проекте — гипотезы для эксперимента, а не универсальные production нормы.
 
-## Service targets
+## Workload
 
-Пример структуры, а не готовые числа:
+Заполни [`project/WORKLOAD.md`](project/WORKLOAD.md):
 
 ```text
-p95 latency <= target at baseline load
-p99 <= target at burst load or explicit overload begins
-resident memory <= budget
-queue capacity <= bound
-storage file growth <= explained model
-shutdown <= target when queue has N items
+request rate / concurrency
+GET:SET:DELETE ratio
+key/value sizes
+record count / working set
+burst shape
+storage growth
 ```
 
-Каждый target содержит **metric + workload + observation window/tool**. `fast`, `scalable`, `low memory` без этого — не requirements.
+Важно использовать **один и тот же workload**, когда сравниваешь два designs.
 
-## Rough capacity arithmetic
+## Где находится state
 
-До benchmark полезны sanity estimates:
+Для каждого изменяемого объекта задай:
 
 ```text
-memory ≈ records × (key + value + index/allocator overhead)
-network ingress ≈ RPS × average request bytes
-storage growth/day ≈ successful writes/day × average durable bytes/write
+кто владеет?
+кто может менять?
+как долго живёт?
+нужна ли синхронизация?
+переживает ли restart?
+что является source of truth после crash?
 ```
 
-Это order-of-magnitude model. Затем измерение уточняет assumptions.
+Это **инвентаризация состояния (state inventory)**.
 
-## Component boundaries
+## Границы компонентов
+
+Разделяй систему не по красивым boxes, а по контрактам:
 
 ```text
-listener/connection lifecycle
-↓
-protocol codec
-↓
-bounded scheduler/queue
-↓
+connection / protocol
+        ↓
+bounded execution
+        ↓
 KV semantics
-↓
+        ↓
 storage/index
-↓
-pager/filesystem
 ```
 
-Boundary обязан иметь:
+Для boundary должны быть понятны input/output, owner state, failure behavior и resource bound.
 
-```text
-input/output contract
-state owner
-threading/synchronization rule
-failure behavior
-resource limit
-observability
-```
+## Типичная неправильная модель
 
-## State inventory
+> Сначала выберу thread pool, cache и B-tree, потом подгоню требования.
 
-Для listening fd, connections, tasks, index, persistent file, metrics, shutdown state запиши:
+Так design невозможно проверить: любое измерение можно объявить «достаточно хорошим» задним числом.
 
-```text
-owner
-lifetime
-mutable by whom
-persistent/ephemeral
-synchronization
-recovery source of truth
-failure impact
-```
+## Практика
 
-## Architecture exercise
+До написания нового кода создай:
 
-Создай/обнови:
-
-- [`project/WORKLOAD.md`](project/WORKLOAD.md);
-- `ARCHITECTURE.md` с components/data flow/state ownership;
+- `WORKLOAD.md`;
 - 5–10 functional requirements;
-- quantitative non-functional targets;
-- минимум 5 non-goals.
-
-Сделай две оценки: baseline и hypothetical 10×. Не добавляй второй узел — только покажи, какой resource первым может стать bottleneck.
+- несколько измеримых targets;
+- минимум 5 non-goals;
+- первый `ARCHITECTURE.md` только с boundaries/state ownership.
 
 ## Exit check
 
-Любое число в architecture review должно отвечать: откуда hypothesis, чем измерим и какое решение оно способно изменить?
+Для каждого числа и каждого компонента можешь ответить: **какое требование заставило его появиться и чем мы проверим решение?**

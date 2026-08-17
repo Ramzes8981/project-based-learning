@@ -1,91 +1,71 @@
-# 9.9 — Final Systems Engineering Review
+# 9.9 — Финальная инженерная защита
 
-**Время:** ~3–5 часов  
-**С телефона:** часть review — да
+**Время:** ~3–5 часов · **С телефона:** подготовка — частично
 
 ← [`08-scaling-second-node.md`](08-scaling-second-node.md) · ↑ [`README`](README.md)
 
-Финал проверяет не количество написанного C, а способность рассуждать вертикально через system layers.
+Финал проверяет не количество C-кода, а способность объяснить систему причинно.
 
-## Capstone acceptance
+## 1. Acceptance
 
-Проверь [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md).
+Пройди [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md) и приложи воспроизводимые evidence.
 
-## Vertical walkthrough
+## 2. Один request через все слои
 
-Выбери один `SET` request и проведи:
+Возьми один `SET` и проведи его:
 
 ```text
 client bytes
-→ TCP stream/framing
-→ socket fd
-→ worker queue
+→ TCP stream
+→ framing/parser
+→ bounded queue / worker
 → synchronization
-→ service logic
-→ index/data structure
-→ serialization/page/file
-→ page cache/storage
+→ KV state/index
+→ serialization/storage
+→ page cache/durability boundary
 → response
 ```
 
-На каждом layer ответь:
+На каждом шаге назови:
 
 - state;
-- ownership;
-- failure;
-- metric;
-- resource cost.
+- owner;
+- resource bound;
+- possible failure;
+- observable signal.
 
-## Incident scenarios
+## 3. Incident walkthroughs
 
-### 1. p99 вырос, CPU 30%
+Разбери без запуска кода сначала как hypothesis tree:
 
-Предложи investigation plan через queue, storage, locks, network, faults.
+- p99 вырос, CPU невысок;
+- memory постепенно растёт;
+- acknowledged data пропали после kill;
+- server «завис» под overload;
+- malformed frame приводит к crash.
 
-### 2. Memory slowly grows
+Затем скажи, какие measurements/tools отличат гипотезы.
 
-Отдели leak, queue growth, cache growth, connection leak, fragmentation.
+## 4. Architecture defense
 
-### 3. Data missing after kill
+За 15–30 минут объясни:
 
-Сверь durability acknowledgement contract, flush/recovery logs, storage format.
+1. requirements/workload;
+2. boundaries/state ownership;
+3. protocol/retry semantics;
+4. concurrency/backpressure;
+5. persistence guarantee;
+6. measurements;
+7. failure tests;
+8. observability;
+9. top trade-offs/ADRs;
+10. security limitations;
+11. next scaling decision.
 
-### 4. Server hangs under overload
+## Completion gate
 
-Check deadlock vs blocked I/O vs full queue/backpressure vs storage stall.
+Ты должен уметь сказать:
 
-### 5. Malformed request crashes server
+> Вот требование. Вот механизм. Вот evidence. Вот failure/limitation. Вот alternative и причина, почему сейчас выбран не он.
 
-Trace validation → integer/buffer handling → memory safety/tool evidence.
-
-## Architecture defense
-
-За 15–30 минут представить:
-
-1. requirements;
-2. architecture diagram;
-3. state ownership;
-4. protocol;
-5. concurrency/backpressure;
-6. persistence guarantee;
-7. measured capacity;
-8. failure tests;
-9. observability;
-10. top trade-offs;
-11. next scaling step.
-
-## Core completion gate
-
-Курс core завершён, если ученик может сказать:
-
-> Вот requirement. Вот implementation boundary. Вот evidence. Вот known failure/limitation. Вот alternative и почему сейчас я его не выбрал.
-
-После этого advanced branches становятся осмысленными:
-
-- Distributed Systems;
-- Reverse Engineering/Binary Security;
-- Kernel/OS;
-- Rust systems deeper;
-- Compilers;
-- Embedded;
-- Performance Engineering.
+После этого advanced branches — Distributed Systems, deeper RE/binary security, kernel, embedded, compilers, deeper Rust/performance — становятся естественным продолжением.
