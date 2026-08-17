@@ -8,19 +8,21 @@
 
 ## Проблема
 
+В 1.3 мы встретили undefined behavior на signed overflow. Теперь memory lessons дали ещё несколько способов нарушить language contract.
+
 Новичок часто ожидает Python mental model:
 
 ```text
 ошибка → runtime замечает → понятное исключение
 ```
 
-C не обещает это для многих нарушений language contract. Код может упасть, «работать», испортить соседние данные или вести себя иначе после optimization.
+C этого не обещает для UB. Код может упасть, «работать», испортить соседние данные или вести себя иначе после optimization.
 
-## Undefined behavior
+## Расширяем модель UB
 
-Если стандарт C не накладывает требований на поведение программы после определённого нарушения, это называют **неопределённым поведением (undefined behavior, UB)**.
+**Неопределённое поведение (undefined behavior, UB)** означает, что после определённого нарушения стандарт C не накладывает требований на дальнейшее поведение программы.
 
-Примеры, которые уже можно понять из предыдущих уроков:
+Теперь понятны примеры:
 
 - dereference dangling pointer;
 - access за bounds массива;
@@ -55,7 +57,7 @@ if (p != NULL) {
 
 ## Sanitizers
 
-Для controlled course fixtures используем инструменты compiler-а:
+Для controlled course fixtures используем compiler instrumentation:
 
 ```bash
 cc -std=c17 -Wall -Wextra -Wpedantic \
@@ -63,11 +65,11 @@ cc -std=c17 -Wall -Wextra -Wpedantic \
   broken.c -o broken
 ```
 
-AddressSanitizer помогает ловить многие invalid memory accesses; UndefinedBehaviorSanitizer — некоторые UB categories. Они не являются доказательством отсутствия всех bugs.
+AddressSanitizer помогает ловить многие invalid memory accesses; UndefinedBehaviorSanitizer — некоторые UB categories. Они не доказывают отсутствие всех bugs.
 
 ## Valgrind — optional second lens
 
-На поддерживаемой Linux-среде Valgrind может быть полезен для leaks/invalid accesses, но course gate не требует два одинаковых инструмента на каждое упражнение.
+На поддерживаемой Linux-среде Valgrind полезен для части leaks/invalid accesses, но course gate не требует два одинаковых инструмента на каждое упражнение.
 
 ## Debugging workflow
 

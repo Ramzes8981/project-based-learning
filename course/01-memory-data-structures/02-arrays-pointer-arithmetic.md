@@ -76,7 +76,7 @@ int *end = values + 4;
  first           one-past
 ```
 
-Pointer arithmetic имеет смысл только внутри одного array object и его one-past boundary. Это не универсальная арифметика по всей памяти процесса.
+Pointer arithmetic имеет определённые правила внутри одного array object и его one-past boundary. Это не универсальная арифметика по всей памяти работающей программы.
 
 ## Почему функция теряет размер массива
 

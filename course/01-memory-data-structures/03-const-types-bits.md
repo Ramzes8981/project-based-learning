@@ -1,6 +1,6 @@
 # 1.3 — Как безопасно считать размеры до работы с памятью
 
-**Теория:** ~60 мин  
+**Теория:** ~65 мин  
 **Практика:** ~55 мин  
 **С телефона:** теория — да; практика — ПК
 
@@ -8,7 +8,7 @@
 
 ## Проблема
 
-Скоро мы попросим runtime выделить место для `count` элементов:
+Скоро программе понадобится место для `count` элементов:
 
 ```text
 нужно bytes = count × bytes_per_element
@@ -20,13 +20,7 @@
 
 `sizeof` возвращает `size_t`. Это unsigned integer type, способный представлять размер любого отдельного объекта, который поддерживает implementation.
 
-Он удобен для:
-
-- числа элементов;
-- byte sizes;
-- индексов, когда отрицательное значение не имеет смысла.
-
-Но unsigned не означает «не может переполниться».
+Он удобен для числа элементов и byte sizes. Но unsigned не означает «не может переполниться».
 
 ## Unsigned arithmetic wraps modulo
 
@@ -36,33 +30,36 @@
 
 ## Проверка до умножения
 
-Для `count * elem_size`:
-
 ```c
 if (elem_size != 0 && count > SIZE_MAX / elem_size) {
     /* multiplication would not fit in size_t */
 }
-```
 
-Только после этой проверки можно вычислять:
-
-```c
 size_t bytes = count * elem_size;
 ```
 
-`SIZE_MAX` объявлен через стандартные headers (`<stdint.h>` предоставляет его на типичных C implementations; также доступны limits/macros через standard headers в зависимости от нужного типа).
+`SIZE_MAX` доступен через стандартный `<stdint.h>` на C99+ implementations, предоставляющих этот macro.
 
-## Signed integer overflow
+## Signed overflow создаёт другую проблему
 
-Для обычных signed integer types арифметика **не** имеет общего правила «тихо wrap как unsigned». Выход результата за представимый диапазон для signed addition/subtraction/multiplication относится к некорректным операциям языка; формальный термин **undefined behavior** будет введён в 1.6.
+Для signed integer arithmetic нет общего правила «wrap как у unsigned».
 
-До 1.6 правило простое: если диапазон данных способен переполнить signed result, проверяй границы до операции или выбирай другой representation/contract.
+Если результат signed addition/subtraction/multiplication выходит за представимый диапазон, стандарт C **не задаёт требуемого поведения программы**. Такая категория называется **неопределённым поведением (undefined behavior, UB)**.
 
-## Fixed-width integers — только когда важна ширина
+Это важнее обычного «получится неправильное число»: compiler вправе оптимизировать, исходя из предположения, что корректная программа не выполняет UB.
 
-`uint32_t`/`int32_t` из `<stdint.h>` нужны, когда binary format/protocol требует конкретную ширину. Не заменяй ими автоматически каждый `int`.
+Пока нужен один практический вывод:
 
-Сейчас достаточно понимать причину: «32 bits» должно быть частью внешнего contract, а не случайной особенностью host `int`.
+```text
+если signed result способен не поместиться
+→ проверь границы ДО операции
+```
+
+В 1.6 мы расширим модель UB на invalid memory access, lifetime violations и debugging tools.
+
+## Fixed-width integers — только когда ширина является контрактом
+
+`uint32_t`/`int32_t` из `<stdint.h>` нужны, когда внешний формат данных действительно требует конкретную ширину. Не заменяй ими автоматически каждый `int`.
 
 ## Bit flags — короткий bridge
 
@@ -83,7 +80,7 @@ if ((flags & FLAG_WRITE) != 0) {
 }
 ```
 
-Глубже bit representation вернётся в architecture module; сейчас не нужен длинный detour.
+Глубже bit representation вернётся тогда, когда мы начнём строить модель процессора.
 
 ## Практика
 
@@ -104,4 +101,4 @@ Contract:
 
 ## Exit check
 
-Почему overflow check должен происходить **до** multiplication?
+Почему overflow check должен происходить **до** multiplication и почему нельзя переносить unsigned-wrap mental model на signed arithmetic?
