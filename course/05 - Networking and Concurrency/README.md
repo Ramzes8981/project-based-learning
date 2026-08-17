@@ -36,7 +36,7 @@
 9. [`09-load-testing-metrics.md`](09-load-testing-metrics.md) — **Как измерять throughput и хвост latency, не обманывая себя генератором нагрузки**.
 10. [`10-module-checkpoint.md`](10-module-checkpoint.md) — checkpoint.
 
-Graph/BFS/Dijkstra больше не живут внутри networking: prerequisite вынесен в [`../01-memory-data-structures/20b-graphs-paths.md`](../01-memory-data-structures/20b-graphs-paths.md).
+Graph/BFS/Dijkstra больше не живут внутри networking: prerequisite вынесен в [`20b-graphs-paths.md`](<../01 - Memory and Data Structures/20b-graphs-paths.md>).
 
 ## Проект
 
