@@ -28,9 +28,7 @@
 8. [`08-unsafe-raw-pointers-ffi.md`](08-unsafe-raw-pointers-ffi.md) — **Где заканчиваются гарантии safe Rust и начинается внешний contract**.
 9. [`10-module-checkpoint.md`](10-module-checkpoint.md) — checkpoint.
 
-## Optional preview
-
-[`09-send-sync-concurrency-preview.md`](09-send-sync-concurrency-preview.md) теперь optional. `Send`/`Sync` становятся core только в Networking & Concurrency, когда появятся реальные threads/shared state.
+Concurrency-specific Rust contracts сознательно отложены до того места курса, где появится реальная проблема параллельного shared state.
 
 ## Project
 
@@ -44,4 +42,4 @@
 - pinning;
 - deep `unsafe` optimization;
 - custom allocators;
-- `Send`/`Sync` до concurrency problem.
+- concurrency-specific marker traits до соответствующей systems-задачи.

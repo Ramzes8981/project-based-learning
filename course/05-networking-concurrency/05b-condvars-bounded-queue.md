@@ -6,7 +6,7 @@
 
 ## Проблема 1: mutex не умеет ждать condition эффективно
 
-Worker needs sleep until queue non-empty. Bad solution:
+Worker должен спать, пока queue пустая. Плохой вариант:
 
 ```text
 loop:
@@ -16,68 +16,69 @@ loop:
   repeat immediately
 ```
 
-This **busy waiting** burns CPU and repeatedly contends for lock.
+Это **активное ожидание (busy waiting)** тратит CPU и постоянно конкурирует за lock.
 
 ## Condition variable
 
-A **условная переменная (condition variable)** lets thread sleep until another thread signals that shared-state condition may have changed.
+**Условная переменная (condition variable)** позволяет thread уснуть, пока другой thread не сообщит, что связанное состояние могло измениться.
 
-Critical rule:
+Критическая mental model:
 
 ```text
-condition is state protected by mutex
-condition variable is notification mechanism
+predicate/state защищён mutex
+condition variable только сообщает «проверь predicate снова»
 ```
 
-Always re-check predicate in loop:
+Поэтому predicate проверяется в цикле:
 
 ```c
 pthread_mutex_lock(&q->mu);
 while (q->count == 0 && !q->stopping) {
     pthread_cond_wait(&q->not_empty, &q->mu);
 }
-/* predicate now determines action */
+/* predicate determines action */
 pthread_mutex_unlock(&q->mu);
 ```
 
-Why `while`, not `if`: wake can be spurious or another thread can consume state before this thread reacquires lock.
+Почему `while`, не `if`: wake может быть spurious, либо другой worker изменит state раньше, чем этот thread снова получит mutex.
 
-## Problem 2: unbounded queue converts overload into memory growth
+## Проблема 2: бесконечная очередь не создаёт производительность
 
-If producers enqueue faster than workers drain, queue depth grows without bound.
+Если producers кладут work быстрее, чем workers забирают, queue растёт вместе с memory usage и waiting time.
 
-A **bounded queue** has explicit maximum. Full queue forces policy:
+**Ограниченная очередь (bounded queue)** имеет максимальный размер. Когда она заполнена, нужно выбрать наблюдаемую policy:
 
 ```text
-wait producer
-reject work
-shed/close connection
-apply upstream backpressure
+producer waits/slows
+или new work rejected
+или upstream temporarily stops sending more work
 ```
 
-No policy removes overload; it decides where overload becomes visible.
+Когда downstream заставляет upstream замедлить поступление новой работы вместо бесконечного накопления, это называют **обратным давлением (backpressure)**.
+
+Следующий урок сравнит конкретные overload policies; здесь важно понять, почему bound создаёт необходимость такой policy.
 
 ## Queue invariants
 
-For ring buffer example:
+Для ring buffer:
 
 ```text
 0 <= count <= capacity
-head/tail always inside [0, capacity)
-items [logical queue] owned exactly once
+head/tail inside [0, capacity)
+каждый queued item owned exactly once
 stop state eventually wakes all waiters
 ```
 
-## Shutdown is part of concurrency design
+## Shutdown — часть concurrency design
 
-Workers waiting forever on empty queue must wake on shutdown. A `stopping` flag is protected by same mutex, then broadcast/signal after transition.
+Workers, спящие на empty queue, должны проснуться при shutdown. `stopping` flag защищается тем же mutex, после перехода выполняется signal/broadcast.
 
-Design ownership of queued connection fd: once enqueue succeeds, queue/worker owns it; on enqueue failure, producer retains responsibility to close/reject. Ambiguous transfer creates descriptor leaks/double close.
+Для queued connection descriptor ownership transfer должен быть однозначным: после успешного enqueue ответственность переходит queue/worker; при failure остаётся у producer. Иначе возможны descriptor leak или double close.
 
 ## Практика
 
-Build bounded queue with one producer/one consumer first, then multiple workers. Tests cover empty wait, full behavior, shutdown while workers sleep, ownership on enqueue failure.
+Сначала build bounded queue с одним producer/consumer, затем несколькими workers. Проверь empty wait, full behavior, shutdown while workers sleep и ownership на enqueue failure.
 
 ## Exit check
 
-Why does condition variable require a separate predicate protected by mutex, and how does bounded capacity turn “slow server” into explicit policy decision?
+Почему condition variable требует отдельного predicate под mutex и почему bounded capacity неизбежно превращает overload в explicit policy decision?

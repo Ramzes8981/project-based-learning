@@ -28,9 +28,9 @@ User Datagram Protocol (UDP) gives datagram-oriented transport:
 - preserves datagram boundaries;
 - no built-in reliable delivery guarantee;
 - no built-in ordering guarantee across datagrams;
-- duplicates/loss/reordering must be acceptable or handled by application/protocol above.
+- duplicates/loss/reordering must be acceptable or handled by application above.
 
-A successful local `send` does not prove remote application received/processed datagram.
+A successful local send does not prove remote application received or processed the datagram.
 
 ## TCP
 
@@ -43,13 +43,17 @@ sender writes bytes: ABC | DEF
 receiver may read: A | BCDE | F
 ```
 
-The separators between application `send/write` calls are **not preserved as message boundaries**.
+The separators between application write calls are **not preserved as message boundaries**.
 
-This is the key fact that creates framing lesson.
+## Проблема границ сообщений
 
-## What “reliable” does not mean
+Если приложению нужны logical messages, оно должно само закодировать, где одно сообщение заканчивается и начинается следующее.
 
-TCP can retransmit and order bytes, but cannot tell application whether peer business logic committed an operation before connection died. End-to-end retry/idempotency appears in capstone.
+Такой способ восстановления границ поверх byte stream называется **framing**. Пока достаточно самой причины; конкретный binary format и parser мы построим после знакомства с сетевым API.
+
+## Что “reliable” не означает
+
+TCP умеет переотправлять и упорядочивать bytes, но не сообщает приложению, успела ли удалённая business operation изменить state перед обрывом. Это отдельная проблема application contract, к которой вернёмся в capstone.
 
 ## Connection close
 
@@ -57,7 +61,7 @@ An orderly EOF tells receiver peer closed its sending direction after bytes alre
 
 ## Partial I/O returns again
 
-Socket `send/recv` inherit byte-I/O lesson: one call may transfer fewer bytes than requested. TCP stream parser must handle arbitrary chunk boundaries.
+Сетевые операции чтения/записи не обязаны обработать весь requested buffer одним вызовом. Поэтому parser byte stream должен работать с произвольными chunk boundaries.
 
 ## Практика
 
@@ -67,4 +71,4 @@ Using a local TCP pair/tool, deliberately write two chunks and read with differe
 
 ## Exit check
 
-Why is “one `send()` = one message” an invalid TCP protocol design even if it appears to work on localhost?
+Почему “одна операция записи = одно сообщение” — неверный contract для TCP и какую новую проблему это создаёт приложению?
