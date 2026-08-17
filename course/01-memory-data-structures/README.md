@@ -4,7 +4,7 @@
 **Optional advanced algorithms:** ~20–30 часов.  
 **Prerequisite:** Module 0.
 
-Старый модуль смешивал memory model, safety и почти весь академический DS&A в один 85–110-часовой блок. Теперь здесь две явные фазы с отдельными gates.
+Старый модуль смешивал memory model, safety и почти весь академический DS&A в один 85–110-часовой блок. Теперь здесь две явные core-фазы с отдельными gates, а advanced algorithms идут только после обязательного checkpoint.
 
 ## Phase A — C memory safety
 
@@ -33,19 +33,19 @@
 14. [`13-bst-traversals-balanced-trees.md`](13-bst-traversals-balanced-trees.md) — **Как дерево поддерживает упорядоченный поиск**.
 15. [`14-heap-priority-queue.md`](14-heap-priority-queue.md) — **Как быстро получать самый приоритетный элемент**.
 16. [`19-hashing-collisions.md`](19-hashing-collisions.md) — **Как находить запись по ключу без полного просмотра массива**.
-17. [`20-resize-rehash.md`](20-resize-rehash.md) — **Почему hash table нельзя просто увеличить копированием slots**.
+17. [`20-resize-rehash.md`](20-resize-rehash.md) — **Почему Hash Table нельзя просто увеличить копированием slots**.
 18. [`20b-graphs-paths.md`](20b-graphs-paths.md) — **Как представлять связи и искать путь между объектами**.
 19. [`21-module-checkpoint.md`](21-module-checkpoint.md) — cumulative checkpoint.
 
 **Project gate B:** [`project/hash-table/`](project/hash-table/README.md).
 
-## Optional advanced algorithms
+## Optional advanced algorithms — только после core checkpoint
 
-Эти файлы остаются полноценными материалами, но не блокируют core systems path:
+Эти материалы остаются полноценными, но не блокируют systems path и больше не вклиниваются между prerequisites core Hash Table:
 
-- [`15-dynamic-programming.md`](15-dynamic-programming.md) — dynamic programming;
-- [`16-string-searching.md`](16-string-searching.md) — KMP/Rabin–Karp;
-- [`17-trie.md`](17-trie.md) — Trie;
-- [`18-probability-for-hashing.md`](18-probability-for-hashing.md) — более формальная probability intuition.
+- [`22-dynamic-programming.md`](22-dynamic-programming.md) — dynamic programming;
+- [`23-string-searching.md`](23-string-searching.md) — KMP/Rabin–Karp после знакомства с hash/collisions;
+- [`24-trie.md`](24-trie.md) — prefix-oriented structure;
+- [`25-probability-for-hashing.md`](25-probability-for-hashing.md) — более формальная probability intuition после практической Hash Table.
 
-Весь минимум вероятностной интуиции, нужный для Hash Table, теперь содержится непосредственно в уроке 1.16 (`19-hashing-collisions.md`).
+Весь минимум вероятностной интуиции, необходимый обязательному проекту, находится непосредственно в [`19-hashing-collisions.md`](19-hashing-collisions.md).

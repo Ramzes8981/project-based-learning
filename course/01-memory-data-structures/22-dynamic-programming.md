@@ -3,9 +3,9 @@
 **Статус:** optional; не блокирует core systems path.  
 **Теория:** ~70 мин · **Практика:** ~70 мин · **С телефона:** да
 
-↑ [`README`](README.md) · optional next → [`16-string-searching.md`](16-string-searching.md)
+← [`21-module-checkpoint.md`](21-module-checkpoint.md) · optional next → [`23-string-searching.md`](23-string-searching.md)
 
-Этот урок сохранён для algorithm depth, но Hash Table/Unix/OS/networking от него не зависят.
+Этот урок даёт дополнительную algorithm depth после обязательного gate. Hash Table/Unix/OS/networking от него не зависят.
 
 ## Проблема
 
@@ -38,4 +38,4 @@ Naive Fibonacci — учебный пример повторной работы,
 
 Возьми небольшую shortest-cost-on-line задачу, сначала запиши recurrence, затем memoized и bottom-up versions. Сравни число вычисленных states.
 
-Разбор: [`15-dynamic-programming.solution.md`](15-dynamic-programming.solution.md).
+Разбор: [`22-dynamic-programming.solution.md`](22-dynamic-programming.solution.md).

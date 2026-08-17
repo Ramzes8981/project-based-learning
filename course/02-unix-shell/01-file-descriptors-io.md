@@ -27,7 +27,7 @@ process
   └─ OS-managed resources
 ```
 
-Детальный scheduling/virtual memory позже. Сейчас важен факт: process — не то же самое, что executable file.
+Как ОС планирует выполнение и организует память, разберём позже. Сейчас важен факт: process — не то же самое, что executable file.
 
 ## User space и kernel boundary
 
@@ -37,7 +37,7 @@ process
 
 В C мы часто вызываем library wrapper, например `read()`, который уже организует соответствующий system interface.
 
-Не нужно сейчас знать instruction-level syscall ABI.
+Не нужно сейчас знать instruction-level calling convention для этого перехода.
 
 ## Проблема: как process ссылается на открытый resource
 
@@ -92,7 +92,7 @@ OR error
 
 ## `EINTR`
 
-Some blocking syscalls can return `-1` with `errno == EINTR` when interrupted by a signal before completing work. For operations whose documented retry semantics are appropriate, wrapper retries.
+Some blocking system calls can return `-1` with `errno == EINTR` when interrupted by a signal before completing work. For operations whose documented retry semantics are appropriate, wrapper retries.
 
 Do not write generic rule «retry any errno». Error policy is operation-specific.
 

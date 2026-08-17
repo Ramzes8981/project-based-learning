@@ -91,7 +91,7 @@ make test
 
 ## Project slice
 
-Теперь доведи MiniKV до поведения из [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md). Не добавляй dynamic memory, hashing или другие механизмы из будущего.
+Теперь доведи MiniKV до поведения из [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md). Оставайся в уже изученной модели фиксированного массива: новые способы хранения появятся только после того, как возникнет соответствующая проблема.
 
 ## Exit check
 

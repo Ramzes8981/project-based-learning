@@ -6,7 +6,7 @@
 
 ## Проблема
 
-Vector grow должен правильно вести себя при allocation failure. Но «надеяться, что `malloc` случайно вернёт NULL`» — плохой test: он опасен и невоспроизводим.
+Vector grow должен правильно вести себя при allocation failure. Но «надеяться, что `malloc` случайно вернёт `NULL`» — плохой test: он опасен и невоспроизводим.
 
 Нужна controlled boundary.
 
@@ -58,7 +58,7 @@ Vector grow fails
 → destroy still safe
 ```
 
-Никаких `fd`, socket, syscall или short I/O здесь ещё не нужно. Они получат собственные seams после соответствующих lessons.
+Зависимости от ОС и сети пока не нужны. Их test seams появятся после того, как сами interfaces станут частью курса.
 
 ## Практика
 

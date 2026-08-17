@@ -55,7 +55,7 @@ size_t bytes = count * elem_size;
 → проверь границы ДО операции
 ```
 
-В 1.6 мы расширим модель UB на invalid memory access, lifetime violations и debugging tools.
+В 1.6 мы расширим эту модель на нарушения правил доступа к памяти и разберём diagnostic tools.
 
 ## Fixed-width integers — только когда ширина является контрактом
 
