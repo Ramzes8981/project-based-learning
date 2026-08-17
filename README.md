@@ -30,17 +30,17 @@ tests / debugging / review
 
 ```text
 0.  C Fast Start
-1.  Memory, Pointers, Algorithms & Data Structures
+1.  Memory and Data Structures
 1B. Rust Systems Bridge
 1C. Testing Engineering
-2.  Unix, Processes & Shell
-3.  Computer Architecture & Machine Code
-4.  Virtual Memory, Performance & Allocators
-5.  Networking & Concurrency
-6.  Operating Systems & Isolation
-7.  Filesystems & Database Internals
-8.  Binaries, Debugging & Security Bridge
-9.  Systems Integration & Architecture
+2.  Unix Shell
+3.  Computer Architecture
+4.  Virtual Memory, Performance and Allocators
+5.  Networking and Concurrency
+6.  Operating Systems and Isolation
+7.  Filesystems and Databases
+8.  Binaries, Debugging and Security
+9.  Systems Integration and Architecture
 ```
 
 ## Как начать
@@ -48,7 +48,7 @@ tests / debugging / review
 1. [`course/STRUCTURE.md`](course/STRUCTURE.md)
 2. [`course/ASSESSMENT_AND_STUDY_RULES.md`](course/ASSESSMENT_AND_STUDY_RULES.md)
 3. [`course/ENVIRONMENT.md`](course/ENVIRONMENT.md)
-4. [`course/00-c-fast-start/README.md`](course/00-c-fast-start/README.md)
+4. [`Module 0 — C Fast Start`](<course/00 - C Fast Start/README.md>)
 5. Текущий прогресс: [`SYSTEMS_ENGINEERING_PROGRESS.md`](SYSTEMS_ENGINEERING_PROGRESS.md)
 
 ## Проекты

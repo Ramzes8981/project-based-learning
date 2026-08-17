@@ -15,17 +15,17 @@
 | Module | Status | Core artifact |
 |---|---|---|
 | 0 — C Fast Start | ⬜ Not started | MiniKV v0 |
-| 1 — Memory / Algorithms / Data Structures | ⬜ | Vector + Hash Table |
+| 1 — Memory and Data Structures | ⬜ | Vector + Hash Table |
 | 1B — Rust Systems Bridge | ⬜ | Rust MiniKV |
 | 1C — Testing Engineering | ⬜ | Test strategy upgrade |
-| 2 — Unix & Shell | ⬜ | Unix Shell |
+| 2 — Unix Shell | ⬜ | Unix Shell |
 | 3 — Computer Architecture | ⬜ | Tiny16 assembler/emulator |
-| 4 — VM & Performance | ⬜ | Arena Allocator |
-| 5 — Networking & Concurrency | ⬜ | Concurrent KV Server |
-| 6 — OS & Isolation | ⬜ | Isolation Lab |
-| 7 — Filesystems & Databases | ⬜ | SimpleDB |
-| 8 — Binaries & Debugging | ⬜ | minidbg-c |
-| 9 — Integration & Architecture | ⬜ | Persistent KV Service |
+| 4 — Virtual Memory, Performance and Allocators | ⬜ | Arena Allocator |
+| 5 — Networking and Concurrency | ⬜ | Concurrent KV Server |
+| 6 — Operating Systems and Isolation | ⬜ | Isolation Lab |
+| 7 — Filesystems and Databases | ⬜ | SimpleDB |
+| 8 — Binaries, Debugging and Security | ⬜ | minidbg-c |
+| 9 — Systems Integration and Architecture | ⬜ | Persistent KV Service |
 
 Legend: `⬜` not started · `🟨` in progress · `✅` passed · `🔁` revisit.
 
@@ -96,3 +96,4 @@ After approximately every two large modules record one short cross-layer exercis
 | 2026-08-15 | Professional prerequisite audit | Remove hidden prerequisites/outdated project assumptions |
 | 2026-08-16 | Self-contained course v3 | Move required theory into repo; add Rust Bridge and course-owned project specs |
 | 2026-08-16 | Course v3.1 quality pass | Deepen CS core, add Testing Engineering, executable fixtures/tools, internal FUSE/FFI references and CI validation |
+| 2026-08-17 | Readable module names | Make the GitHub course tree learner-facing without renaming stable lesson slugs |
