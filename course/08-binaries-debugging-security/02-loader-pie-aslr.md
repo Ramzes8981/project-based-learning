@@ -6,7 +6,7 @@
 
 ## Проблема
 
-Symbol tool reports a value for function, but process `/proc/<pid>/maps` shows executable loaded at address that changes across runs. Breakpoint needs **runtime virtual address**.
+Symbol tool reports a value for function, but process `/proc/<pid>/maps` shows executable loaded at address that changes across runs. Debugger needs **runtime virtual address**.
 
 ## Loader
 
@@ -42,4 +42,4 @@ Build fixture explicitly with/without PIE when toolchain supports flags, inspect
 
 ## Exit check
 
-Why does a symbol value alone not always equal address to pass to `ptrace` at runtime?
+Why does a symbol value alone not always equal the runtime address a debugger must use?

@@ -26,7 +26,7 @@ p95 = 95% completed at or below this latency
 p99 = 99% completed at or below this latency
 ```
 
-Percentiles need enough samples and a clearly defined measurement interval/workload. Do not infer SLO yet; SLO appears in capstone when service objective exists.
+Percentiles need enough samples and a clearly defined measurement interval/workload. Пока мы только измеряем распределение; formal service objectives появятся в capstone, когда возникнет задача задать измеримую цель сервиса.
 
 ## Queue wait vs service time
 

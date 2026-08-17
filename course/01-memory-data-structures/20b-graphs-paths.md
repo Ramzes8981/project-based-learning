@@ -63,7 +63,7 @@ Negative weights ломают greedy guarantee; тогда нужен друго
 
 ## Systems connection
 
-Этот урок расположен здесь, а не внутри Networking: graph algorithms — самостоятельный data-structure dependency. Позже routing lesson сможет ссылаться на уже известную graph mental model, не преподавая BFS/Dijkstra посреди socket API.
+Этот урок расположен здесь, а не внутри Networking: graph algorithms — самостоятельная data-structure dependency. Позже сетевой модуль сможет ссылаться на уже известную graph mental model, не преподавая BFS/Dijkstra посреди знакомства с системным сетевым интерфейсом.
 
 ## Практика
 
