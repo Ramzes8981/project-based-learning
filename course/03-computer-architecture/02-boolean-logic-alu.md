@@ -1,100 +1,61 @@
-# 3.2 — Boolean logic, adders и ALU
+# 3.3 — Как из простых логических операций получается arithmetic circuit
 
-**Теория:** ~65 мин  
-**Упражнения:** ~60 мин  
-**С телефона:** да
+**Теория:** ~65 мин · **Практика:** ~60 мин · **С телефона:** да
 
-← [`01-bits-integers-endianness.md`](01-bits-integers-endianness.md) · → [`03-state-registers-memory.md`](03-state-registers-memory.md)
+← [`01b-floating-point-ieee754.md`](01b-floating-point-ieee754.md) · → [`03-state-registers-memory.md`](03-state-registers-memory.md)
 
-## Цель
+## Проблема
 
-Понять, как простые Boolean functions складываются в arithmetic datapath.
+Bits have values 0/1. How can hardware add numbers, compare values or choose one path?
 
-## Boolean gates
+## Boolean operations
 
-Для bits `a,b`:
+At abstract logic level:
 
 ```text
-NOT a
-AND(a,b)
-OR(a,b)
-XOR(a,b)
+AND: 1 only when both inputs 1
+OR:  1 when any input 1
+XOR: 1 when inputs differ
+NOT: flips bit
 ```
 
-NAND универсален: из него можно построить остальные Boolean gates.
+Truth tables fully describe one-bit combinational operation.
 
-## Truth table как спецификация
+## From XOR/AND to addition
 
-XOR:
-
-```text
-a b | out
-0 0 | 0
-0 1 | 1
-1 0 | 1
-1 1 | 0
-```
-
-Hardware block можно воспринимать как функцию bit inputs → outputs, пока внутри нет state.
-
-## Combinational vs sequential
-
-Combinational logic output зависит от **текущих inputs**.
-
-Sequential logic позже добавит state, зависящий от прошлого.
-
-## Half adder
-
-Складывает два bits:
+Half-adder:
 
 ```text
 sum   = a XOR b
 carry = a AND b
 ```
 
-Full adder учитывает `carry_in` и выдаёт `sum + carry_out`.
+Full adder includes incoming carry. Chaining bit positions builds multi-bit addition circuit.
 
-Соединяя full adders, можно построить N-bit adder.
-
-## Overflow hardware vs language
-
-Hardware adder выдаёт фиксированные low N bits и flags/extra carry depending design. Язык C поверх этого устанавливает свои semantic rules.
-
-CPU может физически wrap signed addition, но compiler вправе считать signed C overflow невозможным в valid program.
+We are not designing transistor implementation; we are seeing how arithmetic emerges from Boolean relationships.
 
 ## ALU
 
-Arithmetic Logic Unit выбирает операцию над operands:
+**Arithmetic Logic Unit (ALU)** is CPU component performing arithmetic/logic selected by control signals.
 
 ```text
-ADD
-SUB
-AND
-OR
-XOR
-SHIFT
-COMPARE-like flag generation
+inputs A/B
++ operation selector
+→ result + flags
 ```
 
-ALU сама не «знает программу». Control logic/decoded instruction выбирает operation.
+Flags may encode zero/carry/sign/overflow according to ISA. Do not map them directly to C semantics without instruction/ABI context.
 
-## Multiplexer
+## Combinational means no memory of past
 
-MUX выбирает один из inputs по selector bits. В CPU multiplexers управляют, откуда взять operand/result/path.
+Same current inputs → same current output. Circuit alone does not remember previous result. That missing property creates next lesson.
 
-## Exercise
+## Практика
 
-1. Построй truth tables NAND, XOR, half-adder.
-2. Объясни full-adder через два half-adders или equations.
-3. Нарисуй 4-bit ripple-carry adder.
-4. Для `1111 + 0001` укажи low 4 bits и carry-out.
+Build truth table for 1-bit full adder, then manually add two 4-bit unsigned numbers carrying between positions.
 
 Разбор: [`02-boolean-logic-alu.solution.md`](02-boolean-logic-alu.solution.md).
 
-## Optional deep dive
-
-Если нравится hardware path, Nand2Tetris Projects 1–2 — отличный дополнительный hands-on, но обязательная теория уже здесь.
-
 ## Exit check
 
-Объясни разницу между «ALU умеет ADD» и «CPU выполняет instruction ADD».
+Why can combinational ALU compute a result but not by itself execute a sequence of instructions over time?

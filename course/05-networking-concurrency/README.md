@@ -1,32 +1,47 @@
-# Module 5 — Networking & Concurrency
+# Module 5 — Как bytes доходят до другой программы и что ломается при параллельной обработке
 
-**Цель:** понять TCP/IP ниже уровня HTTP library и построить bounded concurrent KV server с измеряемым поведением под нагрузкой.
+**Оценка:** ~45–65 часов.  
+**Prerequisite:** Unix fd/process model, checked byte lengths, graphs/priority queue from Module 1.
 
-**Оценка:** ~60–80 часов.  
-**Core milestone:** Concurrent KV Server.
+Модуль состоит из двух причинных дуг:
 
-## Prerequisites
+```text
+как отправить bytes другой машине
+→ какие гарантии нужны приложению
+→ socket
+→ TCP stream
+→ framing
 
-- Hash Table, heap/Priority Queue и graph basics из Module 1;
-- Testing Engineering;
-- Unix file descriptors/process model;
-- performance measurement basics из Module 4.
+один handler не успевает обслуживать workload
+→ threads/shared state
+→ race
+→ synchronization
+→ ожидание без busy loop
+→ bounded queue
+→ backpressure
+→ event loop alternative
+→ measurement
+```
 
 ## Уроки
 
-1. [`01-link-ip-routing.md`](01-link-ip-routing.md)
-2. [`02-udp-tcp-stream.md`](02-udp-tcp-stream.md)
-3. [`03-socket-api-getaddrinfo.md`](03-socket-api-getaddrinfo.md)
-4. [`04-framing-protocol-design.md`](04-framing-protocol-design.md)
-5. [`05-threads-races-sync.md`](05-threads-races-sync.md)
-6. [`06-thread-pool-backpressure.md`](06-thread-pool-backpressure.md)
-7. [`07-poll-event-loop.md`](07-poll-event-loop.md)
-8. [`08-graphs-bfs-dijkstra.md`](08-graphs-bfs-dijkstra.md)
-9. [`09-load-testing-metrics.md`](09-load-testing-metrics.md)
-10. [`10-module-checkpoint.md`](10-module-checkpoint.md)
+1. [`01-link-ip-routing.md`](01-link-ip-routing.md) — **Как пакет выбирает следующий шаг к другой машине**.
+2. [`02-udp-tcp-stream.md`](02-udp-tcp-stream.md) — **Какие гарантии приложению дают UDP и TCP и почему TCP не передаёт сообщения**.
+3. [`03-socket-api-getaddrinfo.md`](03-socket-api-getaddrinfo.md) — **Как процесс получает сетевой endpoint через socket API**.
+4. [`04-framing-protocol-design.md`](04-framing-protocol-design.md) — **Как поверх TCP восстановить границы сообщений**.
+5. [`05-threads-races-sync.md`](05-threads-races-sync.md) — **Почему два потока ломают общий mutable state**.
+6. [`05b-condvars-bounded-queue.md`](05b-condvars-bounded-queue.md) — **Как ждать работу без busy loop и зачем очереди нужен предел**.
+7. [`06-thread-pool-backpressure.md`](06-thread-pool-backpressure.md) — **Почему перегруженный server должен замедлять или отклонять работу**.
+8. [`07-poll-event-loop.md`](07-poll-event-loop.md) — **Как один thread ждёт много sockets без thread-per-connection**.
+9. [`09-load-testing-metrics.md`](09-load-testing-metrics.md) — **Как измерять throughput и хвост latency, не обманывая себя генератором нагрузки**.
+10. [`10-module-checkpoint.md`](10-module-checkpoint.md) — checkpoint.
+
+Graph/BFS/Dijkstra больше не живут внутри networking: prerequisite вынесен в [`../01-memory-data-structures/20b-graphs-paths.md`](../01-memory-data-structures/20b-graphs-paths.md).
 
 ## Проект
 
-[`project/SPEC.md`](project/SPEC.md) · [`project/PROTOCOL.md`](project/PROTOCOL.md) · [`project/README.md`](project/README.md)
+[`project/README.md`](project/README.md) — Concurrent KV Server. Milestones раскрываются после framing, thread safety, bounded queue и overload lessons.
 
-Course-provided `tools/client.py` и `tools/loadgen.py` проверяют внешний protocol contract, но не содержат server implementation.
+## Boundary
+
+Core не реализует TCP stack, TLS, HTTP, distributed consensus или production authentication. Цель — понять byte-stream protocol, resource bounds, concurrency correctness и overload behavior.

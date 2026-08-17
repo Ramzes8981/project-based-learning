@@ -1,21 +1,41 @@
 # Concurrent KV Server — Hints
 
-## Hint 1
+## 1. Prove framing before threads
 
-Сначала sequential framed server. Concurrency поверх broken framing только усложнит debug.
+Feed parser arbitrary chunk boundaries in memory first. Networking should not be required to reproduce codec bug.
 
-## Hint 2
+## 2. Separate connection state from shared store
 
-Выдели helpers/state для `read_exact/write_all` в blocking version.
+Per-connection frame buffers are usually owned by one handler/event state. Shared KV/metrics need explicit synchronization.
 
-## Hint 3
+## 3. Define fd ownership transfer
 
-Worker должен стать owner client fd после dequeue. До этого ownership у acceptor/queue path.
+Before enqueue:
 
-## Hint 4
+```text
+acceptor owns client fd
+```
 
-Не держи store mutex во время socket I/O.
+After successful enqueue:
 
-## Hint 5
+```text
+queue/worker owns client fd
+```
 
-Если overload «лечится» увеличением queue без bounds, ты переносишь проблему в latency/memory.
+On enqueue failure owner does not magically change.
+
+## 4. Condition variable waits on predicate
+
+Always `while (!predicate) wait`, with predicate protected by same mutex.
+
+## 5. Never optimize lock granularity first
+
+Start with smallest design you can prove correct, measure contention, then split locks with new invariants/tests.
+
+## 6. Tail latency
+
+If p99 grows while service work stays flat, record queue-wait separately before blaming socket/TCP.
+
+## 7. Load tool
+
+Bundled `loadgen.py` is closed-loop. Use it for controlled comparisons, not unsupported “maximum RPS” claims.

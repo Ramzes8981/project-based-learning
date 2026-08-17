@@ -1,56 +1,26 @@
-# Course Shell — рабочий README
+# Unix Shell — рабочий проект
 
-## Status
+Project grows after each lesson. Do not start by reading full POSIX shell grammar.
 
-## Build
-
-```text
-make
-make test
-make clean
-```
-
-Запиши имя executable и canonical run command.
-
-## Grammar
-
-Скопируй **своими словами** реально поддержанную grammar и non-goals. Не обещай quotes/job-control, если их нет.
-
-## Parser design
-
-Token representation, validation phases, ownership of token buffers.
-
-## Process model
-
-Для external command/pipeline опиши:
+## First behavior
 
 ```text
-parent responsibilities
-child responsibilities
-exec failure path
-descriptor close policy
-wait/reap policy
+prompt/read line
+run external command with arguments
+wait for foreground command
+run cd/exit as built-ins
+continue shell loop
 ```
 
-## Redirection / FD topology
+Then unlock redirection, one pipeline and minimal foreground signal behavior.
 
-Запиши, какие descriptors существуют до/после `fork`, `dup2`, close.
+## Non-goals
 
-## Signals
+- quotes/escaping parity with Bash;
+- globbing;
+- variables/substitution;
+- background jobs/full job-control UI;
+- scripting language;
+- arbitrary pipeline length unless chosen as transfer.
 
-Chosen SIGINT/process-group model и limitations.
-
-## Tests
-
-- unit parser tests;
-- black-box cases из `TESTS.md`;
-- `project/tests/run_cases.py` как optional external-behavior harness;
-- sanitizer/debugger checks, где применимо.
-
-## Known limitations
-
-## Transfer feature
-
-## Debugging story
-
-Symptom → hypothesis → diagnostic command/evidence → root cause → fix → regression.
+Docs: [`SPEC.md`](SPEC.md) · [`ACCEPTANCE.md`](ACCEPTANCE.md) · [`TESTS.md`](TESTS.md) · [`HINTS.md`](HINTS.md).

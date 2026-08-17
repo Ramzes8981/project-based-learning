@@ -1,48 +1,25 @@
-# Rust MiniKV — рабочий README
+# Rust MiniKV — ownership bridge
 
-## Status
+Проект начинается после 1B.6. Его цель — доказать, что ты понимаешь, как C contracts меняются в safe Rust.
 
-## Cargo
+## Behavior
 
-Зафиксируй edition/toolchain и команды:
+Store supports:
 
 ```text
-cargo fmt
-cargo clippy --all-targets --all-features
-cargo test
+set key value
+get key
+delete key
+len
 ```
 
-## API
+Duplicate `set` replaces value. Missing lookup/delete returns explicit absence/status.
 
-Какие методы используют `&self`, какие `&mut self`? Где `Option`, где `Result`?
+## Constraints unlocked by lessons
 
-## Ownership
+- after ownership/borrowing: no clone-as-bandage design;
+- after `Option/Result`: absence/failure typed explicitly;
+- after collections: owned `String` storage + borrowed `&str` lookup;
+- `unsafe`/FFI **not required** for core project.
 
-- кто владеет key/value `String`;
-- что `get` возвращает borrowed;
-- какие mutations invalidated/blocked while borrow lives;
-- где cloning действительно нужен, а где нет.
-
-## Text contract
-
-Keys/values — UTF-8 text или bytes? Текущий bridge ожидает text; запиши limits в bytes или characters и не путай units.
-
-## Error model
-
-Перечисли variants собственного error enum и что считается `None`, `Err`, panic-worthy invariant.
-
-## Unsafe
-
-Основная Store implementation должна быть safe Rust. Если добавляешь unsafe эксперимент, документируй invariant отдельно и не смешивай его с core path.
-
-## Tests
-
-Boundary/error cases и regression tests.
-
-## C ↔ Rust comparison
-
-Сравни cleanup, aliasing, nullability, errors, invalidation и оставшиеся bug classes.
-
-## Debugging story
-
-Compiler/runtime symptom → hypothesis → evidence → root cause → fix → regression.
+See [`SPEC.md`](SPEC.md), [`ACCEPTANCE.md`](ACCEPTANCE.md), [`TESTS.md`](TESTS.md), [`HINTS.md`](HINTS.md).

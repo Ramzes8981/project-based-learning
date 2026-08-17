@@ -1,163 +1,160 @@
-# 2.1 — File descriptors и надёжный byte-stream I/O
+# 2.1 — Что такое запущенная программа и как она просит ОС о работе
 
-**Теория:** ~60 мин  
-**Упражнение:** ~60 мин  
-**Project slice:** ~20 мин  
-**С телефона:** теория — да
+**Теория:** ~80 мин  
+**Практика:** ~80 мин  
+**С телефона:** теория — да; практика — Linux/WSL2
 
 ← [`README`](README.md) · → [`02-terminal-termios.md`](02-terminal-termios.md)
 
-## Цель
+## Проблема
 
-Понять file descriptor как process-local handle и научиться писать loops, корректно обрабатывающие partial `read`/`write`, EOF и ошибки.
+C function сама по себе не умеет вращать диск, читать keyboard device или создавать новый running program. Эти ресурсы контролирует operating system.
 
-## Prerequisite check
+Нужна модель того, **кто именно выполняется** и как этот running code обращается к kernel.
 
-1. Чем pointer отличается от integer handle?
-2. Кто владеет heap allocation и когда её освобождают?
-3. Что такое exit status?
+## Program file vs running process
 
-## Kernel vs user space
+Executable file на диске — пассивные bytes. После запуска ОС создаёт живой execution context с собственным состоянием/resources.
 
-Программа выполняется в user space и не может напрямую управлять kernel resources как обычной памятью. Для операций с files, processes, sockets и устройствами она обращается к kernel через system calls.
-
-Не каждая C library function обязательно является syscall один-в-один, но `read`, `write`, `open`, `close` — хороший учебный интерфейс системного I/O.
-
-## File descriptor
-
-File descriptor (**fd**) — маленькое целое число в process-local descriptor table.
-
-Традиционно:
+Такой экземпляр выполняющейся программы называется **процессом (process)**.
 
 ```text
-0 stdin
-1 stdout
-2 stderr
+executable file
+   ↓ start
+process
+  ├─ executing state
+  ├─ memory/address space
+  └─ OS-managed resources
 ```
 
-FD — не «сам файл». Он ссылается на kernel-managed open-file state.
+Как ОС планирует выполнение и организует память, разберём позже. Сейчас важен факт: process — не то же самое, что executable file.
+
+## User space и kernel boundary
+
+Обычный application code выполняется с ограниченными privileges. Kernel управляет shared hardware/resources и проверяет requests.
+
+Когда process просит kernel выполнить определённую operation через установленный OS interface, на низком уровне это **системный вызов (system call, syscall)**.
+
+В C мы часто вызываем library wrapper, например `read()`, который уже организует соответствующий system interface.
+
+Не нужно сейчас знать instruction-level calling convention для этого перехода.
+
+## Проблема: как process ссылается на открытый resource
+
+После `open("notes.txt", ...)` kernel должен вернуть process-у удобный handle. В Unix-like systems это небольшое integer value — **файловый дескриптор (file descriptor, fd)**.
 
 ```text
-process fd table
-  fd 3 ──────> open file description ──────> underlying file/device/pipe
+process
+  fd 3 ─────→ kernel open-file state ─────→ file object/device/pipe/...
 ```
 
-Несколько descriptors/processes могут ссылаться на связанное underlying open state; позже это станет критично после `fork`/`dup2`.
+`fd` — не «адрес файла» и не сам файл. Это process-local handle.
 
-## `open` / `close`
+## Standard descriptors
 
-```c
-#include <fcntl.h>
-#include <unistd.h>
+Обычно при запуске процесса уже открыты:
 
-int fd = open("data.bin", O_RDONLY);
-if (fd == -1) {
-    /* error, errno set */
-}
+```text
+0  stdin
+1  stdout
+2  stderr
 ```
 
-Успех `open` даёт fd. Owner процесса/компонента должен затем `close(fd)` ровно когда resource больше не нужен.
+Именно поэтому `write(1, ...)` может писать туда, куда shell настроил stdout.
 
-Descriptor leak похож по структуре на memory leak: resource acquired, cleanup потерян.
+## `read` / `write`: bytes, not “whole message”
 
-## `read`
-
-Conceptual signature:
+Simplified signatures:
 
 ```c
 ssize_t read(int fd, void *buf, size_t count);
-```
-
-Return:
-
-- `> 0` — столько bytes реально прочитано;
-- `0` — EOF для подходящего stream/file context;
-- `-1` — error, смотри `errno`.
-
-Критично: успешный `read` не обязан вернуть весь requested `count`.
-
-## `write`
-
-```c
 ssize_t write(int fd, const void *buf, size_t count);
 ```
 
-Успешный return может быть меньше `count`. Надёжная программа должна продвигать offset и дописывать оставшиеся bytes, если её контракт требует полного transfer.
+Return value:
 
-## `ssize_t` vs `size_t`
+- positive → сколько bytes реально обработано;
+- `0` from `read` → EOF for stream/file semantics where applicable;
+- `-1` → failure, details via `errno`.
 
-`size_t` unsigned и описывает sizes. `ssize_t` signed, потому что системный I/O должен вернуть и byte count, и `-1` error sentinel.
+Type `ssize_t` is signed because it must represent byte count **and** `-1` failure sentinel.
 
-Нельзя бездумно сохранять return `read()` в `size_t`: `-1` превратится в огромное unsigned value.
+## Short I/O
 
-## `errno`
+Request `count = 4096` does **not** universally guarantee that one call transfers 4096 bytes. Successful `read/write` may process fewer bytes.
 
-После syscall/library failure некоторые APIs устанавливают thread-local `errno`.
+Correct “write all” logic loops until:
 
-Правило:
-
-> проверяй `errno` только после API, которое сигнализировало failure согласно своему контракту.
-
-`errno` не обязан сбрасываться в 0 после successful operation.
-
-`perror("read")` удобно печатает context + текущий errno message.
+```text
+all bytes written
+OR error
+```
 
 ## `EINTR`
 
-Некоторые blocking operations могут завершиться `-1`/`EINTR`, если обработан signal до завершения операции. Для соответствующих loops нужно решить, retry операция безопасно или signal должен изменить control flow.
+Some blocking system calls can return `-1` with `errno == EINTR` when interrupted by a signal before completing work. For operations whose documented retry semantics are appropriate, wrapper retries.
 
-Не пиши «retry любой error бесконечно».
+Do not write generic rule «retry any errno». Error policy is operation-specific.
 
-## Full write loop
+## Correct `write_all` pattern
 
-Псевдокод:
+```c
+#include <errno.h>
+#include <stddef.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-```text
-offset = 0
-while offset < total:
-    n = write(fd, buf + offset, total - offset)
-    if n > 0:
-        offset += n
-    else if n < 0 and errno == EINTR:
-        retry
-    else:
-        fail
+int write_all(int fd, const unsigned char *buf, size_t len)
+{
+    size_t off = 0;
+
+    while (off < len) {
+        ssize_t n = write(fd, buf + off, len - off);
+        if (n > 0) {
+            off += (size_t)n;
+            continue;
+        }
+        if (n < 0 && errno == EINTR) {
+            continue;
+        }
+        return 0;
+    }
+    return 1;
+}
 ```
 
-Для `write` return 0 при положительном remaining count — unusual condition; robust abstraction не должна spin бесконечно.
+For regular `write` with non-zero request, `n == 0` is treated here as no-progress failure to avoid infinite loop.
 
-## EOF != error
+## Descriptor lifetime
 
-`read == 0` означает конец stream/file, а не failure. Это отдельное normal control-flow состояние.
+Successful `open` creates an fd that caller must eventually `close`. Early returns must not leak descriptors.
 
-## Exercise — file copy
+```text
+open success
+→ caller owns fd
+→ use/borrow
+→ close exactly once
+```
 
-Напиши `copy_fd.c`, который копирует source file в destination через `open/read/write/close`.
+This is the same ownership reasoning learned for allocations, now applied to OS resource.
 
-Требования:
+## Практика
 
-- fixed-size buffer;
-- loop до EOF;
-- partial write loop;
-- error cleanup;
-- destination open flags/permissions осознанны;
-- empty file;
-- файл больше buffer;
-- никаких `fread/fwrite` — сейчас изучаем descriptor I/O.
+1. Open a temporary file for write/create/truncate.
+2. Use your `write_all` to write bytes.
+3. Close on every success/failure path.
+4. Re-open for read and loop until EOF.
+5. Use `strace` (if available) only after predicting which OS operations you expect.
 
 Разбор: [`01-file-descriptors-io.solution.md`](01-file-descriptors-io.solution.md).
 
-## Project slice
+## Causal questions
 
-Shell пока не запускаем. В [`project/README.md`](project/SPEC.md) нарисуй будущую ownership map descriptors:
-
-```text
-shell process owns stdin/stdout/stderr
-child may inherit descriptors
-redirection/pipes create temporary fds
-unused ends must close
-```
+1. Why is an fd process-local handle rather than file identity?
+2. Why does one successful `write` not prove all requested bytes were written?
+3. Why is `errno` meaningful only after an operation reports failure according to its contract?
+4. How is `close` ownership analogous to `free`?
 
 ## Exit check
 
-Объясни, почему один successful `write(fd, buf, 4096)` не является универсальной гарантией записи всех 4096 bytes.
+Explain: executable → process → syscall boundary → fd → byte I/O → close, without using future networking concepts.

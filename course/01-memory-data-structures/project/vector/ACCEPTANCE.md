@@ -1,12 +1,14 @@
 # Vector — Acceptance
 
-- starts empty in valid state;
-- multiple pushes preserve order;
-- growth happens beyond initial capacity;
-- old values survive growth;
-- get/set boundary behavior documented;
-- pop/transfer feature works;
-- allocation failure path does not corrupt previous state where it can be simulated;
-- ASan/UBSan clean on public scenarios;
-- README explains size/capacity/ownership and pointer invalidation after resize;
-- no unexplained warnings.
+- empty initialization has `len == 0`;
+- pushes preserve values/order through multiple grows;
+- always `len <= capacity`;
+- bounds failure does not read/write an element;
+- checked size arithmetic occurs before allocation math;
+- `realloc` failure cannot lose old allocation;
+- successful grow may move storage and contract documents pointer invalidation;
+- destroy frees owned allocation exactly once and resets documented state;
+- sanitizer run is clean for owned test cases;
+- warning-clean C17 build;
+- transfer operation includes tests and invariant explanation;
+- README contains one debugging story.

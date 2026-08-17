@@ -1,105 +1,39 @@
-# 7.7 — Buffer cache, page access cost и index trade-offs
+# 7.6 — Почему query cost определяется не только Big-O, но и I/O/locality
 
-**Теория:** ~75 мин  
-**Instrumentation lab:** ~3–5 часов  
-**С телефона:** да
+**Теория:** ~75 мин · **Лаб:** ~80 мин · **С телефона:** theory — да
 
 ← [`06-btree-index-splits.md`](06-btree-index-splits.md) · → [`08-transactions-wal-recovery.md`](08-transactions-wal-recovery.md)
 
-## Цель
+## Проблема
 
-Измерять storage algorithm через page accesses/cache behavior, а не только Big-O по records.
+Two queries can both be `O(log n)` but one hits cached index pages and another triggers storage reads. Need a cost model closer to storage system.
 
-## Logical operation vs physical I/O
+## Buffer cache / pager cache
 
-`GET key` может вызвать:
+Database may keep recently used pages in its own buffer pool/cache above OS page cache. This can avoid decode/syscall work and control eviction/dirty state, but creates two caching layers.
 
-```text
-root page lookup
-→ internal child
-→ leaf
-```
+Core SimpleDB may use minimal page cache; concept matters more than production replacement algorithm.
 
-Но если pages уже в OS/app cache, physical storage I/O может не произойти.
+## Query cost dimensions
 
-Поэтому instrumentation разделяет:
+Count at least:
 
-- logical page access;
-- pager cache hit/miss;
-- OS-visible read/write syscall optionally;
-- durable flush operations.
+- pages visited;
+- cache hit/miss;
+- bytes read/written;
+- random vs sequential access;
+- comparisons within pages;
+- dirty pages generated;
+- durability syncs.
 
-## Buffer pool
+## Sequential scan can beat index
 
-DB buffer pool/cache хранит hot pages в memory и tracks dirty state.
+For large fraction of table, sequential scan may exploit contiguous I/O/locality better than many random index→record lookups. “Index exists” does not imply optimizer should always use it.
 
-Даже если OS page cache существует, application DB buffer pool useful для:
+## Measure
 
-- page objects/pinning;
-- replacement policy;
-- dirty/transaction coordination;
-- predictable DB-level metrics.
-
-Core SimpleDB может иметь tiny fixed cache or just instrumentation; full buffer manager — Stretch.
-
-## Full scan
-
-Scan читает all leaf pages roughly `O(number_of_pages)`.
-
-Index lookup читает tree path `O(height)` logical pages.
-
-## Index trade-off
-
-Extra index:
-
-- ускоряет определённые reads;
-- занимает storage/cache;
-- увеличивает write/update work;
-- создаёт consistency/recovery responsibilities.
-
-«Добавь index» не бесплатная optimization.
-
-## Read amplification
-
-Один logical record lookup может читать multiple pages. Page layout/fanout/cache определяют amplification.
-
-## Write amplification
-
-Insert может изменить leaf + parent(s), split pages и later journal/WAL records.
-
-## Instrumentation
-
-Добавь counters:
-
-```text
-page_read_requests
-page_cache_hits (if cache exists)
-page_writes
-page_allocations
-leaf_splits
-internal_splits
-```
-
-Сравни:
-
-- `scan` N records;
-- random indexed lookup;
-- sequential inserts;
-- insert around split boundary.
-
-## Exercise
-
-Сделай table measurements для DB sizes 100, 10k, 100k keys (если runtime reasonable): average logical pages per GET, tree height, splits.
-
-Не обещай constant exact page count вне implemented tree/cache.
-
-## Causal questions
-
-1. Почему logical page access != disk I/O?
-2. Почему high cache hit rate может скрыть poor on-disk layout benchmark?
-3. Почему secondary index ухудшает writes?
-4. Какие metrics понадобятся до оптимизации pager?
+Instrument page reads/cache hits in SimpleDB. Compare exact-key lookup vs full scan under cold-ish/repeated conditions, without claiming OS cache state you did not control.
 
 ## Exit check
 
-Performance SimpleDB объясняется через tree depth + page access + cache, а не «B-tree O(log n), значит всё быстро».
+Why can adding an index make some write-heavy workload slower even while point lookup improves?

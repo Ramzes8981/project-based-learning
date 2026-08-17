@@ -1,105 +1,69 @@
-# 2.7 — Signals и foreground process model
+# 2.7 — Как shell переживает Ctrl-C, а foreground job — нет
 
-**Теория:** ~80 мин  
-**Project slice:** ~3–5 часов  
-**С телефона:** теория — да
+**Теория:** ~95 мин · **Практика/project:** ~4–6 часов · **С телефона:** теория — да
 
 ← [`06-pipes-fd-topology.md`](06-pipes-fd-topology.md) · → [`08-module-checkpoint.md`](08-module-checkpoint.md)
 
-## Цель
+## Проблема
 
-Понять signals как asynchronous events и сделать Ctrl-C предсказуемым для shell/foreground child без небезопасной работы внутри handler.
+Interactive terminal sends events like Ctrl-C as signals to foreground job context. If shell and command are treated identically, Ctrl-C can terminate the shell itself.
 
-## Signal model
+Need two concepts: asynchronous notification and group of related processes.
 
-Нас интересуют:
+## Signal
 
-- `SIGINT` — interactive interrupt;
-- `SIGTERM` — conventional termination request;
-- `SIGCHLD` — child state changed;
-- `SIGPIPE` — write to pipe without reader;
-- `SIGTSTP`/job control — conceptual/stretch.
+**Signal** is asynchronous notification delivered to process/thread according to POSIX rules. Examples: `SIGINT`, `SIGTERM`, `SIGCHLD`.
 
-Disposition может быть default, ignore или user handler, кроме несменяемых `SIGKILL`/`SIGSTOP`.
+Signal can have default action, be ignored, blocked, or handled (with restrictions).
 
-Основной API курса — `sigaction`.
+## Signal handler restrictions
 
-## Async-signal-safety
+Handler interrupts normal execution. Most library functions are not async-signal-safe. Do not call `printf`, `malloc` or complex project logic from handler.
 
-Handler может прервать normal code в любой неудобной точке. Большинство library calls нельзя считать безопасными внутри handler. `printf`, allocation, arbitrary locks — плохой default.
-
-Самая маленькая communication pattern для учебного single-threaded кода:
-
-```c
-#include <signal.h>
-
-static volatile sig_atomic_t interrupted = 0;
-
-static void on_signal(int signo)
-{
-    (void)signo;
-    interrupted = 1;
-}
-```
-
-### Что здесь означает `sig_atomic_t`
-
-`sig_atomic_t` — integer type, доступ к которому предназначен для безопасной indivisible read/write communication с signal handler в пределах guarantees C/POSIX signal model.
-
-`volatile` говорит compiler, что value может измениться вне обычного sequential flow и чтение/запись нельзя оптимизировать как обычную неизменяемую local state.
-
-Важно:
-
-> `volatile sig_atomic_t` **не является general-purpose thread atomic** и не заменяет C atomics/mutex. Он не превращает произвольные read-modify-write операции в atomic synchronization.
-
-Handler должен по возможности только установить flag. Сложную работу делает normal control flow после возврата.
-
-## Shell и Ctrl-C
-
-Terminal обычно направляет interactive signals foreground process group.
-
-Минимальная core model:
+Course pattern:
 
 ```text
-shell at prompt: SIGINT ignored/handled minimally
-child before exec: restore default SIGINT
-parent: waitpid child
-Ctrl-C: foreground command terminates; shell survives
+handler does minimal safe action / sets sig_atomic_t flag
+normal control flow observes flag and performs complex work
 ```
 
-Для pipeline полноценнее создать одну process group для children и передавать foreground terminal ей. Full job control остаётся stretch, но process-group concept должен быть понятен.
+## Process group
 
-## `SIGCHLD`
+Pipeline may contain several processes that should receive terminal job signals together. POSIX groups processes using **process group** with PGID.
 
-Synchronous shell, который сразу waits foreground children, не обязан создавать сложный SIGCHLD handler. Background jobs потребуют asynchronous reaping и существенно большего lifecycle state.
+```text
+shell process group
+foreground job process group: producer + consumer + ...
+```
 
-## `EINTR`
+Terminal tracks foreground process group.
 
-Blocking syscall может завершиться с interruption. `SA_RESTART` влияет на некоторые calls, но robust code всё равно должен иметь явную policy: retry или обработать interruption.
+## Minimal job-control scope
 
-## Project slice
+Core shell does not implement full Bash jobs table/background `fg/bg`. It should understand enough to:
 
-Core acceptance:
+- place foreground external command/pipeline in its own process group;
+- arrange foreground terminal group where environment allows;
+- avoid shell death on foreground Ctrl-C;
+- wait/reap all children;
+- restore shell terminal foreground ownership.
 
-- Ctrl-C на foreground command не завершает shell;
-- child получает ожидаемую default interrupt behavior;
-- `waitpid` различает exit vs signal termination;
-- handler не выполняет небезопасную сложную работу;
-- descriptor/process cleanup остаётся корректным после interruption.
+Exact interactive job-control APIs are platform-sensitive; project acceptance may allow documented reduced scope in non-interactive CI.
 
-## Exercise
+## `SIGCHLD` and reaping
 
-Нарисуй signal flow для `shell -> A | B`, когда пользователь нажимает Ctrl-C. Отдельно покажи naive individual-PID model и foreground process-group model.
+A signal may notify that child changed state, but actual status still comes from `waitpid`. Beware race between signal arrival and normal wait logic; design one clear reaping policy.
+
+## `EINTR` returns again
+
+Signals explain why earlier blocking calls can be interrupted. Retry only where contract says operation was not completed and retry is appropriate.
+
+## Практика
+
+Add controlled foreground Ctrl-C behavior to shell. Test interactively in PTY/terminal and keep non-interactive automated tests for process exit/reaping.
 
 Разбор: [`07-signals-process-groups.solution.md`](07-signals-process-groups.solution.md).
 
-## Causal questions
-
-1. Почему `volatile sig_atomic_t` не эквивалентен mutex/atomic для threads?
-2. Почему shell и child хотят разные SIGINT dispositions?
-3. Почему handler должен быть минимальным?
-4. Почему background jobs усложняют reaping?
-
 ## Exit check
 
-Ты должен уметь объяснить: signal handler сообщает событие, а normal control flow обрабатывает состояние.
+Why should shell and pipeline be different process groups, and why is `printf` inside arbitrary signal handler a bad baseline?

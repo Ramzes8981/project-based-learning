@@ -1,33 +1,16 @@
 # Hash Table — Acceptance
 
-## Correctness
-
-- insert new key;
-- update existing key;
-- get existing/missing;
-- delete existing/missing;
-- multiple deliberate collisions;
-- lookup past tombstones;
-- insert can reuse tombstone according to documented policy;
-- resize preserves all active data;
-- repeated resizes;
-- destroy cleans all owned memory.
-
-## Safety
-
-- canonical warning flags clean;
-- ASan/UBSan public scenarios clean;
-- allocation size arithmetic checked;
-- failure paths documented.
-
-## Algorithms
-
-README explains expected/worst lookup, load factor, probe clustering and rehash cost.
-
-## Transfer
-
-One non-copied feature + tests.
-
-## Engineering review
-
-Explain API, ownership, invalidation rules, memory overhead, failure behavior and 10×/100× dataset implications.
+- empty get/delete safe;
+- put/get/update semantics correct;
+- collisions forced by test remain correct;
+- deleting one colliding key does not hide later colliding key;
+- probes bounded on full/tombstone-heavy table;
+- item count excludes tombstones and does not grow on update;
+- resize preserves every live key/value;
+- new positions are recomputed for new slot count;
+- failed resize preserves old logical state;
+- key ownership/free policy has no leaks/double-free/UAF under sanitizer;
+- size arithmetic checked before multiplication/growth;
+- warning-clean build;
+- README documents hash/security limitation, load policy, pointer/reference invalidation if any;
+- transfer feature has tests.

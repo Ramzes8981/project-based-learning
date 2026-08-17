@@ -1,87 +1,50 @@
-# 3.6 — Assembler и symbol table
+# 3.7 — Зачем человеку assembler, если CPU понимает только bits
 
-**Теория:** ~65 мин  
-**Project slice:** ~4–7 часов  
-**С телефона:** теория — да
+**Теория:** ~70 мин · **Практика/project:** ~3–5 часов · **С телефона:** теория — да
 
 ← [`05-fetch-decode-execute.md`](05-fetch-decode-execute.md) · → [`07-x86-64-abi-bridge.md`](07-x86-64-abi-bridge.md)
 
-## Цель
+## Проблема
 
-Построить two-pass assembler и применить hash-table/symbol-table знания Module 1.
-
-## Почему two pass
-
-Assembly может содержать forward label:
-
-```asm
-JMP end
-...
-end:
-HALT
-```
-
-На первой строке assembler ещё не знает address `end`, если код читается сверху вниз.
-
-### Pass 1
-
-- tokenize/parse lines;
-- считать instruction addresses;
-- записать labels → addresses в symbol table;
-- не emit final words для labels.
-
-### Pass 2
-
-- снова пройти instructions;
-- resolve symbol operands;
-- validate ranges;
-- encode machine words.
-
-## Parser boundaries
-
-Не строй сложный compiler frontend. Course assembly grammar ограничен:
+Writing raw 16-bit words is error-prone. Humans want mnemonic names and labels:
 
 ```text
-optional label
-mnemonic
-comma/whitespace-separated operands
-optional comment
+LOADI R0, 10
+loop:
+SUB R0, R0, R1
+JZ R0, done
+JMP loop
 ```
 
-## Error quality
+Need translator from symbolic text to machine-code words — **assembler**.
 
-Assembler должен сообщать:
+## Mnemonic
 
-- line number;
-- unknown mnemonic;
-- wrong operand count/type;
-- duplicate label;
-- unknown label;
-- immediate/target out of range.
+Human name like `ADD` maps to opcode/encoding defined by ISA. Assembler does not invent semantics; it encodes contract.
 
-Хорошие diagnostics — инженерная часть project, а не украшение.
+## Labels create forward-reference problem
 
-## Symbol table
+`JMP done` may appear before `done:` address known. Common simple solution: two passes.
 
-Ты уже реализовал hash table. Можно:
+```text
+pass 1: parse lines, assign instruction positions, record labels
+pass 2: encode instructions, resolve label operands/offsets
+```
 
-- повторно использовать собственную;
-- либо для scope assembler использовать simpler structure, если это уменьшает irrelevant work.
+Now two-pass assembler arises from actual forward-reference problem rather than academic ritual.
 
-Решение должно быть осознанным.
+## Parse narrowly
+
+Define exact grammar: comments, commas, brackets, register names, integer syntax, labels. Reject malformed/out-of-range immediate before encoding; never silently truncate value to bit field.
+
+## Round-trip tests
+
+For sample assembly, expected machine words are stable oracle. Also decode encoded word in test helper to verify fields when useful.
 
 ## Project slice
 
-Заверши assembler и создай sample programs:
-
-- arithmetic;
-- loop sum;
-- memory load/store;
-- conditional branch;
-- invalid-input fixtures.
-
-Output — deterministic binary/hex words, которые принимает emulator.
+Implement Tiny16 assembler separately from emulator. Shared ISA constants/helpers are okay; do not make assembler depend on emulator internal state.
 
 ## Exit check
 
-Объясни, почему forward labels естественно приводят к two-pass design.
+Why are two passes useful for forward labels, and what bug appears if assembler silently masks an immediate that does not fit field?

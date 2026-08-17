@@ -1,159 +1,105 @@
-# 1.4 — Lifetime и ownership в C
+# 1.4 — Почему правильный адрес позже может стать недействительным
 
-**Теория:** ~60 мин  
-**Упражнение:** ~40 мин  
-**Project slice:** ~40 мин  
-**С телефона:** да
+**Теория:** ~70 мин  
+**Практика:** ~55 мин  
+**С телефона:** теория — да; практика — ПК
 
-← [`03-const-types-bits.md`](03-const-types-bits.md) · → [`05-heap-allocation.md`](05-heap-allocation.md)
+← [`03b-text-bytes-utf8.md`](03b-text-bytes-utf8.md) · → [`05-heap-allocation.md`](05-heap-allocation.md)
 
-## Цель
+## Проблема
 
-Для каждого pointer уметь отвечать:
+Non-null pointer недостаточно. Он мог когда-то указывать на допустимый object, но object уже перестал существовать.
 
-1. Какой объект он обозначает?
-2. Жив ли этот объект сейчас?
-3. Кто отвечает за cleanup?
-4. Разрешено ли через этот pointer менять объект?
-5. Может ли pointer пережить текущий вызов/область видимости?
+Значит, pointer safety зависит не только от адреса, но и от **времени существования объекта**.
 
-## Lifetime важнее числового адреса
+## Время жизни объекта
+
+Интервал выполнения программы, в котором объект существует и к нему допустимо обращаться, будем называть **временем жизни (lifetime)**.
+
+Пример:
 
 ```c
 int *bad(void)
 {
-    int x = 42;
-    return &x;
+    int local = 42;
+    return &local;
 }
 ```
 
-`x` имеет automatic storage duration. При выходе из вызова функции lifetime объекта заканчивается.
+`local` существует только во время выполнения этого вызова функции. После return его lifetime закончился. Возвращённый pointer сохраняет старое числовое значение, но это уже не делает объект живым.
 
-Критическая модель курса:
+## Call stack — ментальная модель, не магическая зона безопасности
 
-> После окончания lifetime объекта pointer на него больше не является пригодной ссылкой на этот объект. Нельзя строить корректность на том, что его числовые биты «всё ещё похожи на старый адрес».
+Типичные local variables автоматического storage duration связаны со **стеком вызовов (call stack)**: каждый активный function call имеет frame с частью локального состояния; при возврате этот frame больше не принадлежит вызову.
 
-Dereference такого dangling pointer — undefined behavior. Но проблема начинается раньше dereference: сам contract уже потерян, потому что pointed object больше не существует.
-
-## Почему «stack address ещё там» — плохая mental model
-
-Физические bytes могут временно не измениться, stack area может быть переиспользована следующим вызовом, optimizations могут вообще изменить размещение. C описывает lifetime объектов, а не обещает сохранность старого содержимого stack slot.
-
-Полезная рабочая схема:
+Для курса достаточно модели:
 
 ```text
-call
-↓
-automatic object begins lifetime
-↓
-borrowed pointers могут ссылаться на него
-↓
-return/end of block
-↓
-lifetime ends
-↓
-старые pointers больше не дают валидный доступ к объекту
+call function
+→ frame exists
+→ locals live
+→ return
+→ those locals' lifetime ends
 ```
 
-## Ownership — инженерный контракт
+Не выводи из неё точный физический layout: compiler optimizations могут хранить конкретное значение в register или вообще убрать объект. Language lifetime contract важнее красивой картинки стека.
 
-C не имеет встроенного borrow checker. Поэтому мы вводим явные термины:
+## Dangling pointer
 
-- **owner** — компонент, отвечающий за lifetime и cleanup ресурса;
-- **borrow** — временный доступ без передачи ownership;
-- **ownership transfer** — ответственность за cleanup переходит другой стороне;
-- **shared read-only borrow** — несколько наблюдателей без mutation;
-- **mutable access** — изменение объекта, требующее более строгого reasoning об aliasing.
+Pointer, который больше не указывает на живой object, называют **висячим указателем (dangling pointer)**.
 
-Это не ключевые слова C, но без такого словаря сложные проекты быстро становятся неразбираемыми.
+```text
+pointer value still exists
+object lifetime ended
+→ dereference is invalid
+```
+
+## Ownership как инженерный договор в C
+
+Как только API создаёт ресурс, чья жизнь не совпадает автоматически с одним коротким function call, появляется вопрос: **кто отвечает за окончание его lifetime?**
+
+Такой договор ответственности будем называть **владением (ownership)**:
+
+- кто создаёт resource;
+- кто обязан закончить его lifetime;
+- кто только временно пользуется им;
+- может ли reference пережить owner.
+
+Это ещё не Rust ownership type system. В C ownership — convention/API contract.
 
 ## Borrowed pointer
 
+Если функция получает pointer только на время вызова и не забирает ответственность за resource, будем говорить, что она **заимствует (borrows)** доступ.
+
 ```c
-size_t count_positive(const int *values, size_t count);
+void print_entry(const Entry *entry);
 ```
 
-Функция не становится owner массива. Caller гарантирует, что область `values[0..count)` доступна всё время вызова. `const` дополнительно обещает, что эта функция не будет менять элементы через данный pointer.
+`const` здесь помогает выразить «эта функция не должна менять `Entry` через этот pointer»; это не продлевает lifetime.
 
-## Escaping pointer
+## Сценарии для аудита
 
-Если функция сохраняет pointer в global/static state или в long-lived struct, borrow больше не ограничен временем вызова. Значит, нужен новый контракт:
-
-- object проживёт дольше сохранённого pointer;
-- либо данные копируются;
-- либо ownership передаётся;
-- либо хранение pointer запрещено.
-
-## Heap не равен ownership
-
-`malloc` создаёт объект с allocated storage duration, но сам факт «лежит в heap» не говорит, кто обязан вызвать `free`.
+Для каждого pointer задавай два независимых вопроса:
 
 ```text
-storage location != ownership policy
+1. На какой object он должен указывать?
+2. Жив ли этот object во всех местах использования pointer?
 ```
 
-Один модуль может выделить память и передать ownership другому. Или owner может временно дать borrowed pointer десятку функций.
+Только потом спрашивай bounds/mutability.
 
-## String ownership
+## Практика
 
-Для `const char *name` всегда выясняй:
+Классифицируй A–E и объясни **причину**, не только verdict:
 
-- literal со static storage?
-- caller-owned buffer?
-- heap allocation?
-- часть более крупного объекта?
-- null-terminated ли последовательность?
-- как долго валиден pointer?
-
-Один тип `const char *` не кодирует всё это.
-
-## Типичные bugs
-
-### Return local address
-
-Lifetime заканчивается раньше пользователя pointer.
-
-### Store borrowed pointer too long
-
-Container сохранил pointer на caller buffer, caller завершил scope/reallocated buffer — container держит dangling pointer.
-
-### Double ownership
-
-Два компонента считают себя владельцами и оба вызывают `free`.
-
-### Lost ownership
-
-Последний owner pointer перезаписан до `free` → leak.
-
-## Упражнение — lifetime audit
-
-Для сценариев A–E запиши: object, owner, borrower, момент окончания lifetime, bug/fix.
-
-A. функция возвращает address local `int`;
-B. caller передаёт address local struct функции, которая только читает его до return;
-C. функция сохраняет pointer на caller string глобально, caller завершает scope;
-D. heap buffer передан функции с контрактом ownership transfer;
-E. два struct fields указывают на один heap buffer, но destructor каждого пытается `free` его.
-
-Затем создай **safe** пример borrow. Намеренно dangling pointer можно продемонстрировать только текстом/через sanitizer-friendly отдельный experiment; не превращай UB в «проверку, что иногда работает».
+A. Pointer на caller variable используется только пока caller variable ещё жив.  
+B. Функция возвращает address local automatic variable.  
+C. Pointer на элемент массива сохраняется, массив продолжает существовать и не меняет storage.  
+D. Pointer передан read-only helper только на время helper call.  
+E. Pointer сохранён в global/static variable, а исходный local object уже вышел из lifetime.
 
 Разбор: [`04-lifetime-ownership.solution.md`](04-lifetime-ownership.solution.md).
 
-## Project slice — ownership contract Hash Table
-
-В [`project/hash-table/README.md`](project/hash-table/README.md) запиши:
-
-```text
-who owns table storage?
-who owns key/value bytes?
-does insert copy or borrow?
-what does get return?
-how long is returned pointer/reference valid?
-what invalidates it (update/resize/destroy)?
-```
-
-Для первого milestone рекомендуется table-owned copy keys/values: это проще для lifetime reasoning, но exact API выбираешь сам.
-
 ## Exit check
 
-Если видишь pointer field, ты должен сначала спросить «какой объект, чей lifetime и чей cleanup?», а уже потом думать о `*` и `->`.
+Почему `p != NULL` ничего не говорит о том, закончился ли lifetime target object?

@@ -1,44 +1,55 @@
-# Persistent KV Service — acceptance scenarios
+# Persistent KV Service — Test plan
 
-## Functional/recovery
+Тесты должны проверять contract, а не внутренние имена функций.
 
-1. GET/SET/DELETE basic contract;
-2. concurrent clients;
-3. clean restart preserves acknowledged durable state according to RECOVERY contract;
-4. malformed/oversized frames rejected without corrupting service;
-5. storage corruption/truncation copy produces controlled startup/runtime error according to policy.
+## Functional
 
-## Bounded resources / overload
+1. SET new / replace;
+2. GET hit / miss;
+3. DELETE hit / miss;
+4. multiple sequential operations preserve semantics.
 
-6. connection/frame/queue limits are explicit;
-7. overload reaches BUSY/reject/backpressure policy instead of unbounded allocation;
-8. slow clients cannot create unbounded per-connection memory;
-9. queue depth/reject metrics reconcile with workload.
+## Protocol/input
+
+5. partial TCP delivery;
+6. multiple frames in one read;
+7. zero/min/max legal lengths;
+8. oversized lengths rejected before allocation;
+9. truncated/malformed frame;
+10. unknown version/opcode/status handling.
+
+## Concurrency/resources
+
+11. concurrent clients against same/different keys;
+12. queue saturation reaches documented BUSY/backpressure behavior;
+13. slow client cannot create unbounded per-connection memory;
+14. repeated connect/disconnect leaves no unexplained fd/thread growth.
 
 ## Shutdown
 
-10. stop accepting new work;
-11. queue drain/cancel policy executes;
-12. workers wake/join;
-13. storage flush/close policy executes;
-14. process exits within documented target for defined workload.
+15. stop accepting new work;
+16. drain/cancel policy executes;
+17. blocked workers wake;
+18. workers join before storage teardown;
+19. process exits within documented target for defined workload.
 
-## Observability/load
+## Persistence/recovery
 
-15. p50/p95/p99 + throughput generated from defined workload;
-16. queue/service latency separated if instrumentation supports it;
-17. active connections/storage errors/lifecycle events observable;
-18. repeated benchmark records environment/build parameters.
+20. clean restart;
+21. forced kill on disposable data copy;
+22. truncated copy;
+23. bit-flipped/corrupted copy;
+24. injected write/sync failure;
+25. observed result compared to `RECOVERY.md` guarantee.
 
-## Failure experiments
+## Performance evidence
 
-19. forced process kill on disposable DB copy;
-20. injected storage-error boundary;
-21. truncated/corrupted copy;
-22. restart/recovery result compared to documented guarantee.
+26. fixed workload definition;
+27. warmup/run/sample method recorded;
+28. throughput + p50/p95/p99;
+29. queue/service latency split;
+30. near-saturation and overload runs.
 
-## Architecture
+## Tooling discipline
 
-23. at least 3 ADRs;
-24. security limitations;
-25. 10×/second-node analysis based on measured bottleneck.
+Не заполняй реальный system disk, не повреждай единственную копию данных и не запускай hostile input за пределами controlled fixtures.

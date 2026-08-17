@@ -1,81 +1,68 @@
-# 4.4 — Measurement discipline и profiling
+# 4.4 — Как отличить реальный bottleneck от красивой догадки
 
-**Теория:** ~55 мин  
-**Lab:** ~60 мин  
-**С телефона:** да
+**Теория:** ~70 мин · **Лаб:** ~100 мин · **С телефона:** theory — да
 
 ← [`03-cache-locality-working-set.md`](03-cache-locality-working-set.md) · → [`05-allocator-design.md`](05-allocator-design.md)
 
-## Цель
+## Проблема
 
-Научиться формулировать performance claim так, чтобы его можно было воспроизвести и опровергнуть.
+Once you know cache/TLB/page faults, almost any slowdown can be “explained” with a plausible story. Without measurement this becomes cargo-cult optimization.
 
-## Latency vs throughput
+## Measurement protocol
 
-Latency — время одной operation/request.
-
-Throughput — количество completed operations за время.
-
-Система может увеличить throughput параллелизмом и одновременно ухудшить tail latency.
-
-## Distribution
-
-Average скрывает хвост.
-
-Используем:
+Before benchmark write:
 
 ```text
-p50 median-like
-p95
-p99
+question/hypothesis
+input/workload
+build flags
+machine/environment
+metric
+warmup policy
+run count
+what result would falsify hypothesis
 ```
 
-`p99 = X` означает: примерно 99% observations ≤ X при конкретной выборке/методе percentile.
+Then measure.
 
-Не превращай percentile в абсолютную гарантию.
+## Wall time vs CPU time
 
-## Benchmark checklist
+Wall-clock includes waiting/scheduling/I/O. CPU time counts time process consumed CPU. Difference can be evidence of waiting but not automatic diagnosis.
 
-Любой claim содержит:
+## Microbenchmark traps
 
-1. workload;
-2. input size/distribution;
-3. build flags;
-4. hardware/environment;
-5. warm-up/setup;
-6. number of runs/samples;
-7. statistic;
-8. before/after only one relevant change if possible.
+- compiler removes unused computation;
+- input too small → timer overhead dominates;
+- one run captures noise;
+- debug vs optimized builds compared accidentally;
+- cache warm/cold state changes;
+- background load;
+- benchmark changes code layout itself.
 
-## Compiler optimization
+## Profiling
 
-Debug `-O0` и optimized `-O2/-O3` могут иметь совершенно разный generated code. Benchmark release-like code, если измеряешь production-ish performance.
+A **profiler** attributes sampled/measured cost to code/events. `perf` on Linux may expose cycles, instructions, faults, cache-related counters depending on permissions/hardware.
 
-Но debugging UB под optimization может быть сложнее — сначала correctness/sanitizers.
+Counter name is not proof of cause. Correlate with code path/workload and controlled comparison.
 
-## Timer pitfalls
+## Statistics minimum
 
-- clock resolution;
-- system noise;
-- CPU frequency scheduling;
-- cold cache;
-- measuring I/O accidentally;
-- optimizer eliminating unused calculation.
+For repeated runtime samples, record distribution summary: median + range/quantiles; do not report 7 decimal places from noisy laptop run.
 
-## Profiler vs timer
+Latency percentiles as service SLI concept come later; here they are just distribution summaries if used.
 
-Timer отвечает «сколько». Profiler помогает «где/почему».
+## Практика
 
-Используй profiler/perf tools там, где available, но курс не зависит от конкретного GUI.
+Take one Module 4 locality experiment:
 
-## Exercise
-
-Возьми два traversal variants из прошлого lab.
-
-Составь benchmark protocol до запуска. Затем собери 20+ samples, сравни median/p95 и сформулируй осторожный вывод.
+1. state hypothesis;
+2. run reproducible script/command several times;
+3. collect wall time and at least one OS/hardware signal available;
+4. change one variable;
+5. decide whether evidence supports hypothesis.
 
 Разбор: [`04-measurement-profiling.solution.md`](04-measurement-profiling.solution.md).
 
 ## Exit check
 
-Фраза «после optimization стало на 30% быстрее» неполна. Назови минимум пять вещей, которые должны сопровождать claim.
+What evidence would make you abandon your favorite cache explanation?

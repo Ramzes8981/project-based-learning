@@ -1,11 +1,11 @@
 # Разбор 1.6
 
-Ожидаемые классы:
+Ожидаемые root causes:
 
-- запись `p[n]` в allocation на `n` элементов — heap-buffer-overflow;
-- чтение/запись после `free(p)` — heap-use-after-free;
-- `INT_MAX + 1` в signed `int` — signed integer overflow / UB.
+- OOB: разыменован one-past/outside-array location; correct version ограничивает index `< count`.
+- UAF: allocation lifetime закончился на `free`; correct version не использует borrowed pointers после owner release.
+- signed overflow: математический результат не представим типом; correct version проверяет range **до** operation или меняет contract/type.
 
-Sanitizer message нужно читать сверху вниз до первого места **вашего** кода, которое объясняет invalid access, а не просто копировать последнюю строку stack trace.
+Не сравнивай только «crashed / did not crash». Sanitizer diagnostic и violated language/API contract — более сильное evidence.
 
-После исправления добавь regression test, который воспроизводил старый input/path и теперь проходит.
+Broken fixtures должны оставаться явно маркированными и не компилироваться как часть normal project target.

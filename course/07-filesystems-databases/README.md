@@ -1,37 +1,39 @@
-# Module 7 — Filesystems & Database Internals
+# Module 7 — Как данные получают имя на диске, переживают сбой и превращаются в базу данных
 
-**Цель:** понять путь `pathname → VFS/filesystem → page cache → storage` и построить маленький page-oriented database engine с B+tree-like index.
+**Оценка core:** ~45–65 часов.  
+**Prerequisite:** files/fd, virtual memory pages, checked binary representation, trees/complexity.
 
-**Оценка:** ~65–90 часов.  
-**Guided lab:** FUSE 3 virtual filesystem.  
-**Core milestone:** SimpleDB.
+`page cache` **не prerequisite**: он впервые нормально вводится в 7.2, когда возникает вопрос «`write()` вернулся — где сейчас данные?».
 
-## Prerequisites
+## Core path
 
-- function pointers/callback tables из Module 1;
-- Unix file/path/descriptors;
-- VM/page cache mental model;
-- explicit binary serialization/endianness;
-- Testing Engineering.
+1. [`01-filesystem-names-inodes.md`](01-filesystem-names-inodes.md) — **Почему имя файла и сам файл — разные сущности**.
+2. [`02-page-cache-durability.md`](02-page-cache-durability.md) — **Почему успешный `write()` ещё не означает “переживёт питание off”**.
+3. [`04-binary-format-pages-serialization.md`](04-binary-format-pages-serialization.md) — **Как записать bytes так, чтобы будущая версия программы могла их прочитать**.
+4. [`05-pager-records-cursor.md`](05-pager-records-cursor.md) — **Как работать с файлом базы страницами вместо случайных `read/write` по всему коду**.
+5. [`06-btree-index-splits.md`](06-btree-index-splits.md) — **Как искать запись на диске, не сканируя весь файл**.
+6. [`07-buffering-query-costs.md`](07-buffering-query-costs.md) — **Почему стоимость query определяется не только Big-O, но и I/O/locality**.
+7. [`08-transactions-wal-recovery.md`](08-transactions-wal-recovery.md) — **Что должно быть записано до данных, чтобы recovery вообще был возможен**.
+8. [`09-module-checkpoint.md`](09-module-checkpoint.md) — checkpoint.
 
-## Уроки
+## Optional systems lab
 
-1. [`01-filesystem-names-inodes.md`](01-filesystem-names-inodes.md)
-2. [`02-page-cache-durability.md`](02-page-cache-durability.md)
-3. [`03-fuse-userspace-filesystem.md`](03-fuse-userspace-filesystem.md)
-4. [`04-binary-format-pages-serialization.md`](04-binary-format-pages-serialization.md)
-5. [`05-pager-records-cursor.md`](05-pager-records-cursor.md)
-6. [`06-btree-index-splits.md`](06-btree-index-splits.md)
-7. [`07-buffering-query-costs.md`](07-buffering-query-costs.md)
-8. [`08-transactions-wal-recovery.md`](08-transactions-wal-recovery.md)
-9. [`09-module-checkpoint.md`](09-module-checkpoint.md)
+[`03-fuse-userspace-filesystem.md`](03-fuse-userspace-filesystem.md) — FUSE. Полезен для понимания VFS/callback interface, но **не блокирует** database storage path.
 
-## FUSE reference
+## Проект
 
-[`FUSE3_MINI_REFERENCE.md`](FUSE3_MINI_REFERENCE.md) содержит достаточные signatures/build conventions для guided lab на high-level libfuse 3 API. Внешняя документация нужна только для углубления/версий вне course scope.
+[`project/README.md`](project/README.md) — SimpleDB. Core project intentionally stops before full ACID/WAL implementation; transaction/WAL lesson is conceptual bridge and optional extension. Limitations remain normative in [`project/RECOVERY_LIMITATIONS.md`](project/RECOVERY_LIMITATIONS.md).
 
-## SimpleDB
+## Главная causal chain
 
-[`project/SPEC.md`](project/SPEC.md) · [`project/FORMAT.md`](project/FORMAT.md) · [`project/README.md`](project/README.md)
-
-Core SimpleDB **не** заявляет ACID/WAL/crash-atomic guarantees, которых не реализует. Урок про transactions/WAL объясняет production concepts; project обязан честно фиксировать их отсутствие в [`project/RECOVERY_LIMITATIONS.md`](project/RECOVERY_LIMITATIONS.md).
+```text
+path name
+→ filesystem object/inode
+→ page cache + durability boundary
+→ stable binary format
+→ page manager
+→ records
+→ disk index
+→ query/I/O cost
+→ crash consistency / WAL concept
+```

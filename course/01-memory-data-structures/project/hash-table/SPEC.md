@@ -1,50 +1,59 @@
-# Hash Table in C — SPEC
+# Hash Table in C — staged SPEC
 
-Эта версия эволюционирует из MiniKV Module 0.
+## Prerequisites
 
-## Representation
+- memory/lifetime/allocation from Phase A;
+- complexity/invariants;
+- hashing/collision/probing lesson 1.16;
+- resize/rehash lesson 1.17 for final milestone.
 
-Core implementation использует **open addressing + linear probing**.
+## Stage 1 — fixed slots after 1.16
 
-Bucket должен различать минимум states:
+Behavior:
 
-- EMPTY;
-- OCCUPIED;
-- TOMBSTONE.
+```text
+put(key,value)
+get(key)
+delete(key)
+```
 
-Table владеет dynamic bucket storage. Ownership keys/values должен быть явно задокументирован; для core рекомендуется, чтобы table владел собственными копиями.
+Technical constraints:
 
-## Required operations
+- open addressing with documented probe policy;
+- distinguish EMPTY/OCCUPIED/DELETED;
+- bound every probe by slot_count;
+- equality uses key comparison, never hash alone;
+- duplicate put updates, does not increase item count;
+- deletion preserves lookup through collision chain;
+- table-full returns controlled failure.
 
-- create/init;
-- destroy;
-- set/insert/update;
-- get;
-- delete;
-- automatic growth;
-- rehash;
-- instrumentation.
+## Stage 2 — resize after 1.17
 
-## Required properties
+- explicit load/grow policy;
+- allocate new slot array separately;
+- check slot-count and byte arithmetic before operations;
+- reinsert OCCUPIED entries under new slot count;
+- do not copy tombstones as live history;
+- commit replacement only after successful rebuild;
+- allocation/rebuild failure leaves old table usable.
 
-- collisions корректны;
-- delete не разрывает probe chains;
-- probe loop всегда имеет termination condition;
-- high load triggers growth before pathological full state;
-- allocation failure does not silently destroy old valid table;
-- string length/size arithmetic validated;
-- no known leaks/UAF/OOB.
+## Ownership
 
-## Metrics
+Choose key policy and document it. Recommended learning policy: table owns copies of keys and frees them exactly once on delete/destroy/rehash transfer.
 
-Минимум:
+Rehash must not accidentally double-own or double-free key storage. Either move ownership safely or create a fresh representation with clear rollback.
 
-- size;
-- capacity;
-- tombstones;
-- resize count;
-- total probes или эквивалентная probe metric.
+## Hash contract
 
-## Transfer
+A small non-cryptographic hash is enough. README must explicitly state it is not adversarial/security hardening.
 
-Одна самостоятельная feature: alternate probing, iterator, configurable threshold, shrink policy, probe histogram и т.п.
+## Transfer task
+
+Choose one:
+
+- iterator/callback over occupied entries;
+- reserve API;
+- tombstone cleanup policy;
+- string value with explicit ownership.
+
+Write invariant/failure plan before code.

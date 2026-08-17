@@ -1,51 +1,66 @@
-# 9.2 — Protocol contracts, request IDs и idempotency
+# 9.2 — Что означает timeout и можно ли просто повторить запрос
 
-**Теория:** ~75 мин  
-**Design/project:** ~2–3 часа  
-**С телефона:** да
+**Теория:** ~70 мин · **Design/project:** ~2 часа · **С телефона:** да
 
-← [`01b-computational-limits-p-np.md`](01b-computational-limits-p-np.md) · → [`03-queueing-latency-capacity.md`](03-queueing-latency-capacity.md)
+← [`01-requirements-boundaries-state.md`](01-requirements-boundaries-state.md) · → [`03-queueing-latency-capacity.md`](03-queueing-latency-capacity.md)
 
-## Цель
+## Проблема
 
-Спроектировать network API так, чтобы timeout/retry semantics были явными.
+Клиент отправил `SET`, затем получил timeout.
 
-## Failure ambiguity
-
-Client отправил SET и получил timeout. Возможны:
+Что произошло?
 
 ```text
 request не дошёл
-server выполнил, response потерян
-server умер во время operation
-response задержался дольше client deadline
+request дошёл, но server ещё не выполнил его
+server выполнил mutation, response потерялся
+response просто пришёл слишком поздно
+server умер посередине операции
 ```
 
-Timeout не доказывает, что operation не выполнена.
+**Timeout сообщает только то, что клиент не дождался результата вовремя.** Он не доказывает, что операция не была выполнена.
 
-## Idempotency
+## Почему retry опасен
 
-Operation idempotent, если повторное применение с тем же semantic input оставляет state таким же после первого успешного применения.
+Если повторить mutation вслепую, side effect может выполниться дважды.
 
-`GET` обычно idempotent. `SET key=value` может быть idempotent относительно конечного value, но side effects/metrics/version increments способны сделать full semantics неидемпотентными. `increment` не idempotent.
+Здесь возникает понятие **идемпотентности (idempotency)**: повторное применение операции с тем же смысловым input после первого успеха не меняет конечное состояние повторно.
+
+`SET key=value` часто можно сделать идемпотентным относительно final value. `INCREMENT` — обычно нет.
+
+Но даже у `SET` дополнительные side effects — version counter, audit event, billing — могут изменить полную семантику.
 
 ## Request identity
 
-Если protocol поддерживает dedup/retry-safe mutations, request ID должен иметь scope/lifetime/storage policy. «Добавим UUID» без server memory/recovery contract не решает ambiguous retry.
+Уникальный request ID полезен только вместе с contract:
 
-## Capstone decision
+```text
+сколько сервер хранит ID?
+переживает ли dedup restart?
+что происходит после expiry?
+какой scope уникальности?
+```
 
-Ты можешь **не реализовывать** durable dedup в core. Но `PROTOCOL.md` обязан явно написать:
-
-- какие operations client может retry;
-- что означает timeout;
-- есть ли request ID;
-- какие duplicate effects возможны после restart.
+«Добавим UUID» само по себе ambiguity не устраняет.
 
 ## Project slice
 
-Начни `PROTOCOL.md` как evolution Module 5 protocol и добавь response/error/deadline/retry semantics. Не добавляй distributed consensus ради one-node service.
+Обнови `PROTOCOL.md`:
+
+- какие операции можно retry;
+- что означает timeout;
+- какие duplicate effects допустимы;
+- есть ли request ID/dedup;
+- что меняется после restart.
+
+Durable dedup **не обязателен** для core. Честный explicit limitation лучше фиктивной гарантии.
+
+## Типичная неправильная модель
+
+> Если клиент не получил `OK`, значит server ничего не сделал.
+
+Распределённое по сети наблюдение так не работает даже при одном server process.
 
 ## Exit check
 
-Для каждого client retry ответь: может ли first attempt уже изменить state и как duplicate detect/semantics это учитывают?
+Для любого retry можешь объяснить, мог ли первый attempt уже изменить state и как контракт учитывает повтор?

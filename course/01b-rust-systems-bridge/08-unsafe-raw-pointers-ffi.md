@@ -1,149 +1,86 @@
-# 1B.8 — `unsafe`, raw pointers и C FFI
+# 1B.8 — Где заканчиваются гарантии safe Rust и начинается внешний contract
 
-**Теория:** ~95 мин  
-**Lab:** ~90 мин  
-**С телефона:** теория — да; lab — ПК
+**Теория:** ~85 мин · **Лаб:** ~90 мин · **С телефона:** теория — да
 
-← [`07-text-bytes-unicode-utf8.md`](07-text-bytes-unicode-utf8.md) · → [`09-send-sync-concurrency-preview.md`](09-send-sync-concurrency-preview.md)
+← [`07-text-bytes-unicode-utf8.md`](07-text-bytes-unicode-utf8.md) · → [`10-module-checkpoint.md`](10-module-checkpoint.md)
 
-## Цель
+## Проблема
 
-Уметь сформулировать safety invariant для raw-pointer/FFI boundary и собрать минимальную C ↔ Rust связку без скрытых build steps.
+ОС и C libraries не обязаны говорить на языке Rust references/ownership. На boundary приходится работать с raw pointers, C ABI и assumptions, которые compiler сам доказать не может.
 
-## `unsafe` — proof obligation
+## `unsafe` не выключает правила
 
-Safe Rust не может выразить все OS/FFI/custom allocator operations. `unsafe` разрешает операции, корректность которых compiler не может доказать.
+`unsafe` означает: programmer вручную гарантирует дополнительные invariants для операции. Safe Rust guarantees вокруг блока остаются важны.
 
-Главная дисциплина:
+Raw pointers:
+
+```rust
+*const T
+*mut T
+```
+
+могут быть null, dangling, misaligned или указывать на insufficient/incorrectly typed storage. Dereference требует `unsafe` и valid contract.
+
+## FFI
+
+**Foreign Function Interface (FFI)** — boundary между Rust и code с другим ABI, например C.
+
+Для C layout struct:
+
+```rust
+#[repr(C)]
+struct Pair {
+    key: std::os::raw::c_int,
+    value: std::os::raw::c_int,
+}
+```
+
+Не учи универсальное правило «C `int` = Rust `i32`». Используй C-compatible alias `c_int`; точная width/ABI — property target platform.
+
+## Ownership across FFI
+
+Самый опасный вопрос:
 
 ```text
-safe precondition checks
-↓
-маленький unsafe region
-↓
-unsafe operation
-↓
-восстановленный invariant
-↓
-safe API result
+кто allocates?
+кто frees?
+каким allocator/deallocator pair?
+может ли pointer быть retained after call?
 ```
 
-## Raw pointers
+Если C возвращает owned pointer, Rust не должен автоматически `Box::from_raw` без доказанного allocation/layout/deallocator contract.
 
-```rust
-let x = 10i32;
-let p: *const i32 = &x;
-```
+## Strings across C boundary
 
-Получить raw pointer можно без dereference. Для чтения:
+C string pointer требует:
 
-```rust
-// SAFETY: p derived from live aligned x and x lives through this block.
-let value = unsafe { *p };
-```
+- non-null if contract says so;
+- reachable terminating `\0`;
+- valid readable bytes up to terminator;
+- encoding contract separately.
 
-Raw pointer не несёт обычных reference guarantees про lifetime/aliasing/non-null.
+`CStr` helps model nul-terminated bytes; it does not magically prove original pointer validity.
 
-## Safety comment должен быть проверяемым
+## Panic across boundary
 
-Плохо:
+Не позволяй Rust panic unwinding пересекать обычную C ABI boundary unless ABI/strategy explicitly supports required behavior. Course FFI functions catch/avoid panic and convert failures to documented status.
 
-```text
-SAFETY: seems fine
-```
+## Local reference
 
-Хорошо:
+Перед лабой прочитай [`FFI_MINI_REFERENCE.md`](FFI_MINI_REFERENCE.md). Внешний tutorial не требуется.
 
-```text
-p points to initialized T allocated by owner X;
-length validated <= allocation size;
-owner cannot free/reallocate until call returns;
-alignment is align_of::<T>().
-```
+## Практика
 
-## FFI ABI contract
+Сделай tiny C library `add_pair` + Rust caller:
 
-На boundary нужно отдельно определить:
-
-- symbol name;
-- calling convention/ABI;
-- integer widths/C-compatible types;
-- struct layout (`#[repr(C)]` когда нужно);
-- pointer nullability/alignment/lifetime;
-- ownership transfer;
-- error convention;
-- string encoding/termination;
-- thread-safety.
-
-## Rust 2024 external declarations
-
-Для курса используем Rust 2024 edition. External block объявляется как unsafe boundary:
-
-```rust
-unsafe extern "C" {
-    fn add_two(a: i32, b: i32) -> i32;
-}
-```
-
-Автор declaration отвечает за то, что signature действительно соответствует C symbol. Сам вызов foreign function по умолчанию рассматривается как unsafe, если он не объявлен `safe` с доказанным contract.
-
-## Self-contained C → Rust lab
-
-`add.c`:
-
-```c
-int add_two(int a, int b)
-{
-    return a + b;
-}
-```
-
-Выбери маленькие test values, для которых C signed addition не overflow.
-
-Собери static library:
-
-```bash
-cc -std=c17 -Wall -Wextra -Wpedantic -c add.c -o add.o
-ar rcs libtinyffi.a add.o
-```
-
-`src/main.rs`:
-
-```rust
-unsafe extern "C" {
-    fn add_two(a: i32, b: i32) -> i32;
-}
-
-fn main() {
-    // SAFETY: declaration matches C `int add_two(int,int)` in our ABI lab;
-    // chosen inputs cannot overflow C int.
-    let value = unsafe { add_two(20, 22) };
-    assert_eq!(value, 42);
-}
-```
-
-Для разового запуска можно передать linker search/lib flags через rustc; для Cargo используй внутренний [`FFI_MINI_REFERENCE.md`](FFI_MINI_REFERENCE.md), где описан `build.rs` без стороннего crate.
-
-## Strings across FFI
-
-Rust `&str`/`String` не являются `char *` C strings. Для null-terminated C text standard library даёт `CString`/`CStr`.
-
-`CString::new` может fail, если внутри bytes есть `\0`: interior null имеет специальный смысл для C string.
-
-Кто освобождает returned `char *` — часть API contract, а не свойство `CString` само по себе.
-
-## Panic/error boundary
-
-Не делай panic обычным FFI error protocol. Переводи expected failures в documented status/result representation на boundary.
-
-## Lab
-
-A. raw pointer observation живого `i32` с SAFETY comment.  
-B. собери `libtinyffi.a` и вызови `add_two`.  
-C. измени signature намеренно **только текстом**, объясни почему declaration mismatch может привести к UB; не запускай заведомо неверный ABI experiment.
+- `#[repr(C)]` struct;
+- C header and Rust declaration agree on C-compatible types;
+- no ownership transfer;
+- nullability contract explicit;
+- build/test both sides.
 
 Разбор: [`08-unsafe-raw-pointers-ffi.solution.md`](08-unsafe-raw-pointers-ffi.solution.md).
 
 ## Exit check
 
-Для каждого unsafe block назови proof obligation, а для FFI — кто определяет ABI, ownership и error semantics.
+Назови минимум пять invariants, которые raw pointer type сам по себе не доказывает.

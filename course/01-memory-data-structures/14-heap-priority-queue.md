@@ -1,73 +1,74 @@
-# 1.14 — Binary Heap и Priority Queue
+# 1.14 — Как быстро получать самый приоритетный элемент
 
-**Теория:** ~80 мин  
-**Упражнение:** ~75 мин  
-**С телефона:** да
+**Теория:** ~65 мин  
+**Практика:** ~75 мин  
+**С телефона:** теория — да; практика — ПК
 
-← [`13-bst-traversals-balanced-trees.md`](13-bst-traversals-balanced-trees.md) · → [`15-dynamic-programming.md`](15-dynamic-programming.md)
+← [`13-bst-traversals-balanced-trees.md`](13-bst-traversals-balanced-trees.md) · → [`19-hashing-collisions.md`](19-hashing-collisions.md)
 
-## Цель
+## Проблема
 
-Понять heap как complete binary tree в contiguous array и реализовать priority queue operations без pointer-based nodes.
+Scheduler/task queue часто не просит «найди key X» или «держи всё полностью sorted». Ему нужно другое:
+
+```text
+быстро добавить item
+быстро получить item с минимальным/максимальным priority
+```
+
+Полностью сортировать после каждого insert избыточно.
+
+## Priority queue
+
+ADT с операциями вроде:
+
+```text
+push(item, priority)
+peek_best()
+pop_best()
+```
+
+Одна распространённая implementation — **binary heap**.
+
+Не путай binary heap data structure с разговорным словом `heap` для dynamically allocated memory. Это два разных concepts.
 
 ## Array representation
 
-Для 0-based index:
+Для zero-based array:
 
 ```text
 left(i)  = 2*i + 1
 right(i) = 2*i + 2
-parent(i)= (i-1)/2   только при i > 0
+parent(i)= (i-1)/2, только если i > 0
 ```
 
-Последняя оговорка критична для `size_t`: `0 - 1` wraps как unsigned.
-
-Перед вычислением `2*i+2` в generic huge container также нужен overflow reasoning; учебный heap ограничивается реально выделенной capacity.
-
-## Min-heap invariant
-
-Для каждой node:
+Min-heap invariant:
 
 ```text
-parent key <= child keys
+parent <= each child
 ```
 
-Это **не sorted array**. Гарантируется только отношение parent/children.
+Отсюда minimum всегда в index 0, но остальная array **не полностью sorted**.
 
-## Push / sift-up
+## Push / pop
 
-Добавить в конец, затем пока invariant нарушен — swap с parent.
+`push` добавляет element в конец и поднимает его, пока heap invariant не восстановлен.
 
-Height `O(log n)` → push `O(log n)`.
+`pop_min` заменяет root последним element и опускает его вниз.
 
-## Pop-min / sift-down
+Высота complete binary tree `O(log n)`, поэтому push/pop typically `O(log n)`, peek `O(1)`.
 
-Root — minimum `O(1)` lookup. Для удаления root переносим последний element наверх, уменьшаем size и восстанавливаем invariant вниз → `O(log n)`.
+## Arithmetic safety
 
-## Build heap
+Не вычисляй child index, если multiplication/addition может выйти за `size_t`. На практике compare against `len` and derive only when parent can have a child; для course heap with realistic allocated lengths bounds already ограничивают индексы, но reasoning должно быть явным.
 
-Последовательные pushes дают `O(n log n)`. Bottom-up heapify имеет `O(n)` total work; это хороший пример, где «каждая операция до log n» не означает автоматически `n log n` для более умного batch algorithm.
+Никогда не вычисляй `(i - 1)` при `i == 0` для unsigned `size_t`.
 
-## Priority Queue abstraction
+## Практика
 
-Heap — representation. Priority Queue — API/abstract data type: insert item with priority, inspect/pop highest/lowest priority.
-
-Dijkstra позже использует Priority Queue, а не «heap ради heap».
-
-## Упражнение
-
-Реализуй min-heap для `int`:
-
-- init/free через свой Vector или отдельный dynamic array;
-- push;
-- peek;
-- pop;
-- invariant checker для tests.
-
-Проверки: empty policy, one item, ascending/descending insert, duplicates, repeated push/pop.
+Реализуй min-heap поверх Vector-like storage и проверь heap invariant после каждого mutation в tests.
 
 Разбор: [`14-heap-priority-queue.solution.md`](14-heap-priority-queue.solution.md).
 
 ## Exit check
 
-Почему inorder traversal heap не даёт sorted order, а repeated pop-min даёт?
+Почему heap позволяет быстро получить minimum, хотя весь array не отсортирован?

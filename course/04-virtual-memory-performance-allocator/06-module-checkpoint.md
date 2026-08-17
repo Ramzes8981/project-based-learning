@@ -1,39 +1,32 @@
-# Module 4 — Checkpoint
+# 4.7 — Checkpoint: адрес, translation cost и allocator invariants
+
+**Время:** ~3–5 часов · **С телефона:** review — да; project — ПК
+
+← [`05b-free-lists-coalescing.md`](05b-free-lists-coalescing.md) · ↑ [`README`](README.md)
 
 ## Explain
 
-- virtual vs physical address;
-- mapping/page;
-- page table/TLB;
-- page fault vs TLB miss;
-- COW;
-- cache line/locality;
-- working set;
-- latency/throughput/p95/p99;
-- benchmark evidence;
-- alignment;
-- metadata/free list;
-- internal/external fragmentation;
-- split/coalesce.
+1. virtual address vs physical storage;
+2. page + offset;
+3. why page tables exist;
+4. why TLB exists;
+5. recoverable page fault vs invalid access;
+6. CPU cache/locality/working set;
+7. why Big-O can miss locality cost;
+8. measurement protocol before optimization;
+9. alignment;
+10. bump allocation;
+11. free list/split/coalesce;
+12. internal vs external fragmentation.
 
-## Core milestone
+## Project gate
 
-Проверь [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md).
+Arena Allocator passes project acceptance including forced invalid/double-free cases and coalescing only true physical neighbors.
 
-## Required experiment
+## Transfer
 
-Сравни две placement policies на одинаковом deterministic workload. Не заявляй winner вне измеренного scope.
+Compare first-fit vs one alternative on a defined allocation/free workload. Measure fragmentation/search work, not vibes.
 
-## Debug story
+## Exit check
 
-Найди seeded corruption:
-
-- overlapping blocks;
-- wrong coalescing;
-- size arithmetic overflow;
-- misalignment;
-- double free.
-
-## Exit gate
-
-Ты можешь связать allocator layout с virtual mapping и cache/locality, а performance claim — с reproducible measurement.
+Given a failed large allocation with lots of total free bytes, you can distinguish capacity exhaustion, external fragmentation, alignment waste and metadata bug.

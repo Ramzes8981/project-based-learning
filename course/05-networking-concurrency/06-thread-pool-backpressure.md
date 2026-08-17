@@ -1,109 +1,54 @@
-# 5.6 — Thread pool, bounded queue и backpressure
+# 5.7 — Почему перегруженный server должен замедлять или отклонять работу
 
-**Теория:** ~70 мин  
-**Project slice:** ~6–10 часов  
-**С телефона:** теория — да
+**Теория:** ~85 мин · **Практика/project:** ~4–6 часов · **С телефона:** теория — да
 
-← [`05-threads-races-sync.md`](05-threads-races-sync.md) · → [`07-poll-event-loop.md`](07-poll-event-loop.md)
+← [`05b-condvars-bounded-queue.md`](05b-condvars-bounded-queue.md) · → [`07-poll-event-loop.md`](07-poll-event-loop.md)
 
-## Цель
+## Проблема
 
-Сделать concurrency **bounded** и определить поведение overload вместо бесконтрольного создания threads/requests.
-
-## Thread-per-connection
-
-Просто:
-
-```text
-accept -> create thread -> handle client
-```
-
-Но при большом числе connections:
-
-- много stacks/thread metadata;
-- scheduling overhead;
-- unbounded resource creation;
-- attacker/overload может исчерпать resources.
+Thread-per-connection looks simple but each connection consumes stack/scheduler/file-descriptor resources. Unbounded arrival can create unbounded threads.
 
 ## Thread pool
 
+Create fixed worker count and bounded work queue:
+
 ```text
 acceptor
-  ↓
-bounded queue<client_fd/job>
-  ↓
-N worker threads
-  ↓
-process protocol/storage
+→ bounded queue
+→ worker 1
+→ worker 2
+→ ... fixed N
 ```
 
-Workers fixed/configured → resource concurrency bounded.
-
-## Queue bound
-
-Unbounded queue «решает» overload накоплением latency + memory.
-
-Когда arrival rate > sustainable service rate долгое время, backlog растёт без конца.
-
-Bounded queue заставляет выбрать policy:
-
-- block acceptor/producer;
-- reject connection/request;
-- shed/drop work;
-- apply timeout.
-
-Нет бесплатного варианта; policy является service contract.
+Worker count bounds active application work. Queue bounds waiting work.
 
 ## Backpressure
 
-Backpressure означает, что downstream saturation влияет на upstream behavior вместо бесконечного buffering.
+When downstream capacity is full, upstream must receive a signal/constraint. This is **обратное давление (backpressure)**.
 
-## Shared KV store
+For a server it can appear as:
 
-Простой core design: один mutex вокруг hash table operations. Это correctness-first baseline.
+- stop accepting temporarily;
+- bounded enqueue wait;
+- reject/close with protocol status;
+- let kernel socket backlog fill, pushing pressure outward.
 
-Не держи store mutex во время network recv/send. Critical section должен защищать только shared state.
+Backpressure is not “make system faster”. It prevents unlimited accumulation and makes overload behavior explicit.
 
-Позже можно измерить read/write lock/sharding experiment как transfer.
+## Queueing consequence
 
-## Connection ownership
+Even before CPU saturation, deeper queue increases waiting time. Latency = queue wait + service time + I/O/network components.
 
-После `accept` fd owner переходит queue/worker согласно design. Нужно исключить:
+Thus “accept every request and eventually process” may maximize misery rather than usefulness.
 
-- double close;
-- fd leak при queue reject;
-- worker exit without close.
+## Choosing worker count
 
-## Graceful shutdown preview
+No universal `threads = cores` rule. CPU-bound vs blocking I/O workload differs. Measure throughput, queue wait, CPU utilization and tail latency under defined workload.
 
-Нужно определить:
+## Project stage
 
-```text
-stop accepting
-signal queue shutdown
-workers finish/drain or abort by policy
-join workers
-cleanup store
-```
-
-## Project slice
-
-Реализуй thread pool + bounded queue + synchronized Hash Table.
-
-Public metrics:
-
-- active/accepted connections;
-- queue depth;
-- rejected work;
-- completed requests.
-
-## Causal questions
-
-1. Почему больше threads может ухудшить overload?
-2. Почему bounded queue делает failure более явным?
-3. Где должен close client fd при reject?
-4. Почему global store mutex — разумный первый вариант, хотя не самый масштабируемый?
+Concurrent KV Server now uses bounded worker pool. Define exact full-queue policy in README/PROTOCOL; tests must prove resource bounds and ownership on rejection/shutdown.
 
 ## Exit check
 
-Если queue full, твой server обязан иметь **явное** поведение, а не «надеяться, что такого не будет».
+If queue grows from 10 to 10,000 while service rate unchanged, what happened to waiting time even before any request execution got slower?

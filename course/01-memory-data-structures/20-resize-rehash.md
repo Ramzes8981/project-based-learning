@@ -1,89 +1,68 @@
-# 1.20 — Resize, rehash и завершение Hash Table
+# 1.17 — Почему hash table нельзя просто увеличить копированием slots
 
-**Теория:** ~60 мин  
-**Project slice:** ~4–8 часов  
-**С телефона:** теория — да
+**Теория:** ~70 мин  
+**Практика/project:** ~4–6 часов  
+**С телефона:** теория — да; project — ПК
 
-← [`19-hashing-collisions.md`](19-hashing-collisions.md) · → [`21-module-checkpoint.md`](21-module-checkpoint.md)
+← [`19-hashing-collisions.md`](19-hashing-collisions.md) · → [`20b-graphs-paths.md`](20b-graphs-paths.md)
 
-## Цель
+## Проблема
 
-Добавить growth/rebuild policy без потери данных и понять resize как изменение hash-to-index mapping.
-
-## Почему resize до полного заполнения
-
-Open addressing резко деградирует при высокой used load. Поэтому growth threshold — design policy, например `< 0.8`, а не магический закон.
-
-Нужно измерять probes и выбрать threshold осознанно.
-
-## Rehash обязателен
+Index зависит от table size:
 
 ```text
-old index = hash % old_capacity
-new index = hash % new_capacity
+hash % slot_count
 ```
 
-После изменения capacity простое `memcpy` buckets разрушает search invariant. Active entries надо вставить в fresh table заново.
+Если `slot_count` меняется, для того же key initial slot обычно меняется тоже. Поэтому raw-copy старого slot array в начало нового ломает lookup logic.
 
-Tombstones переносить не нужно: rebuild очищает их.
+## Rehash
 
-## Failure-safe progression
+При росте table нужно создать новый slot array и **заново вставить (rehash)** каждую occupied entry по правилам нового `slot_count`.
 
 ```text
-validate new capacity arithmetic
-allocate new buckets
-if fail -> old table untouched
-reinsert active entries into temporary new state
-if unexpected failure -> clean temporary state, old stays valid
-commit/swap table metadata
-release old bucket array
+old occupied entries
+→ compute position under new size
+→ probe in new table
+→ commit new table
 ```
 
-Не обновляй `table->capacity` до успешной подготовки новой структуры: иначе failure path может оставить half-migrated state.
+Tombstones переносить не нужно: они описывали probe history старого table layout.
 
-## Ownership during rehash
+## Load factor
 
-Если buckets содержат owned pointers на key/value, реши, переносишь ли ownership pointers без копирования payload или делаешь новые copies. Главное — после commit у каждого allocation должен быть ровно один owner и old bucket cleanup не должен double-free moved payload.
+**Коэффициент заполнения (load factor)** — отношение числа occupied entries к number of slots (точная policy может отдельно учитывать tombstones).
+
+Высокий load factor увеличивает probe chains. Grow threshold — performance policy, не correctness theorem.
+
+## Failure-safe resize
+
+Новый table строится отдельно. Если allocation или reinsertion fails:
+
+```text
+old table remains valid owner/source of truth
+```
+
+Commit replacement только после успешного полного rebuild.
 
 ## Arithmetic
 
-Перед growth:
+При вычислении new slot count и bytes:
 
-```text
-capacity * factor
-new_capacity * sizeof(Bucket)
-```
+- check growth overflow;
+- check `new_count * sizeof(slot)` before multiplication;
+- не допускай zero slot count в hash/modulo path.
 
-проверяй overflow. `realloc` не решает эту задачу автоматически.
+## Project
 
-## Metrics
+Теперь Hash Table milestone получает dynamic resize. Выполни [`project/hash-table/SPEC.md`](project/hash-table/SPEC.md).
 
-Минимум:
+## Causal questions
 
-- capacity;
-- active size;
-- tombstone count;
-- resize/rebuild count;
-- total probes;
-- max probes/op или histogram buckets.
-
-## Project slice
-
-Заверши milestone:
-
-- growth threshold;
-- failure-safe new storage;
-- reinsert active entries;
-- tombstone cleanup;
-- regression tests around boundary/resize;
-- sanitizer run;
-- instrumentation;
-- одна transfer feature.
-
-Transfer candidates: configurable threshold, second probing strategy experiment, iterator, shrink+hysteresis, probe histogram.
-
-Разбор: [`20-resize-rehash.solution.md`](20-resize-rehash.solution.md).
+1. Почему `memcpy(old_slots, new_slots, ...)` не сохраняет lookup semantics после size change?
+2. Почему tombstones не нужно переносить?
+3. Почему resize лучше commit-ить целиком после успешного rebuild?
 
 ## Exit check
 
-Ты должен уметь нарисовать ownership table **до allocation, во время temporary rehash и после commit** и показать, почему allocation failure не ломает старую table.
+Ты можешь объяснить rehash через зависимость `index` от table size, а не как ритуальный шаг реализации.

@@ -1,110 +1,78 @@
-# 1.3 — `const`, `size_t`, fixed-width integers, `bool` и bit masks
+# 1.3 — Как безопасно считать размеры до работы с памятью
 
-**Теория:** ~45 мин  
-**Упражнение:** ~35 мин  
-**Project slice:** ~30 мин  
-**С телефона:** да
+**Теория:** ~65 мин  
+**Практика:** ~55 мин  
+**С телефона:** теория — да; практика — ПК
 
-← [`02-arrays-pointer-arithmetic.md`](02-arrays-pointer-arithmetic.md) · → [`04-lifetime-ownership.md`](04-lifetime-ownership.md)
+← [`02-arrays-pointer-arithmetic.md`](02-arrays-pointer-arithmetic.md) · → [`03b-text-bytes-utf8.md`](03b-text-bytes-utf8.md)
 
-## Цель
+## Проблема
 
-Научиться выражать намерение API типами и освоить битовые операции до Unix flags, binary formats и networking.
-
-## `const`
-
-```c
-void print_value(const int *p);
-```
-
-означает: через `p` функция не должна изменять pointed `int`.
-
-Это читается как pointer to const int.
-
-```c
-int *const p = &x;
-```
-
-— const pointer: сам pointer value нельзя переназначить, но pointed object можно менять.
-
-```c
-const int *const p = &x;
-```
-
-— оба ограничения.
-
-Для public API особенно важен первый вариант: read-only borrowed data обозначается `const T *`, когда функция только наблюдает.
-
-`const` — compile-time contract aid, а не security boundary.
-
-## `size_t`
-
-`size_t` — unsigned integer type, предназначенный для размеров объектов и результатов `sizeof`.
-
-Используй его для array lengths/capacities, когда значения по смыслу неотрицательны и совместимы с memory sizes.
-
-Но помни unsigned pitfalls: выражение `size_t i = 0; --i;` не становится `-1`, а wraps к большому unsigned value.
-
-## `<stdint.h>`
-
-Когда нужен integer **конкретной ширины**, полезны типы:
-
-```c
-uint8_t
-uint16_t
-uint32_t
-uint64_t
-int32_t
-```
-
-Они существуют на реализациях, где соответствующая exact-width type поддерживается.
-
-Для network/file formats ширина часто является частью protocol contract, поэтому `uint32_t` уместнее неопределённого по ширине `unsigned long`.
-
-## `bool`
-
-В C17:
-
-```c
-#include <stdbool.h>
-
-bool ready = true;
-```
-
-Это делает intent понятнее, чем использовать случайный `int` для логического state.
-
-## Bits
-
-Основные операции:
+Скоро программе понадобится место для `count` элементов:
 
 ```text
-&   bitwise AND
-|   bitwise OR
-^   bitwise XOR
-~   bitwise NOT
-<<  left shift
->>  right shift
+нужно bytes = count × bytes_per_element
 ```
 
-Не путай `&` как address-of в unary context и `&` как bitwise AND в binary expression: значение зависит от синтаксического контекста.
+Если само вычисление размера переполнится, следующая проверка границы уже будет опираться на неверное число.
 
-## Masks
+## `size_t`: тип для размеров объектов
 
-Допустим, у нас четыре flags:
+`sizeof` возвращает `size_t`. Это unsigned integer type, способный представлять размер любого отдельного объекта, который поддерживает implementation.
+
+Он удобен для числа элементов и byte sizes. Но unsigned не означает «не может переполниться».
+
+## Unsigned arithmetic wraps modulo
+
+Для unsigned integer operations результат вычисляется modulo `2^N` для ширины типа. Поэтому слишком большое произведение может стать маленьким числом.
+
+Нельзя сначала вычислить опасное произведение, а потом спрашивать «не слишком ли оно большое?».
+
+## Проверка до умножения
 
 ```c
-#define FLAG_READ   (1u << 0)
-#define FLAG_WRITE  (1u << 1)
-#define FLAG_ADMIN  (1u << 2)
+if (elem_size != 0 && count > SIZE_MAX / elem_size) {
+    /* multiplication would not fit in size_t */
+}
+
+size_t bytes = count * elem_size;
 ```
 
-Включить:
+`SIZE_MAX` доступен через стандартный `<stdint.h>` на C99+ implementations, предоставляющих этот macro.
+
+## Signed overflow создаёт другую проблему
+
+Для signed integer arithmetic нет общего правила «wrap как у unsigned».
+
+Если результат signed addition/subtraction/multiplication выходит за представимый диапазон, стандарт C **не задаёт требуемого поведения программы**. Такая категория называется **неопределённым поведением (undefined behavior, UB)**.
+
+Это важнее обычного «получится неправильное число»: compiler вправе оптимизировать, исходя из предположения, что корректная программа не выполняет UB.
+
+Пока нужен один практический вывод:
+
+```text
+если signed result способен не поместиться
+→ проверь границы ДО операции
+```
+
+В 1.6 мы расширим эту модель на нарушения правил доступа к памяти и разберём diagnostic tools.
+
+## Fixed-width integers — только когда ширина является контрактом
+
+`uint32_t`/`int32_t` из `<stdint.h>` нужны, когда внешний формат данных действительно требует конкретную ширину. Не заменяй ими автоматически каждый `int`.
+
+## Bit flags — короткий bridge
+
+Иногда несколько независимых yes/no states удобно хранить в bits одного unsigned value:
 
 ```c
-flags |= FLAG_WRITE;
+enum {
+    FLAG_READ  = 1u << 0,
+    FLAG_WRITE = 1u << 1
+};
 ```
 
-Проверить:
+Проверка:
 
 ```c
 if ((flags & FLAG_WRITE) != 0) {
@@ -112,57 +80,25 @@ if ((flags & FLAG_WRITE) != 0) {
 }
 ```
 
-Выключить:
+Глубже bit representation вернётся тогда, когда мы начнём строить модель процессора.
+
+## Практика
+
+Напиши helper:
 
 ```c
-flags &= ~FLAG_WRITE;
+int checked_array_bytes(size_t count, size_t elem_size, size_t *out);
 ```
 
-Это позже встретится в `termios`, permissions, binary headers и protocol flags.
+Contract:
 
-## Shift edge cases
-
-Shift может иметь undefined/implementation-sensitive corner cases, особенно с signed values, отрицательными operands и shift count вне ширины type.
-
-Учебное правило: для masks используй подходящий unsigned type и проверяй диапазон shift count.
-
-## Causal questions
-
-1. Что обещает `const int *p`, а чего не обещает?
-2. Почему `size_t` удобен для length, но обратный цикл `for (size_t i = n - 1; i >= 0; --i)` опасен?
-3. Почему protocol field лучше описать `uint32_t`, если спецификация требует ровно 32 bits?
-4. Чем logical `&&` отличается от bitwise `&`?
-
-## Упражнение
-
-Смоделируй permissions тремя bits.
-
-Напиши маленькие функции:
-
-- enable flag;
-- disable flag;
-- check flag.
-
-Проверь combinations через `assert`.
-
-### Self-check
-
-- используются unsigned masks;
-- функции не меняют read-only input без причины;
-- каждая операция объяснима на уровне bits.
+- `out == NULL` → failure;
+- если product не помещается в `size_t` → failure, `*out` не менять;
+- иначе записать product и вернуть success;
+- `count == 0` или `elem_size == 0` корректно дают `0`.
 
 Разбор: [`03-const-types-bits.solution.md`](03-const-types-bits.solution.md).
 
-## Project slice
-
-Пересмотри MiniKV API:
-
-- read-only operations должны по возможности принимать `const Store *`;
-- sizes/capacities — `size_t`;
-- status/state — `enum`/`bool` вместо magic integers, где это улучшает контракт.
-
-Не переписывай код ради «модных типов»: каждое изменение должно иметь объяснимую семантику.
-
 ## Exit check
 
-Сможешь ли ты по declaration функции понять, собирается ли она менять Store и какого типа length она ожидает?
+Почему overflow check должен происходить **до** multiplication и почему нельзя переносить unsigned-wrap mental model на signed arithmetic?

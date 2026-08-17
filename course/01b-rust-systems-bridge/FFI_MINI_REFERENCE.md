@@ -1,98 +1,91 @@
-# Rust 2024 ↔ C FFI mini reference
+# Мини-справочник FFI: C ↔ Rust
 
-Этот файл — достаточный локальный reference для учебных labs. Внешняя документация нужна только для platform-specific details за пределами scope.
+Этого reference достаточно для course lab. Не рассматривай его как полный ABI standard.
 
-## 1. Cargo package
+## 1. C-compatible scalar types
 
-Создай normal binary/library package и установи в `Cargo.toml`:
+Не предполагай, что C spelling автоматически равен fixed-width Rust type на любой platform.
 
-```toml
-[package]
-edition = "2024"
-```
-
-## 2. C source
-
-Храни lab source, например `native/add.c`.
-
-## 3. `build.rs` без внешних crates
-
-Build script может вызвать system `cc` и `ar`:
+Для обычных C types используй aliases из `std::os::raw`:
 
 ```rust
-use std::process::Command;
-
-fn run(mut cmd: Command) {
-    let status = cmd.status().expect("failed to start tool");
-    assert!(status.success(), "native build failed");
-}
-
-fn main() {
-    let out = std::env::var("OUT_DIR").expect("OUT_DIR");
-    let obj = format!("{out}/add.o");
-    let lib = format!("{out}/libtinyffi.a");
-
-    let mut cc = Command::new("cc");
-    cc.args(["-std=c17", "-Wall", "-Wextra", "-Wpedantic", "-c", "native/add.c", "-o", &obj]);
-    run(cc);
-
-    let mut ar = Command::new("ar");
-    ar.args(["rcs", &lib, &obj]);
-    run(ar);
-
-    println!("cargo:rustc-link-search=native={out}");
-    println!("cargo:rustc-link-lib=static=tinyffi");
-    println!("cargo:rerun-if-changed=native/add.c");
-}
+use std::os::raw::{c_char, c_int, c_uint, c_void};
 ```
 
-В реальном portable crate обычно используют специализированный build crate/tooling. Здесь внешний dependency не нужен: цель — увидеть link boundary.
+Если C API itself uses `int32_t`/`uint32_t`, тогда matching Rust fixed-width `i32/u32` обычно является частью explicit width contract.
 
-## 4. Declaration
-
-Rust 2024:
-
-```rust
-unsafe extern "C" {
-    fn add_two(a: i32, b: i32) -> i32;
-}
-```
-
-Declaration обязана совпадать с C ABI contract.
-
-## 5. C-compatible layout
-
-Если struct действительно пересекает FFI boundary:
+## 2. C layout
 
 ```rust
 #[repr(C)]
-struct Point {
-    x: i32,
-    y: i32,
+struct Pair {
+    a: c_int,
+    b: c_int,
 }
 ```
 
-`repr(C)` задаёт C-compatible layout rules для данного type, но **не решает** ownership, pointer validity или semantic compatibility.
+`#[repr(C)]` просит C-compatible field layout rules for target ABI. Это не проверяет, что C header действительно совпадает: обе стороны должны быть synchronized.
 
-## 6. Strings
+## 3. Function declarations
 
-- Rust text: `&str`/`String` — UTF-8 + length;
-- C string: `char *` convention + `\0` terminator;
-- Rust boundary helpers: `CString`, `CStr`.
+Пример C:
 
-## 7. Checklist
+```c
+struct Pair { int a; int b; };
+int pair_sum(const struct Pair *p, int *out);
+```
 
-Перед call проверь:
+Rust declaration:
+
+```rust
+unsafe extern "C" {
+    fn pair_sum(p: *const Pair, out: *mut c_int) -> c_int;
+}
+```
+
+Exact syntax can depend on Rust edition/version; course environment should pin/check compiler. Semantic contract is stable: C ABI + compatible types + raw pointers.
+
+## 4. Raw-pointer validity checklist
+
+Before dereference/call requiring access, establish:
+
+- nullability rule;
+- alignment;
+- correct pointee type/layout;
+- readable/writable size;
+- lifetime covers call/use;
+- aliasing/mutability assumptions;
+- ownership transfer or non-transfer.
+
+`unsafe` block marks where these proofs become programmer responsibility.
+
+## 5. C strings
+
+`*const c_char` is not automatically a Rust `&str`.
+
+Need separate contracts:
 
 ```text
-signature/layout
-integer width
-pointer nullability
-alignment
-lifetime
-ownership/free function
-mutability/aliasing
-string encoding/termination
-error convention
-thread-safety
+pointer valid?
+NUL terminator reachable?
+bytes readable?
+which encoding?
 ```
+
+`CStr` models NUL-terminated bytes once pointer preconditions are satisfied. UTF-8 conversion may still fail.
+
+## 6. Allocation ownership
+
+Never mix allocators by assumption.
+
+If C allocates, API should state how caller releases. If Rust allocates and passes temporary memory, C must not retain pointer past permitted lifetime unless ownership transfer is explicitly designed.
+
+`Box::from_raw`, `Vec::from_raw_parts`, `CString::from_raw` require very specific origin/layout/ownership invariants. They are not generic «take ownership of any pointer» functions.
+
+## 7. Panic/error boundary
+
+Do not let ordinary Rust panic unwind into C caller under an ABI that does not guarantee it. Prefer non-panicking FFI body or catch panic on Rust side and translate into status/error contract.
+
+## 8. Build sanity
+
+Always compile both C header consumer and Rust declaration for the target environment; add a tiny integration test that catches signature/layout drift.

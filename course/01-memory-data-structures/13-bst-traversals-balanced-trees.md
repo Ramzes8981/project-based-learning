@@ -1,100 +1,77 @@
-# 1.13 — Binary Search Tree, traversals и зачем balancing
+# 1.13 — Как дерево поддерживает упорядоченный поиск
 
-**Теория:** ~90 мин  
-**Упражнение:** ~90 мин  
-**С телефона:** теория — да
+**Теория:** ~75 мин  
+**Практика:** ~90 мин  
+**С телефона:** теория — да; практика — ПК
 
 ← [`12-recursion-recurrences.md`](12-recursion-recurrences.md) · → [`14-heap-priority-queue.md`](14-heap-priority-queue.md)
 
-## Цель
+## Проблема
 
-Построить mental model дерева как связанной структуры, реализовать BST search/insert/traversal и понять, почему `O(log n)` не гарантируется обычным BST.
+Sorted array даёт binary search, но insertion в середину может требовать сдвига многих elements. Хотим поддерживать order через links, чтобы insertion не всегда двигал contiguous suffix.
 
-## Node
+## Binary search tree
 
-```c
-struct Node {
-    int key;
-    struct Node *left;
-    struct Node *right;
-};
-```
+В **бинарном дереве поиска (binary search tree, BST)** каждый node имеет до двух children.
 
-Ownership policy надо задать отдельно: обычно tree владеет всеми nodes и уничтожает их один раз.
-
-## BST invariant
-
-Для выбранной duplicate policy:
+Один возможный duplicate policy:
 
 ```text
-all keys in left subtree < node key
-all keys in right subtree > node key
+all keys in left subtree  < node.key
+all keys in right subtree >= node.key
 ```
 
-или иной явно документированный вариант с duplicates.
+Policy должна быть явной и одинаковой для insert/find/traversal.
 
-Search идёт только в одну subtree согласно сравнению.
+## Почему search может быть быстрым
 
-## Height определяет cost
+На каждом node comparison выбирает только одну subtree. Если дерево имеет небольшую высоту `h`, поиск делает `O(h)` steps.
 
-Cost search/insert порядка `O(h)`, где `h` — height.
+Но BST **не гарантирует** `h = O(log n)` сам по себе.
 
-Balanced-ish tree: `h ~ log n`.
-
-Плохой порядок вставки:
+Sorted insertion sequence может дать:
 
 ```text
-1, 2, 3, 4, 5
+1
+ \
+  2
+   \
+    3
+     \
+      4
 ```
 
-может дать chain height `n`, и операции становятся `O(n)`.
+Тогда height `O(n)`, и search деградирует до linear.
 
 ## Traversals
 
-**Preorder:** node → left → right.  
-**Inorder:** left → node → right. Для BST даёт sorted order.  
-**Postorder:** left → right → node. Удобен для destroy: сначала children, потом owner node.  
-**Level-order/BFS:** по уровням, требует queue.
+Recursive structure естественно даёт traversals:
 
-Это связывает trees с ранее реализованными stack/queue.
+- inorder: left → node → right;
+- preorder: node → left → right;
+- postorder: left → right → node.
 
-## Delete concept
+Для BST inorder produces keys in sorted order under the chosen duplicate policy.
 
-Три случая:
+Postorder удобно для destruction: сначала освободить children, затем owner node.
 
-- leaf;
-- один child;
-- два children: заменить логически successor/predecessor и восстановить invariant.
+## Зачем balanced trees существуют
 
-Полная реализация delete — transfer/stretch; search/insert/traversal обязательны.
+AVL/Red-Black trees добавляют invariants/rotations, чтобы height оставалась logarithmic. Core не требует реализовать полноценный balanced tree: важно понять **проблему, которую balancing решает**.
 
-## Balanced trees
+## Практика
 
-AVL и Red-Black trees добавляют metadata/invariants и rotations, чтобы ограничивать height. Не нужно сейчас реализовывать оба. Нужно понимать trade-off:
+Реализуй простую BST с fixed duplicate policy:
 
-```text
-больше complexity при mutation
-↔
-предсказуемая logarithmic height
-```
+- insert;
+- find;
+- inorder traversal;
+- destroy.
 
-Позже B-tree применит родственную идею balancing уже для page-oriented storage.
-
-## Упражнение
-
-Реализуй BST insert/search и минимум inorder + postorder traversal.
-
-Tests:
-
-- empty;
-- one node;
-- left/right branches;
-- sorted insertion degenerates;
-- documented duplicate policy;
-- destroy without leaks под sanitizer.
+Сравни height для random-like и sorted insertion orders.
 
 Разбор: [`13-bst-traversals-balanced-trees.solution.md`](13-bst-traversals-balanced-trees.solution.md).
 
 ## Exit check
 
-Объясни, почему `BST lookup = O(log n)` — неверное утверждение без дополнительного invariant о высоте.
+Почему название «binary search tree» не гарантирует `O(log n)` search без дополнительного balance invariant?

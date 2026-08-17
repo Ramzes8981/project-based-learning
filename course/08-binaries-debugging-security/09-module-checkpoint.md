@@ -1,52 +1,33 @@
-# Module 8 — Checkpoint
+# 8.9 — Checkpoint: от ELF byte до остановленного instruction
+
+**Время:** ~4–6 часов · **С телефона:** review — да; project — ПК
+
+← [`08-memory-corruption-mitigations.md`](08-memory-corruption-mitigations.md) · ↑ [`README`](README.md)
 
 ## Explain
 
-- ELF sections vs segments;
-- symbols/relocations;
-- loader/shared libraries;
-- PIE/ASLR/load base;
-- ptrace tracer/tracee stop lifecycle;
-- wait status;
-- register/memory inspection;
-- x86 software breakpoint state machine;
-- single-step;
-- frame-pointer unwind limitations;
-- DWARF role;
-- NX/canary/ASLR/RELRO defense layers.
+1. ELF segment vs section;
+2. symbol/debug info absence in stripped binary;
+3. PIE/ASLR/load bias;
+4. tracer/tracee lifecycle and wait states;
+5. ptrace permission/environment limitations;
+6. `PEEKDATA` `-1` + `errno` rule;
+7. tracee address ≠ tracer pointer;
+8. x86 `INT3` breakpoint byte preservation;
+9. RIP rewind + single-step + reinsert;
+10. why SIGTRAP reasons differ;
+11. frame-pointer backtrace limitations;
+12. DWARF role;
+13. mitigations vs source bug.
 
-## Core milestone
+## Project gate
 
-Проверь [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md).
-
-## Required fixtures
-
-- non-PIE deterministic target;
-- PIE target;
-- loop/function-call target;
-- signal-terminating target.
+`minidbg-c` passes project fixtures for launch/continue/registers/memory/breakpoint loop/single-step/limited stack trace and clean target exit.
 
 ## Transfer
 
-Одна:
+Choose one: symbol breakpoint resolution for supported PIE layout, memory hexdump with bounds, or breakpoint disable/enable lifecycle. Add failure-path tests first.
 
-- breakpoint enable/disable list;
-- memory write;
-- symbol-to-runtime address helper;
-- limited frame-pointer `bt`;
-- signal forwarding policy.
+## Exit check
 
-## Exit gate
-
-Ты можешь пройти chain:
-
-```text
-ELF file
-→ loader mappings
-→ running registers/memory
-→ ptrace stop
-→ breakpoint patch
-→ observe/modify/continue
-```
-
-и объяснить, где начинаются platform/security assumptions.
+Given a symbol name in PIE fixture, you can describe path ELF symbol → mapping/load bias → runtime address → INT3 patch → trap → restored instruction.

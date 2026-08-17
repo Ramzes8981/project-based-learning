@@ -1,43 +1,22 @@
-# Modern Linux Isolation Lab — рабочий README
+# Modern Linux Isolation Lab
 
-## Environment
+This is an **observation-first, disposable-environment lab**, not a mini-container platform.
 
-Заполни [`ENVIRONMENT_CHECKLIST.md`](ENVIRONMENT_CHECKLIST.md): kernel/environment, WSL/VM/native, cgroup mount/delegation, permissions.
+## Safety order
 
-## Status / Build
+1. Complete [`ENVIRONMENT_CHECKLIST.md`](ENVIRONMENT_CHECKLIST.md).
+2. Record baseline `/proc`, namespace, cgroup and capability evidence.
+3. Prefer unprivileged/user/delegated mechanisms.
+4. If write permission/delegation absent, stay read-only and document limitation.
+5. Never run broad cleanup/kill/mount/cgroup commands against host production state.
 
-Command-line experiments и C launcher build/run commands.
+## Milestones
 
-## Baseline
+- scheduling/memory observation;
+- process/IPC inspection;
+- namespace view changes;
+- cgroup resource bound in safe subtree;
+- capability observation/restriction where supported;
+- final threat-model note: what remains unisolated.
 
-До isolation зафиксируй:
-
-```text
-PID / hostname
-namespace identifiers from /proc/<pid>/ns
-/proc/<pid>/cgroup
-uid/gid/capability observations relevant to lab
-```
-
-## Namespace progression
-
-UTS, PID, mount: что меняется для child, что остаётся общим с host.
-
-## Child lifecycle
-
-Who forks/clones/unshares, who reaps, what execs, cleanup paths.
-
-## cgroup v2
-
-Observed membership/controllers. Если есть delegated subtree — exact limits, workload и cleanup. Если нет — честно записать, что resource limit experiment не выполнялся на данном environment.
-
-## Security / non-goals
-
-Это **не** secure multi-tenant sandbox. Запиши shared kernel, capabilities, filesystem exposure, syscall surface и отсутствующие hardening mechanisms.
-
-## Tests/evidence
-
-Expected observations before/after namespace creation, process exit/reaping, cleanup, optional resource limit result.
-
-## Debugging story / transfer
-
+Docs: [`SPEC.md`](SPEC.md) · [`ACCEPTANCE.md`](ACCEPTANCE.md) · [`TESTS.md`](TESTS.md) · [`HINTS.md`](HINTS.md).

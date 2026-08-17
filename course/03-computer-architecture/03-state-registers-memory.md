@@ -1,105 +1,46 @@
-# 3.3 — State, registers, clock и memory
+# 3.4 — Почему машине нужно состояние между шагами
 
-**Теория:** ~60 мин  
-**Упражнения:** ~45 мин  
-**С телефона:** да
+**Теория:** ~65 мин · **Практика:** ~60 мин · **С телефона:** да
 
 ← [`02-boolean-logic-alu.md`](02-boolean-logic-alu.md) · → [`04-isa-machine-code.md`](04-isa-machine-code.md)
 
-## Цель
+## Проблема
 
-Понять, почему computer требует state и как registers/RAM отличаются от pure combinational logic.
+Program is sequence. To execute step 2, machine must remember results and where it is in sequence. Pure combinational logic forgets immediately when inputs change.
 
-## Почему state нужен
+## State
 
-Combinational circuit не помнит прошлое. Если inputs исчезли, output меняется.
+A **stateful** element retains information across steps/clocks until updated.
 
-Program execution требует хранить:
-
-- current data;
-- instruction position;
-- intermediate results;
-- stack/variables.
-
-## Clocked state
-
-Упрощённая synchronous model:
+CPU exposes small fast named storage locations called **registers**. A special register/state field tracks next instruction location — program counter (PC) concept.
 
 ```text
-между clock edges combinational logic вычисляет next state
-на edge storage elements фиксируют новое state
+state before step
+  registers
+  PC
+  memory
+↓ instruction transition
+state after step
 ```
 
-Реальные CPUs сложнее (pipelines, multiple clocks/domains, out-of-order), но эта модель достаточна для Tiny16.
+This “state transition” model is more useful than memorizing block diagrams.
 
-## Register
+## Registers vs memory
 
-Register — небольшой быстрый storage element внутри CPU/datapath.
+Registers are few CPU-visible fast state slots. Main memory stores far more data/instructions and is addressed differently. Exact cache hierarchy comes later.
 
-Tiny16 будет иметь несколько general-purpose registers + program counter.
+Do not model register as “tiny RAM cell with address in normal process memory”. It is architectural CPU state named by ISA.
 
-## Program counter
+## Clock intuition
 
-PC содержит address/index следующей instruction.
+Synchronous digital design updates state around clock transitions while combinational logic computes next values between them. Real CPUs pipeline/speculate, but toy machine can use one-instruction-at-a-time model.
 
-Обычный шаг:
+## Практика
 
-```text
-fetch instruction at PC
-execute
-PC = PC + 1
-```
-
-Branch/jump может заменить next PC другим value.
-
-## RAM abstraction
-
-Memory можно моделировать как indexed array words/bytes:
-
-```text
-address -> stored value
-```
-
-CPU load читает memory в register, store пишет register/value в memory.
-
-## Registers vs RAM
-
-Registers:
-
-- очень мало;
-- directly encoded/selected by instructions;
-- fastest tier datapath.
-
-RAM:
-
-- намного больше;
-- addressable;
-- access дороже.
-
-Cache hierarchy добавим позже.
-
-## Exercise
-
-Нарисуй state Tiny machine:
-
-```text
-R0,R1,R2,R3
-PC
-RAM[0..255]
-```
-
-Проведи вручную три шага hypothetical:
-
-```text
-LOADI R0, 5
-LOADI R1, 7
-ADD   R0, R1
-```
-
-После каждого шага запиши registers и PC.
+Given tiny machine state `R0,R1,PC,mem`, manually simulate 5 steps from instruction descriptions and write state after each step.
 
 Разбор: [`03-state-registers-memory.solution.md`](03-state-registers-memory.solution.md).
 
 ## Exit check
 
-Что сломается, если ALU существует, но нет ни одного state element?
+What state must machine retain to distinguish “same ADD instruction executed now” from “next instruction later”?

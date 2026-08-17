@@ -1,35 +1,36 @@
-# Module 7 — Checkpoint
+# 7.8 — Checkpoint: trace one record from pathname to crash recovery boundary
+
+**Время:** ~4–6 часов · **С телефона:** review — да; project — ПК
+
+← [`08-transactions-wal-recovery.md`](08-transactions-wal-recovery.md) · ↑ [`README`](README.md)
 
 ## Explain
 
-- pathname/directory entry/inode/open file state;
-- hard vs symlink;
-- page cache/dirty data/durability;
-- FUSE callback boundary;
-- explicit serialization/file versioning;
-- pager/page/cursor;
-- B+tree fanout/search/split;
-- logical page access vs physical I/O;
-- index read/write trade-off;
-- transaction atomicity/isolation/durability;
-- WAL/recovery/checkpoint concepts.
+1. pathname/directory entry vs inode/file object;
+2. open fd after unlink;
+3. page cache and dirty data;
+4. `write` vs `fsync` durability;
+5. durable same-filesystem replace including directory sync;
+6. explicit serialization vs raw struct;
+7. database page vs OS virtual-memory page;
+8. pager offset/short-I/O contract;
+9. B-tree high fanout and split invariant;
+10. page visits/cache effects on query cost;
+11. WAL ordering and crash recovery concept;
+12. why current SimpleDB cannot claim full ACID.
 
-## Guided FUSE lab
+## Project gate
 
-Должен быть пройден scope Lesson 7.3 либо documented environment limitation.
+SimpleDB passes project acceptance and format fixtures. Reopen tests verify persistence semantics promised; corruption/truncation tests fail safely.
 
-## Core milestone
+## Transfer
 
-Проверь [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md).
+Design one version migration or redo-log extension on paper first: exact old/new bytes, compatibility rule, failure points and tests.
 
-## Required artifacts
+## Optional
 
-- `FORMAT.md` actual chosen layout deviations;
-- page-access metrics;
-- tree visualization/debug output;
-- `RECOVERY_LIMITATIONS.md`;
-- debugging story for one corruption/split bug.
+FUSE lab does not affect core gate.
 
-## Exit gate
+## Exit check
 
-Для проблемы «DB slow/corrupt» ты можешь разнести причины по parser/query, tree/index, page layout, cache/I/O, durability и transaction/recovery layers.
+Given “record disappeared after crash”, you can ask whether failure was namespace/directory durability, page-cache writeback, format corruption, multi-page atomicity or recovery policy.

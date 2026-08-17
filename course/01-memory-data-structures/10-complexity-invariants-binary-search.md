@@ -1,102 +1,106 @@
-# 1.10 — Complexity, invariants и binary search
+# 1.10 — Как сравнивать способы решения и не ломать главный invariant
 
 **Теория:** ~75 мин  
-**Упражнение:** ~60 мин  
-**С телефона:** да
+**Практика:** ~70 мин  
+**С телефона:** теория — да; практика — ПК
 
 ← [`09-function-pointers-callbacks.md`](09-function-pointers-callbacks.md) · → [`11-sorting.md`](11-sorting.md)
 
-## Цель
+## Проблема 1: «работает» ещё не значит «масштабируется»
 
-Оценивать рост работы/памяти, отличать worst/average/best case и доказывать корректность цикла через invariant.
+MiniKV искал имя последовательным просмотром. Для 5 records это незаметно. Для миллиона — уже инженерный выбор.
 
-## Размер входа
+Нам нужен язык, который описывает, как растёт количество работы при росте input.
 
-Сначала определить `n`: число элементов, bytes, vertices/edges — в зависимости от задачи. Big-O без определения размера входа часто превращается в лозунг.
+## Считаем рост, а не наносекунды
 
-## O, Ω, Θ
-
-- `O(f(n))` — асимптотическая верхняя граница роста;
-- `Ω(f(n))` — нижняя граница;
-- `Θ(f(n))` — обе границы одного порядка.
-
-Для инженерной практики чаще используем Big-O как язык верхнего порядка роста, но полезно знать, что формально это не знак равенства.
-
-Примеры:
+Если поиск в худшем случае смотрит каждый элемент:
 
 ```text
-linear scan: Θ(n) worst case
-binary search sorted array: O(log n)
-nested full n×n traversal: Θ(n²)
+N records → до N сравнений
 ```
 
-## Константы и реальное время
+Говорят, что работа растёт линейно: **`O(n)`**.
 
-`O(n)` алгоритм может быть медленнее другого `O(n)` из-за cache misses, дорогой операции внутри цикла или allocations. Complexity отвечает про масштабирование, не заменяет benchmark.
+Если операция делает примерно одинаковое число шагов независимо от `n`, говорим `O(1)`. Если каждое действие сокращает оставшийся диапазон примерно вдвое — часто появляется `O(log n)`.
 
-## Логарифм
+**Big-O** здесь — модель роста, а не точное время. `O(1)` не означает «мгновенно», а `O(n)` не означает «плохо всегда».
 
-Binary search каждый шаг оставляет примерно половину кандидатов:
+## Проблема 2: быстрый алгоритм легко написать неправильно
+
+Для отсортированного массива можно не смотреть каждое значение. Сравниваем середину и отбрасываем половину кандидатов — **binary search**.
+
+Но корректность держится на условии:
 
 ```text
-n -> n/2 -> n/4 -> ... -> 1
+если target существует, он остаётся внутри текущего диапазона кандидатов
 ```
 
-Число делений пополам порядка `log2(n)`.
+Такое условие, которое мы обязаны сохранять после каждого шага, называется **инвариантом (invariant)**.
 
-## Loop invariant
+## Half-open range
 
-Invariant — утверждение, истинное до/после каждой итерации и помогающее доказать корректность.
-
-Для binary search удобно использовать half-open interval `[lo, hi)`:
+Удобный вариант диапазона:
 
 ```text
-если target существует, он находится только внутри [lo, hi)
-0 <= lo <= hi <= n
+[lo, hi)
 ```
 
-Каждый шаг уменьшает диапазон, не выбрасывая возможный target.
+`lo` включён, `hi` не включён.
 
-## Overflow-safe midpoint
+Empty range:
 
-Не обязательно писать:
+```text
+lo == hi
+```
+
+Midpoint без `lo + hi` overflow:
 
 ```c
-mid = (lo + hi) / 2;
+size_t mid = lo + (hi - lo) / 2;
 ```
 
-С unsigned sizes `lo + hi` теоретически может wrap. Надёжнее:
+## Почему sortedness — prerequisite, а не деталь
 
-```c
-mid = lo + (hi - lo) / 2;
+Binary search использует факт порядка. Если array не отсортирован, сравнение с middle не даёт права выбросить половину кандидатов.
+
+Это хороший пример причинного contract:
+
+```text
+precondition: sorted data
+→ operation can discard half
+→ O(log n) comparisons
 ```
 
-при invariant `lo <= hi`.
+## Cost model шире CPU
 
-## Binary search precondition
+В systems работе стоимость может означать:
 
-Массив должен быть отсортирован по тому же ordering, который использует search. Без этого `O(log n)` алгоритм просто быстро выдаёт ненадёжный ответ.
+- comparisons;
+- memory accesses;
+- bytes copied;
+- allocations;
+- syscalls;
+- disk I/O;
+- network round trips.
 
-## Упражнение
+Big-O полезен только вместе с тем, **какую операцию мы считаем**.
 
-Реализуй binary search на sorted `int[]` с half-open interval.
+## Практика
 
-Contract на выбор:
-
-- вернуть `bool`;
-- либо `size_t`, где `n` означает not found.
-
-Tests: `n=0`, один элемент, first/last, missing below/inside/above range, duplicates (задокументируй, обещаешь ли конкретный duplicate index).
+1. Реализуй binary search по sorted `int` array с range `[lo, hi)`.
+2. Проверь empty, one element, first, last, missing-between, missing-outside.
+3. Для размеров 8, 16, 32 вручную оцени maximum comparisons.
+4. Напиши invariant одной фразой и покажи, почему обе ветви update его сохраняют.
 
 Разбор: [`10-complexity-invariants-binary-search.solution.md`](10-complexity-invariants-binary-search.solution.md).
 
 ## Causal questions
 
-1. Почему fast benchmark на `n=100` не доказывает хорошую asymptotic complexity?
-2. Почему `lo + (hi-lo)/2` лучше `(lo+hi)/2`?
-3. Что именно гарантирует invariant `[lo, hi)`?
-4. Почему binary search и linked list плохо сочетаются, хотя оба могут хранить sorted values?
+1. Почему binary search не работает на произвольно перемешанном массиве?
+2. Почему `mid = lo + (hi - lo)/2` безопаснее `mid = (lo + hi)/2` для unsigned sizes?
+3. Почему `O(n)` linear scan может быть лучшим выбором для очень маленького `n`?
 
 ## Exit check
 
-Для своего Vector и MiniKV назови `n`, worst-case time основных операций и memory growth.
+Ты умеешь назвать operation count, precondition и invariant, а не просто сказать «binary search = O(log n)».

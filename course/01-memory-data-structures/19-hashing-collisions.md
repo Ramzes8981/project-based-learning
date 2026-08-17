@@ -1,130 +1,106 @@
-# 1.19 — Hashing, collisions и open addressing
+# 1.16 — Как находить запись по ключу без полного просмотра массива
 
-**Теория:** ~75 мин  
-**Упражнение:** ~45 мин  
-**Project slice:** ~4–8 часов суммарно  
-**С телефона:** теория — да
+**Теория:** ~85 мин  
+**Практика:** ~90 мин  
+**С телефона:** теория — да; практика — ПК
 
-← [`18-probability-for-hashing.md`](18-probability-for-hashing.md) · → [`20-resize-rehash.md`](20-resize-rehash.md)
+← [`14-heap-priority-queue.md`](14-heap-priority-queue.md) · → [`20-resize-rehash.md`](20-resize-rehash.md)
 
-## Цель
+## Проблема
 
-Превратить MiniKV из linear lookup в hash table и уметь объяснить assumptions expected performance.
-
-## Pipeline
+MiniKV делает linear lookup:
 
 ```text
-key bytes
-↓
-hash function
-↓
-integer hash value
-↓
-index mapping (например hash % capacity)
-↓
-probe sequence
+compare key 0
+compare key 1
+...
 ```
 
-Hash value и bucket index — разные уровни.
+При `n` records worst-case `O(n)` comparisons. Хотим использовать сам key, чтобы быстро выбрать небольшую область поиска.
 
-## Требования к non-cryptographic hash
+## Hash function
 
-Для ожидаемого workload желательно:
-
-- одинаковый key → одинаковый hash;
-- быстрое вычисление;
-- хорошая distribution;
-- изменение key не должно систематически сохранять плохие low bits для выбранного mapping.
-
-Hash не обязан быть collision-free — это невозможно для неограниченного key space и конечного output.
-
-## Collision strategies
-
-**Chaining:** bucket содержит список/collection.  
-**Open addressing:** entries живут прямо в bucket array, collision запускает probing.
-
-Core milestone использует open addressing + linear probing, чтобы увидеть locality/tombstone проблемы.
-
-## Linear probing
+**Хеш-функция (hash function)** превращает key bytes в fixed-size integer hash value:
 
 ```text
-start = hash % capacity
-index(k) = (start + k) % capacity
+key bytes → hash → integer
 ```
 
-Каждая операция обязана иметь termination condition. При full table нельзя бесконечно обходить buckets.
-
-## States
-
-Минимум:
+Затем table size позволяет выбрать initial slot, например:
 
 ```text
-EMPTY
-OCCUPIED
-TOMBSTONE
+index = hash % slot_count
 ```
 
-`EMPTY` означает: probe chain для отсутствующего key может безопасно закончиться. `TOMBSTONE` означает: здесь entry удалена, но chain мог продолжиться дальше.
+Hash value — не «уникальный ID». Разных keys больше, чем возможных hash values/slots.
 
-## Insert nuance
+## Collision неизбежна
 
-При поиске места для insert полезно помнить первый tombstone, **но продолжать probe**, пока не выяснишь, что key уже не существует позже в chain. Иначе можно создать duplicate key.
+Когда два разных keys претендуют на один hash/slot, это **коллизия (collision)**.
 
-## Load factor
+Correctness rule:
 
-Для open addressing различай:
+> hash match или same initial slot никогда не доказывает equality keys.
+
+Нужно сравнить actual keys и иметь collision-resolution policy.
+
+## Probability intuition — достаточно для core
+
+При хорошем distribution slots используются примерно равномерно. Но по мере роста occupancy шанс столкновения увеличивается. Нельзя проектировать table на надежде «collisions почти не будет».
+
+Формальная birthday-style intuition вынесена в optional 1D; correctness от неё не зависит.
+
+## Open addressing + linear probing
+
+Одна простая implementation:
 
 ```text
-active_load = active / capacity
-used_load   = (active + tombstones) / capacity
+start = hash(key) % slot_count
+если slot занят другим key:
+    try next slot
+    continue until key found / truly empty slot / full cycle
 ```
 
-Tombstones не являются active entries, но загрязняют probe paths.
+Probe sequence must be bounded: нельзя infinite-loop на full table.
 
-## Complexity
+## Empty / occupied / deleted — три состояния
 
-При хорошей distribution и контролируемой load factor expected lookup/insert близки к `O(1)`. Worst case — `O(n)` probes.
+Удаление в open addressing сложнее, чем поставить slot в `EMPTY`.
 
-Это expected claim, а не абсолютная гарантия.
+Почему: поиск другого key мог пройти через этот slot из-за earlier collision. Если сделать его truly empty, future lookup остановится слишком рано.
 
-## Exercise — probe simulation
-
-Capacity 8, starts:
+Нужен третий state — **tombstone/deleted marker**.
 
 ```text
-A -> 3
-B -> 3
-C -> 4
-D -> 3
+EMPTY      → probe may stop: key not in later part of this chain
+OCCUPIED   → compare key
+DELETED    → lookup continues; insert may reuse later
 ```
 
-Вставь, удали A через TOMBSTONE, затем выполни lookup B/D и insert нового E. Отдельно покажи ошибочный вариант, где A превращается в EMPTY.
+## Invariants
+
+- every occupied slot has a valid owned key/value;
+- lookup never treats hash equality as key equality;
+- probe count is bounded by slot_count;
+- tombstone does not terminate search;
+- item count excludes tombstones.
+
+## Hash function for course
+
+Можно использовать небольшой documented non-cryptographic byte hash (например FNV-1a style) с unsigned arithmetic. Это **не security hash** и не защита от adversarial collision attacks.
+
+## Практика
+
+До project milestone реализуй table с fixed slot count:
+
+- put/update;
+- get;
+- delete with tombstone;
+- collision fixture, где разные keys имеют один initial slot;
+- full-table bounded failure.
 
 Разбор: [`19-hashing-collisions.solution.md`](19-hashing-collisions.solution.md).
 
-## Project slice
-
-В [`project/hash-table/SPEC.md`](project/hash-table/SPEC.md) реализуй:
-
-- hash function;
-- mapping;
-- linear probing;
-- states;
-- insert/update/get/delete;
-- active/tombstone accounting;
-- guaranteed termination на full/degenerate table.
-
-Пока resize не добавляй. При невозможности вставки верни явный failure и не corrupt existing state.
-
-## Debugging targets
-
-- infinite probe loop;
-- duplicate key after tombstone reuse;
-- lookup miss after delete;
-- lost key/value ownership;
-- modulo by zero;
-- counter inconsistency.
-
 ## Exit check
 
-Объясни точный критерий, когда lookup absent key может остановиться на `EMPTY`, но не на `TOMBSTONE`.
+Почему удалённый slot нельзя всегда превратить в `EMPTY`, и почему hash equality требует key comparison?

@@ -1,44 +1,32 @@
-# Module 1B — Checkpoint
+# 1B.9 — Checkpoint: можешь ли ты перевести C ownership contract в Rust
 
-**Время:** ~2–3 часа  
-**С телефона:** conceptual review — да
+**Время:** ~2–4 часа · **С телефона:** review — да; project — ПК
 
-← [`09-send-sync-concurrency-preview.md`](09-send-sync-concurrency-preview.md) · ↑ [`README`](README.md)
+← [`08-unsafe-raw-pointers-ffi.md`](08-unsafe-raw-pointers-ffi.md) · ↑ [`README`](README.md)
 
 ## Explain
 
-1. Move / Copy / Clone.
-2. `Drop` vs C manual cleanup.
-3. `&T` vs `&mut T`.
-4. Lifetime annotation: relation, не lifetime extension.
-5. Slice vs pointer+length.
-6. `String`, `&str`, `Vec<u8>`, `&[u8]`.
-7. bytes vs code points vs grapheme clusters.
-8. `Option` vs `Result`.
-9. почему blanket `clone()` — плохой borrow-checker workaround.
-10. safe Rust vs raw pointer/unsafe boundary.
-11. Rust 2024 C FFI contract.
-12. `Send`/`Sync`, `Arc`/`Mutex`.
+1. Почему `String` move защищает single-owner resource?
+2. Когда нужен borrow вместо move?
+3. Почему overlapping `&mut` + `&` запрещён?
+4. Что lifetime annotation описывает и чего не делает?
+5. Чем `Option` отличается от `Result` по semantics?
+6. Почему `Vec` growth способен invalid references?
+7. Почему `String` не индексируется как `char[]`?
+8. Что programmer обязан доказать внутри `unsafe`?
+9. Почему FFI должен использовать C-compatible types/layout и отдельный ownership contract?
 
-## Scenarios
+## Project gate
 
-### A
-Parser получает network bytes и сразу делает `String::from_utf8_lossy`. Protocol требует reject invalid UTF-8. Что сломано в contract?
+Rust MiniKV проходит [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md). Unnecessary cloning in lookup/update paths объяснено или устранено.
 
-### B
-Rust FFI declaration говорит `fn f(i64)`, C symbol реально `int f(int)`. Почему compiler Rust не спасает?
+## Transfer
 
-### C
-Store `get()` возвращает `&str`; caller держит borrow и пытается вызвать `set(&mut self)`. Почему compiler блокирует это и какую C-проблему он предотвращает?
+Возьми один C API из предыдущего модуля и опиши две версии Rust interface:
 
-## Project
-
-Проверь [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md) и свой [`project/README.md`](project/README.md).
-
-Rust MiniKV должен демонстрировать owned storage, borrowed lookup, typed errors, tests и отсутствие необоснованного `unsafe`.
+- direct raw/FFI-like boundary;
+- safe wrapper, который делает invalid states труднее выразить.
 
 ## Gate
 
-Правильный итог не «Rust безопасен автоматически», а:
-
-> safe subset проверяет большой класс ownership/alias/lifetime invariants, но protocols, bounds, deadlocks, resource policies, FFI signatures и unsafe invariants остаются инженерной ответственностью.
+`Send`/`Sync` не входят в checkpoint. Они станут осмысленны только с настоящей concurrency-задачей.

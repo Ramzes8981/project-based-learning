@@ -1,36 +1,31 @@
-# Module 6 — Checkpoint
+# 6.8 — Checkpoint: какой ресурс виден, ограничен и кем управляется
+
+**Время:** ~3–5 часов · **С телефона:** review — да; lab — ПК
+
+← [`07-cgroup-v2-capabilities-isolation.md`](07-cgroup-v2-capabilities-isolation.md) · ↑ [`README`](README.md)
 
 ## Explain
 
-- process states/context switch/preemption;
-- response/turnaround/fairness;
-- resident set/page replacement/thrashing;
-- deadlock/starvation/semaphore/condvar;
-- IPC trade-offs;
-- `/proc` investigation;
-- UTS/PID/mount/network/user namespaces;
-- cgroup v2;
-- capabilities/seccomp role;
-- namespace vs resource vs privilege isolation.
+1. runnable vs running vs sleeping;
+2. resident page vs mapped virtual page;
+3. memory pressure/thrashing without claiming one literal Linux replacement algorithm;
+4. deadlock wait-for cycle and lock-order prevention;
+5. semaphore vs mutex vs condition variable role;
+6. IPC trade-offs;
+7. `/proc` as evidence source;
+8. namespace changes view;
+9. cgroup changes resource accounting/limits;
+10. capability changes privilege;
+11. why composition still is not automatically secure container.
 
-## Core milestone
+## Project gate
 
-Проверь [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md).
+Isolation Lab passes [`project/ACCEPTANCE.md`](project/ACCEPTANCE.md), including environment safety evidence and read-only fallback where delegation is unavailable.
 
-## Required artifact
+## Transfer
 
-Isolation matrix:
+Given hypothetical untrusted build job, propose minimal composition of namespace/cgroup/capability/rlimit/seccomp-like controls and explicitly list what threats remain.
 
-```text
-Resource/attack surface | isolated? | mechanism | limitation
-PID view                | ...       | ...       | ...
-filesystem mounts       | ...
-network                 | ...
-CPU/memory              | ...
-privileges              | ...
-kernel                  | ...
-```
+## Exit check
 
-## Exit gate
-
-Ты можешь объяснить container-style isolation как composition нескольких OS mechanisms и назвать shared-kernel boundary.
+For each observed isolation effect you can point to exact mechanism responsible instead of saying “Docker/container does it”.

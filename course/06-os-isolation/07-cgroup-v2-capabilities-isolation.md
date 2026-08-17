@@ -1,120 +1,57 @@
-# 6.7 — cgroup v2, capabilities и isolation composition
+# 6.7 — Как ограничить ресурсы и privileges, не называя это полной sandbox
 
-**Теория:** ~90 мин  
-**Project:** ~6–10 часов  
-**С телефона:** теория — да
+**Теория:** ~100 мин · **Лаб:** ~100 мин · **С телефона:** theory — да
 
 ← [`06-linux-namespaces.md`](06-linux-namespaces.md) · → [`08-module-checkpoint.md`](08-module-checkpoint.md)
 
-## Цель
+## Problem
 
-Отделить resource control от namespaces и собрать честную model container-style isolation без обещания security boundary, которого проект не создаёт.
+Namespaces change view but do not answer:
+
+```text
+how much CPU/memory/process count may this workload consume?
+which privileged kernel operations may it perform?
+```
 
 ## cgroup v2
 
-Cgroup — kernel mechanism для группировки processes и resource accounting/control. В v2 используется единая hierarchy.
+Linux control groups group processes and apply accounting/control policies through controllers. **cgroup v2** provides unified hierarchy model.
 
-Полезная filesystem mental model:
+Relevant course observations/controllers may include:
 
-```text
-/sys/fs/cgroup/
-├── cgroup.controllers
-├── cgroup.subtree_control
-├── cgroup.procs
-├── memory.current / memory.max ...
-├── cpu.stat / cpu.max ...
-└── pids.current / pids.max ...
-```
+- `cpu` / `cpu.max`;
+- `memory` / `memory.max`, events;
+- `pids` / `pids.max`.
 
-Набор controller files зависит от kernel/configuration/delegation.
+Exact files/controllers depend on kernel/systemd/delegation. Do not write host cgroup tree blindly as root.
 
-## Membership
+## Delegation
 
-`cgroup.procs` перечисляет PIDs processes, принадлежащих cgroup. Process можно переместить записью PID в target `cgroup.procs`, если permissions/delegation это разрешают.
-
-После `fork` child рождается в той cgroup, к которой принадлежит parent в момент fork. Это важно для launcher design: limit/group часто подготавливают до запуска workload либо явно мигрируют child.
-
-`/proc/<pid>/cgroup` позволяет увидеть membership; для pure v2 entry имеет hierarchy id `0` и path.
-
-## Namespace vs cgroup
-
-```text
-namespace -> какую часть/имена system state process видит
-cgroup    -> accounting/limits/weight resources группы processes
-```
-
-UTS namespace не ограничивает RAM. `memory.max` не меняет hostname view. Это ортогональные механизмы.
-
-## Controllers
-
-### Memory
-
-`memory.max` — hard limit interface v2, но это не «зарезервировать ровно X MiB физической RAM». Реальное поведение включает accounting, reclaim и OOM decisions. Для наблюдения также полезны `memory.current`/events, если доступны.
-
-### PIDs
-
-`pids.max` ограничивает количество tasks/process creation внутри subtree accounting model. Это защита resource availability, не permission sandbox.
-
-### CPU
-
-CPU controller может задавать weight/maximum bandwidth. Ограничение CPU не означает deterministic execution speed: host load/scheduler/measurement noise остаются.
-
-## Delegation и безопасность lab
-
-Не создавай/не меняй произвольные host cgroups от root только ради упражнения. Сначала выясни:
-
-- cgroup v2 mounted ли;
-- delegated ли тебе writable subtree;
-- запускается ли lab в disposable VM/user session;
-- какие controllers enabled;
-- как cleanup вернуть system state.
-
-Если writable delegation нет — **наблюдение membership считается достаточным core evidence**, а limit experiment переносится в VM/optional.
+Modern systems often let service manager/user session own/delegate subtree. Course lab first checks current cgroup and write permissions. If no safe delegated subtree, run read-only observation and document limitation rather than escalating privileges randomly.
 
 ## Capabilities
 
-Linux разбивает многие традиционные root powers на capabilities. Capability всегда нужно рассматривать в контексте user namespace и resource, которым он управляет.
+Traditional Unix root privilege can be split into **Linux capabilities** such as network/admin-related powers. A process capability set changes which privileged operations kernel permits.
 
-UID 0 внутри нового user namespace не означает host root. Process может иметь capabilities внутри своего user namespace, не имея тех же privileges над resources parent/initial namespace.
+Capabilities are subtle across permitted/effective/inheritable/ambient/bounding sets and user namespaces. Core goal: understand “root is not one indivisible bit”, not memorize all capabilities.
 
-Следствие: фраза «внутри container root» недостаточна для security reasoning.
-
-## seccomp / LSM preview
-
-Namespaces/cgroups сами по себе не фильтруют syscall surface shared kernel. Production isolation может дополнительно использовать seccomp, capability reduction, LSM policies, read-only mounts и другие controls.
-
-Core lab не строит production seccomp policy — важно понимать место механизма в composition.
-
-## Composition
+## Isolation is composition
 
 ```text
-process lifecycle
-+ namespaces (views/identities)
-+ filesystem/mount view
-+ cgroup resource controls
-+ user namespace/capability model
-+ optional syscall/LSM restrictions
-+ shared host kernel
+namespaces  → view/naming isolation
+cgroups     → resource accounting/limits
+capabilities→ split privilege
+rlimits     → per-process style limits
+seccomp     → syscall filtering (optional extension)
+LSM         → MAC policy such as SELinux/AppArmor (optional extension)
 ```
 
-## Project slice
+Container runtime composes several plus filesystem/device/security setup. Course lab is not production container runtime.
 
-По [`project/SPEC.md`](project/SPEC.md):
+## Lab
 
-1. baseline inspect `/proc/.../ns` + cgroup membership;
-2. UTS + PID/mount namespace experiments;
-3. C launcher child lifecycle;
-4. observe cgroup v2 membership;
-5. resource-limit experiment только если environment checklist говорит, что это безопасно/delegated;
-6. README с threat/non-goal section.
-
-## Causal questions
-
-1. Почему memory cgroup не исправляет use-after-free?
-2. Почему namespace root и host root — разные security contexts?
-3. Почему pids limit полезен, но не запрещает чтение файла?
-4. Как shared kernel влияет на claim «полная виртуальная машина»?
+Use project environment checklist. Observe cgroup limits, then in delegated/disposable setup apply one small pids or memory limit and collect resulting event/evidence. Inspect capabilities before/after safe restriction if tools/environment allow.
 
 ## Exit check
 
-Для любого «container изолирует X» назови конкретный kernel mechanism и его non-goals.
+Why can a process be inside PID namespace, under memory cgroup limit and still have dangerous capabilities?

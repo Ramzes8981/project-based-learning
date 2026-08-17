@@ -1,148 +1,69 @@
-# 1B.1 — Rust toolchain и модель программы
+# 1B.1 — Как собрать и запустить Rust-программу без магии IDE
 
-**Теория:** ~35 мин  
-**Упражнение:** ~30 мин  
-**Project slice:** ~25 мин  
-**С телефона:** теория — да
+**Теория:** ~35 мин · **Практика:** ~35 мин · **С телефона:** теория — да
 
 ← [`README`](README.md) · → [`02-ownership-moves-drop.md`](02-ownership-moves-drop.md)
 
-## Цель
+## Проблема
 
-Научиться собирать, тестировать и форматировать Rust-проект через Cargo и увидеть главное отличие от C: Rust compiler проверяет гораздо больше semantic invariants до запуска.
+В C мы уже различаем source, compiler, executable и build rules. Rust добавляет удобный стандартный build tool, но не отменяет эту модель.
 
-## Prerequisite check
+## Cargo
 
-1. Что такое ownership contract в C?
-2. Почему C compiler не может автоматически запретить все dangling pointers?
-3. Чем build-time diagnostics отличаются от sanitizer runtime diagnostics?
-
-## Toolchain
-
-Курс использует stable Rust и Cargo.
-
-Проверь:
+`cargo` управляет package metadata, build/test commands и dependencies. Для course project:
 
 ```bash
-rustc --version
-cargo --version
-```
-
-Создай проект:
-
-```bash
-cargo new rust_probe
-cd rust_probe
+cargo new rust_minikv
+cd rust_minikv
+cargo build
 cargo run
+cargo test
+cargo check
 ```
 
-Основные команды:
+`cargo check` проверяет program/type/borrow rules без финального code generation executable и обычно быстрее full build.
+
+## `rustc` и Cargo
+
+Rust compiler называется `rustc`. Cargo обычно вызывает его за нас с нужными arguments.
 
 ```text
-cargo check   — type/borrow checking без полного финального build
-cargo build   — сборка
-cargo run     — build + запуск binary
-cargo test    — tests
-cargo fmt     — formatting
-cargo clippy  — дополнительные lint checks
+Cargo.toml + source
+→ cargo
+→ rustc invocations
+→ artifacts
 ```
 
-## Crate и package
+Не делай mental model «Cargo = язык». Это orchestration/build layer.
 
-Cargo package описывается `Cargo.toml`. В package может быть library crate, binary crate или несколько targets.
+## Expression-oriented syntax
 
-Для bridge-проекта мы предпочитаем маленькую library с tests и отдельный binary только при необходимости.
-
-## Variables и mutability
-
-По умолчанию binding immutable:
+Rust block может возвращать последнее expression без `;`:
 
 ```rust
-let x = 10;
-```
-
-Для изменения binding/object через него:
-
-```rust
-let mut x = 10;
-x += 1;
-```
-
-Это не просто stylistic preference: Rust заставляет mutability быть явной частью local reasoning.
-
-## Expressions
-
-Rust блоки являются expressions:
-
-```rust
-let y = {
-    let x = 3;
-    x + 1
-};
-```
-
-Последнее выражение без `;` становится value блока.
-
-## Functions
-
-```rust
-fn add(a: i32, b: i32) -> i32 {
-    a + b
+fn bigger(a: i32, b: i32) -> i32 {
+    if a > b { a } else { b }
 }
 ```
 
-Параметры имеют явные types, return type записывается после `->`.
+С `;` expression превращается в statement returning unit `()`.
 
-## `match`
-
-Rust `match` требует exhaustive reasoning по enum variants.
+## Mutability explicit
 
 ```rust
-fn describe(x: Option<i32>) -> &'static str {
-    match x {
-        Some(_) => "value",
-        None => "none",
-    }
-}
+let x = 10;      // immutable binding
+let mut y = 10;  // mutable binding
+y += 1;
 ```
 
-`Option` подробно разберём позже; сейчас важна идея compiler-checked variants.
+Это ещё не ownership. Сначала только замечаем: mutation надо разрешить явно.
 
-## C vs Rust compiler
+## Практика
 
-C:
-
-```text
-compiler checks types/syntax partially
-runtime + sanitizers catch many memory violations
-ownership mostly convention
-```
-
-Rust safe code:
-
-```text
-compiler additionally enforces ownership/borrowing rules
-many lifetime/alias bugs rejected before executable exists
-```
-
-Но Rust не доказывает business correctness, protocol correctness или отсутствие deadlock/logic bugs.
-
-## Упражнение
-
-Создай маленький crate `rust_probe`:
-
-- функция `classify(i32) -> &'static str`;
-- минимум 4 unit tests;
-- deliberately попробуй изменить immutable binding и прочитай compiler error;
-- исправь через `mut` только там, где mutation действительно нужна;
-- запусти `cargo fmt`, `cargo clippy`, `cargo test`.
+Создай package, добавь маленькую function + unit test, запусти `cargo check`, `cargo test`, `cargo run`. Намеренно сделай type mismatch и прочитай compiler diagnostic целиком до исправления.
 
 Разбор: [`01-cargo-rust-model.solution.md`](01-cargo-rust-model.solution.md).
 
-## Project slice
-
-Создай в [`project/`](project/) свой Rust package для Rust MiniKV и README. Пока только зафиксируй operations/limits и C→Rust comparison goals, без storage implementation.
-
 ## Exit check
 
-Объясни различие ролей `cargo check`, `cargo test`, compiler borrow checking и runtime tests.
+Чем `cargo` отличается от `rustc`, и зачем `cargo check`, если есть `cargo build`?

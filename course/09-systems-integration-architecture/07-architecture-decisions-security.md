@@ -1,105 +1,76 @@
-# 9.7 — ADR, trade-offs и security review
+# 9.7 — Как защищать архитектурное решение, а не любимую технологию
 
-**Теория:** ~85 мин  
-**Review:** ~2–3 часа  
-**С телефона:** да
+**Теория:** ~80 мин · **Review:** ~2–3 часа · **С телефона:** да
 
 ← [`06-observability-sli-slo.md`](06-observability-sli-slo.md) · → [`08-scaling-second-node.md`](08-scaling-second-node.md)
 
-## Цель
+## Проблема
 
-Фиксировать architecture как решения под constraints, а не как набор technologies.
+Фраза «thread pool проще» не объясняет, почему это хороший выбор **для этого workload и этих constraints**.
+
+Нужен след рассуждения, который можно пересмотреть после новых измерений.
 
 ## ADR
 
-Architecture Decision Record минимум:
+**Architecture Decision Record (ADR)** — короткая запись решения:
 
 ```text
 Context
 Decision
-Alternatives considered
+Alternatives
 Consequences
-Status/date
+Evidence / revisit condition
 ```
 
-Хороший ADR отвечает «почему так» и сохраняет rejected alternatives.
+ADR не доказывает, что решение вечно правильное. Он сохраняет **почему оно было разумным при текущих данных**.
 
-## Candidate decisions
-
-Capstone минимум 3 ADR:
-
-- thread pool vs event loop;
-- persistence snapshot vs append log/SimpleDB reuse;
-- queue capacity/backpressure policy;
-- protocol framing/versioning;
-- in-memory cache/index policy.
-
-## Trade-off structure
-
-Не пиши:
-
-> thread pool проще.
-
-Пиши:
+## Пример структуры trade-off
 
 ```text
-workload: <= N concurrent connections, handlers block on storage briefly
-benefit: simple synchronous code
-cost: per-thread stack/context scheduling
+context: handlers иногда блокируются на storage; concurrency bounded
+choice: fixed thread pool
+benefit: простая synchronous control flow
+cost: thread stacks/context scheduling
 risk: lock contention
-measurement: worker saturation/queue metrics
-revisit when: connection count/idle ratio exceeds X evidence
+measure: queue wait + worker utilization
+revisit when: evidence показывает другой bottleneck/workload
 ```
 
-## Security review: assets/boundaries/input
+## Security review начинается с boundaries
 
-Минимум:
-
-### Assets
+Сначала перечисли assets:
 
 - persistent values;
-- service availability;
+- availability;
 - host resources;
-- configuration/metrics/logs.
+- config/logs/metrics.
 
-### Trust boundaries
+Затем trust boundaries:
 
-Network input is untrusted even in local lab mental model.
+- network bytes — недоверенные;
+- persistent file после corruption — недоверенный input;
+- config/path inputs требуют validation.
 
-Persistent file can become corrupt/untrusted after crash/manual mutation.
+## Resource exhaustion тоже security/reliability проблема
 
-### Input validation
-
-- frame lengths;
-- key/value limits;
-- numeric overflow;
-- protocol version;
-- filesystem paths/config.
-
-### Resource exhaustion
+Проверь bounds для:
 
 - connections;
+- frame length;
 - queue;
-- frame memory;
-- disk growth;
 - threads;
-- logs.
+- memory per request;
+- disk/log growth.
 
-### Least privilege
+## Least privilege
 
-Service не должен запускаться root без feature requirement. Debug/isolation labs earlier needed special capabilities, but capstone ordinary KV should use ordinary user permissions.
+Обычному KV service не нужны root privileges только потому, что прошлые isolation/debugger labs использовали специальные capabilities.
 
-## Secrets
+Core не требует TLS/auth. Поэтому ограничение должно быть написано честно: **это учебный сервис, не предназначенный для публичной hostile network**.
 
-Core has no authentication/TLS. Therefore document:
+## Практика
 
-> service must not be exposed to hostile/public network as production system.
-
-Do not bolt fake crypto/auth to tick a box.
-
-## Failure modes
-
-Use simple FMEA-like list:
+Сделай минимум 3 ADR и top failure/security review:
 
 ```text
 failure
@@ -109,10 +80,6 @@ impact
 mitigation/recovery
 ```
 
-## Exercise
-
-Создай 3 ADR + top 10 failure/security review items.
-
 ## Exit check
 
-Architecture quality оценивается соответствием constraints/evidence, а не количеством boxes.
+Можешь ли ты назвать alternative, объяснить почему его не выбрал сейчас и какое новое evidence заставит решение пересмотреть?

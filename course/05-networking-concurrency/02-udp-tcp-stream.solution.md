@@ -1,16 +1,16 @@
 # Разбор 5.2
 
-Delimiter framing требует:
+Correct conclusion is independent of one experiment's chunk sizes:
 
-- delimiter не может появиться unescaped в payload либо нужен escaping;
-- parser должен хранить partial message между recv calls;
-- нужен maximum message size, иначе peer может заставить buffer расти без bound.
+```text
+TCP preserves byte order, not application write boundaries.
+```
 
-Length prefix требует:
+Therefore receiver logic must tolerate:
 
-- fixed/endian-defined length field;
-- validation `length <= MAX_FRAME` до allocation;
-- обработку partial prefix и partial payload;
-- integer-overflow checks.
+- one frame split across many reads;
+- several frames arriving in one read;
+- EOF in the middle of an incomplete frame;
+- short send/write on sender side.
 
-Оба работают поверх TCP stream; выбор зависит от protocol goals.
+UDP differs because one receive operation observes datagram boundaries (subject to buffer/truncation API behavior), but reliability/order remain separate concerns.

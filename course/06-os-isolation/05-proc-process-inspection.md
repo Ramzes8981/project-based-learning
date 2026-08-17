@@ -1,84 +1,50 @@
-# 6.5 — `/proc` и process inspection
+# 6.5 — Как наблюдать process state через `/proc`, а не гадать
 
-**Теория:** ~55 мин  
-**Lab:** ~90 мин  
-**С телефона:** теория — да
+**Теория:** ~65 мин · **Лаб:** ~75 мин · **С телефона:** theory — да
 
 ← [`04-ipc-models.md`](04-ipc-models.md) · → [`06-linux-namespaces.md`](06-linux-namespaces.md)
 
-## Цель
+## Problem
 
-Использовать `/proc` и инструменты как observability interface, а не меморизовать filenames.
+Before changing isolation, need inspect what process currently sees: ids, mappings, descriptors, limits, namespaces.
 
-## `/proc`
+Linux exposes process/kernel information through **procfs**, normally mounted at `/proc`.
 
-Linux procfs exposes kernel/process information через pseudo-filesystem.
+## Useful views
 
-Полезные paths:
-
-```text
-/proc/<pid>/status
-/proc/<pid>/cmdline
-/proc/<pid>/fd/
-/proc/<pid>/maps
-/proc/<pid>/ns/
-/proc/<pid>/cgroup
-```
-
-Fields/API evolve; exact parsing for production tools должен следовать documented format, а не brittle whitespace assumptions.
-
-## `/proc/<pid>/fd`
-
-Directory entries — symlinks/handles representing process descriptors.
-
-Это отличный способ диагностировать fd leaks:
+For a PID:
 
 ```text
-run workload
-count/list fds
-repeat
-fds unbounded growth? investigate ownership
+/proc/<pid>/status   identifiers/state/memory summary/capabilities fields
+/proc/<pid>/maps     virtual mappings
+/proc/<pid>/fd/      descriptor symlinks
+/proc/<pid>/limits   resource limits
+/proc/<pid>/ns/      namespace handles
+/cgroup info via /proc/<pid>/cgroup
 ```
 
-## `/proc/<pid>/maps`
+These are kernel interfaces with version/permission differences. Parse only fields you need; do not treat human formatting as eternal stable database schema.
 
-Показывает virtual mappings: address ranges, permissions, offsets, file/backing information.
+## `/proc/self`
 
-Связывает Module 4 VM с живым process.
+`/proc/self` resolves to caller's current process, useful for tiny observation tools.
 
-## `/proc/<pid>/status`
+## Observation discipline
 
-Содержит identity/state/memory/signal/capability-like summary fields. Не делай вывод по одному number без понимания definition.
+Predict first, inspect second:
 
-## `strace`
+```text
+I expect fd 0/1/2 + one opened file
+→ inspect /proc/self/fd
+→ explain discrepancy
+```
 
-Прослеживает syscalls/signals process. Хорош для вопросов:
-
-- какой file открылся?;
-- где process blocks?;
-- почему connect/open fail?;
-- какие child syscalls происходят?
-
-Но tracing меняет timing и может быть дорогим; concurrency race может исчезнуть/измениться.
-
-## `ps/top`
-
-Дают process/thread/resource observations на другом уровне. Metrics могут быть samples/averages; «100% CPU» semantics зависят от tool/core accounting.
+This turns `/proc` into debugging evidence, not sightseeing.
 
 ## Lab
 
-Запусти Concurrent KV Server и Shell из прошлых modules.
-
-Ответь инструментами:
-
-- сколько fds открыто idle/under load?;
-- какие mappings есть?;
-- сколько threads?;
-- где process blocks при idle?;
-- какие syscalls появляются при client connection?
-
-Сделай маленький investigation report, не screenshot dump.
+For a controlled child process record PID, state, fd set, selected mappings, namespace links and cgroup path. Then change one thing in later lab and compare.
 
 ## Exit check
 
-Для каждого observation укажи: какой question ты задавал и почему выбранный interface отвечает именно на него.
+Which `/proc` evidence would distinguish “process has file open” from “path merely exists in filesystem”?

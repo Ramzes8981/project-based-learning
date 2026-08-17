@@ -1,80 +1,109 @@
-# Persistent KV Service — Capstone SPEC
+# Persistent KV Service — staged SPEC
 
-## Goal
+Ты реализуешь код сам. Этот документ описывает поведение и постепенно добавляет технические ограничения только после соответствующих уроков.
 
-Собрать single-node service из изученных mechanisms, но не copy-paste giant monolith.
+## Stage 0 — Поведение и workload
 
-## Functional
+**После 9.1.**
 
-- GET;
-- SET;
-- DELETE;
-- multiple concurrent clients;
-- persistent state across clean restart;
-- graceful shutdown;
-- status/metrics inspection.
+Сервис хранит записи `key → value`.
 
-## Protocol
+Поведение:
 
-Reuse/evolve Module 5 framed protocol. `PROTOCOL.md` обязателен.
+- `SET` создаёт или заменяет value;
+- `GET` возвращает value или `NOT_FOUND`;
+- `DELETE` удаляет существующую запись и корректно сообщает отсутствие;
+- несколько клиентов могут пользоваться сервисом;
+- есть определённый contract clean restart/shutdown;
+- можно получить диагностические metrics/status.
 
-## Concurrency
+До кода заполни `WORKLOAD.md`, functional requirements, targets и non-goals.
 
-Reuse thread pool or justified event-loop design.
+## Stage 1 — Protocol contract
 
-- bounded work;
-- explicit overload behavior;
-- synchronized state;
-- shutdown coordination.
+**После 9.2.**
 
-## Storage
+Переиспользуй или эволюционируй framed protocol Module 5.
 
-Выбери и обоснуй один:
+`PROTOCOL.md` обязан описывать:
 
-1. reuse/adapt SimpleDB;
-2. append-only KV log + recovery;
-3. snapshot + in-memory index for smaller scope.
+- wire format/version;
+- maximum frame/key/value sizes;
+- status/error responses;
+- timeout/retry semantics;
+- idempotency/duplicate limitations.
 
-Choice должен иметь explicit durability/recovery contract.
+Все length arithmetic и parsing paths должны быть bounds/overflow checked до allocation/access.
 
-## Observability
+## Stage 2 — Concurrency и bounded resources
 
-Minimum:
+**После 9.3–9.4.**
+
+Выбери thread pool или другой уже изученный model и обоснуй его.
+
+Обязательно:
+
+- explicit owner mutable KV state;
+- synchronization rules;
+- bounded connections/work/frame memory;
+- явная overload policy;
+- defined shutdown wake/drain behavior.
+
+## Stage 3 — Persistence
+
+**После 9.5.**
+
+Выбери **один** понятный storage contract:
+
+1. адаптированный SimpleDB;
+2. append-only mutation log + replay;
+3. snapshot + in-memory index.
+
+`RECOVERY.md` должен точно сказать, что означает successful write acknowledgement и какие failure cases могут потерять/corrupt data.
+
+Не заявляй WAL/transaction guarantees, которых implementation не имеет.
+
+## Stage 4 — Observability
+
+**После 9.6.**
+
+Минимум:
 
 - request outcomes;
-- p50/p95/p99;
-- queue/service latency separation;
+- latency distribution;
+- queue vs service latency;
 - queue depth/rejects;
 - active connections;
 - storage errors/operations;
-- lifecycle events.
+- lifecycle/recovery events.
 
-## Failure experiments
+Definitions находятся в `METRICS.md`.
 
-At least:
+## Stage 5 — Failure/architecture evidence
 
-- overload;
-- malformed/oversized input;
-- graceful shutdown;
-- forced process kill;
-- corrupted/truncated storage copy;
-- injected storage error.
+**После 9.7–9.9.**
 
-## Architecture artifacts
+Нужны:
 
 - `ARCHITECTURE.md`;
-- `PROTOCOL.md`;
-- `METRICS.md`;
-- `RECOVERY.md`;
-- at least 3 ADR files/section;
+- минимум 3 ADR;
 - `SECURITY_LIMITATIONS.md`;
-- load-test report;
-- 10×/second-node analysis.
+- reproducible load report;
+- overload experiment;
+- malformed/oversized input tests;
+- graceful and forced termination experiments;
+- corrupted/truncated **copy** recovery test;
+- injected storage error;
+- 10× / second-node analysis.
 
 ## Non-goals
 
+Core не требует:
+
 - TLS/auth production security;
-- multi-node replication;
-- consensus;
+- replication/consensus;
 - Kubernetes/microservices;
-- production deployment.
+- public deployment;
+- production-grade transactional database.
+
+Уменьшить guarantee честно лучше, чем реализовать непроверяемую «production-like» архитектуру.

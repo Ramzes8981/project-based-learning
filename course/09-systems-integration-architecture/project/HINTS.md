@@ -1,21 +1,31 @@
-# Capstone — Hints
+# Persistent KV Service — Hints
+
+Открывай следующий hint только после собственной попытки.
 
 ## Hint 1
 
-Не начинай код. Сначала requirements + state ownership.
+До `main.c` ответь: какой workload и guarantee ты проверяешь? Если ответа нет — рано выбирать architecture.
 
 ## Hint 2
 
-Reuse component **interfaces/ideas**, а не paste старые `main()` files together.
+Reuse старых проектов означает reuse **контрактов/небольших компонентов после review**, а не склейку нескольких `main()`.
 
 ## Hint 3
 
-Если persistence сложно, уменьшай guarantee/scope честно. Лучше простой correct append log with clear limitation, чем fake transactional DB.
+Если concurrency ломает state, сначала нарисуй owner и все пути mutation. Mutex — инструмент после модели, не замена модели.
 
 ## Hint 4
 
-Когда p99 плохой, измерь queue wait отдельно от service work.
+Если p99 плохой, измерь queue wait отдельно от service work прежде чем увеличивать worker count.
 
 ## Hint 5
 
-Если хочется сразу second node, сначала покажи measured bottleneck one node и опиши state-consistency problem, который появится.
+Если persistence слишком сложен, сузь guarantee. Простой проверяемый snapshot/log лучше «почти WAL» без корректного recovery protocol.
+
+## Hint 6
+
+Любой length из network/storage сначала validation/overflow arithmetic, только потом allocation/copy/indexing.
+
+## Hint 7
+
+Если хочется второй node, сначала покажи график/measurement bottleneck одного node и сформулируй, кто станет owner state после масштабирования.

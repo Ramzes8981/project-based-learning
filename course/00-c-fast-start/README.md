@@ -1,50 +1,44 @@
-# Module 0 — C Fast Start
+# Module 0 — Как из текста на C получить работающую программу
 
-**Цель:** быстро стать функциональным в C и начать первый реальный проект без отдельного «семестра синтаксиса».
+**Оценка:** ~18–24 часа.  
+**Вход:** небольшой опыт Python; C и устройство компьютера не предполагаются.  
+**Итог:** маленькая программа, которая хранит несколько пар `имя → значение` в заранее выделенном месте.
 
-**Оценка:** 12–18 часов.  
-**Активный проект:** `MiniKV v0` — fixed-capacity key/value store с линейным поиском.
+## Зачем этот модуль
+
+В Python много вещей происходят автоматически. В C часть этих решений становится видимой: какой тип хранить, сколько элементов есть, где заканчивается текст, какие функции видят друг друга и как несколько файлов превращаются в одну программу.
+
+Мы **не** начинаем с memory internals. Сначала нужен рабочий язык, на котором позднее можно исследовать память.
 
 ## Уроки
 
-1. [`01-source-build-run.md`](01-source-build-run.md) — от исходника до процесса.
-2. [`02-types-values.md`](02-types-values.md) — типы, размеры и представление значений.
-3. [`03-control-flow-functions.md`](03-control-flow-functions.md) — C-синтаксис управления и функции.
-4. [`04-arrays-strings.md`](04-arrays-strings.md) — массивы, строки, границы, линейный поиск.
-5. [`05-structs-modules.md`](05-structs-modules.md) — `struct`, `enum`, `.h/.c`, linker и API preconditions.
-6. [`06-make-build-test.md`](06-make-build-test.md) — dependency graph, Make, `make test`, incremental build.
-7. [`07-module-checkpoint.md`](07-module-checkpoint.md) — проверка Module 0.
+1. [`01-source-build-run.md`](01-source-build-run.md) — **Почему файл с C-кодом нельзя просто запустить**.
+2. [`02-types-values.md`](02-types-values.md) — **Как C хранит разные виды значений**.
+3. [`03-control-flow-functions.md`](03-control-flow-functions.md) — **Как разбить поведение программы на проверяемые шаги**.
+4. [`04-arrays-strings.md`](04-arrays-strings.md) — **Как хранить несколько значений и где заканчивается текст**.
+5. [`05-structs-modules.md`](05-structs-modules.md) — **Как описать одну запись и собрать программу из нескольких файлов**.
+6. [`06-make-build-test.md`](06-make-build-test.md) — **Как перестать вручную повторять команды сборки и проверки**.
+7. [`07-module-checkpoint.md`](07-module-checkpoint.md) — checkpoint.
 
 ## Проект
 
-Перед первым project slice прочитай [`project/SPEC.md`](project/SPEC.md), затем веди собственный [`project/README.md`](project/README.md). По мере уроков возвращайся к проекту и расширяй реализацию **в этой же папке**.
+Проект открывай в два слоя:
 
-Проектный каталог содержит:
+- сначала [`project/README.md`](project/README.md) — только поведение;
+- технические ограничения в [`project/SPEC.md`](project/SPEC.md) читай **по отметкам уроков**, а не целиком заранее.
 
-```text
-project/
-├── README.md       # твои design/build/debugging notes
-├── SPEC.md         # обязательное поведение
-├── ACCEPTANCE.md   # gate проекта
-├── TESTS.md        # известные заранее test scenarios
-└── HINTS.md        # подсказки по уровням
-```
+Название `MiniKV` используется только как короткое имя проекта. На этом этапе тебе не нужно знать, как устроены настоящие key-value databases.
 
-Исходный C-код, headers, Makefile и тестовые executable/files создаёшь ты по мере прохождения уроков.
+## Чего здесь специально нет
 
-Курс **не** даёт готовый MiniKV-код или готовый MiniKV Makefile.
+До следующего модуля не нужны:
 
-## Что пока сознательно не изучаем
+- pointer/address;
+- stack/heap;
+- dynamic allocation;
+- ownership/lifetime;
+- hashing;
+- undefined behavior как отдельная модель;
+- ABI/syscall/OS internals.
 
-- pointers в глубину;
-- `malloc/free`;
-- data structures beyond fixed arrays;
-- sanitizers/GDB в глубину;
-- assembly;
-- formal discrete math.
-
-Они появятся тогда, когда следующий проектный шаг создаст необходимость.
-
-## Gate модуля в одной фразе
-
-К Module 1 ты должен уметь самостоятельно собрать маленький многофайловый C-проект, проверить его через `make test`, объяснить representation MiniKV и увидеть, почему fixed storage начинает мешать дальнейшему развитию.
+Если такой термин случайно нужен для объяснения Module 0, объяснение почти наверняка выбрано слишком глубокое.

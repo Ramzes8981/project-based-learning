@@ -1,100 +1,64 @@
-# 6.3 — Deadlock, semaphore и synchronization design
+# 6.3 — Как ожидание нескольких ресурсов превращается в deadlock и как это диагностировать
 
-**Теория:** ~80 мин  
-**Lab:** ~90 мин  
-**С телефона:** да
+**Теория:** ~80 мин · **Практика:** ~70 мин · **С телефона:** теория — да
 
 ← [`02-memory-pressure-page-replacement.md`](02-memory-pressure-page-replacement.md) · → [`04-ipc-models.md`](04-ipc-models.md)
 
-## Цель
+## Что уже известно
 
-Углубить concurrency: deadlock conditions, semaphore semantics, condition predicates и debugging blocked threads.
+Module 5 уже ввёл mutex, condition variable, bounded queue and lock-order preview. Здесь не повторяем syntax. Новый вопрос: **как увидеть deadlock как структуру ожиданий ресурсов**.
 
-## Deadlock conditions
+## Deadlock
 
-Классическая модель Coffman conditions:
+A **deadlock** exists when a set of execution flows cannot progress because each waits for condition/resource that can only be released by another waiting member.
 
-1. mutual exclusion;
-2. hold and wait;
-3. no preemption of resource;
-4. circular wait.
-
-Все четыре вместе позволяют deadlock. Разрушение хотя бы одного condition может предотвратить этот класс cycle.
-
-## Lock ordering
-
-Если все code paths приобретают locks по global order:
+Classic wait-for graph:
 
 ```text
-L1 before L2 before L3
+T1 → lock B → owned by T2
+T2 → lock A → owned by T1
 ```
 
-circular wait между ними невозможен.
+Cycle in a wait-for graph is key diagnostic signal for single-instance lock resources.
 
-Ordering требует discipline/API design; comments без enforcement могут деградировать.
+## Coffman conditions as diagnostic checklist
+
+Textbook conditions commonly associated with resource deadlock:
+
+- mutual exclusion;
+- hold and wait;
+- no forced preemption of held resource;
+- circular wait.
+
+Do not memorize names as theorem decoration. Prevention works by structurally breaking at least one relevant condition: global lock order attacks circular wait; acquire-all-or-release can attack hold-and-wait, etc.
 
 ## Semaphore
 
-Counting semaphore хранит conceptual count available units.
+A **semaphore** represents a count of permits/resources. Unlike mutex, it need not encode “one owner”. Use it when invariant is “at most N concurrent users/units”.
 
-`wait/P/down` уменьшает или blocks when unavailable.
+Binary semaphore and mutex can look similar at count=1 but ownership/error semantics differ; do not substitute by name alone.
 
-`post/V/up` увеличивает/wakes.
+## Condition variable is not a resource counter
 
-Binary semaphore может выглядеть как mutex, но ownership semantics отличаются: mutex обычно имеет owning thread/unlock contract, semaphore — count/signal primitive.
+Condvar notifies that predicate may have changed. It does not remember arbitrary event count like a queue/semaphore. Predicate remains source of truth under mutex.
 
-## Condition variable revisited
+## Diagnosis
 
-Condition variable не хранит «event happened forever». Это coordination around shared predicate protected by mutex.
-
-Correct pattern:
+When service hangs:
 
 ```text
-lock
-while predicate false:
-    wait(cond, mutex)
-use/update state
-unlock
+which threads are blocked?
+on what syscall/futex/lock?
+who owns needed resource?
+what lock acquisition order led here?
 ```
 
-Signal without state/predicate reasoning приводит к lost assumptions.
+Tools may include debugger thread backtraces, `strace`, `/proc`, sanitizer/deadlock tooling where supported. Evidence should reconstruct wait graph.
 
-## Spurious wakeup
+## Практика
 
-Wait может вернуться даже без desired predicate true; кроме того, другой awakened thread может изменить state до reacquisition.
-
-Поэтому `while`, не `if`.
-
-## Starvation
-
-Program может не deadlock, но один thread бесконечно не получает resource/scheduling progress из-за unfair policy/contention.
-
-Deadlock = никто в cycle не может продвинуться. Starvation = отдельный participant может не продвигаться.
-
-## Priority inversion preview
-
-Low-priority thread держит lock, high-priority ждёт, medium-priority постоянно выполняется → effective priority inversion. OS/RT systems могут иметь inheritance protocols.
-
-Core только понимает phenomenon.
-
-## Lab — deadlock diagnosis
-
-Создай controlled two-lock deadlock в отдельной test program.
-
-1. воспроизведи;
-2. attach GDB;
-3. inspect all thread backtraces;
-4. найди lock cycle;
-5. исправь global ordering;
-6. добавь documentation/test strategy.
-
-## Causal questions
-
-1. Почему semaphore не всегда заменяет mutex?
-2. Почему condition variable должна быть связана с predicate?
-3. Чем starvation отличается от deadlock?
-4. Как thread backtraces показывают wait cycle?
+Create controlled two-lock deadlock fixture marked **BROKEN EXAMPLE**, run only with timeout guard, capture thread stacks, draw wait-for cycle. Then fix using one global lock order and add regression that stresses both operation orders without relying only on timeout.
 
 ## Exit check
 
-При hang concurrent program первым делом классифицируй: deadlock, blocked I/O, condition predicate bug или просто slow work.
+Why does “add a timeout to lock” avoid infinite waiting but not prove resource-order design correct?

@@ -1,95 +1,56 @@
-# 1C.2 — Invariants, properties и regression tests
+# 1C.2 — Как проверять правило для целого класса входов
 
-**Теория:** ~65 мин  
-**Упражнение:** ~55 мин  
-**С телефона:** да
+**Теория:** ~60 мин · **Практика:** ~70 мин · **С телефона:** теория — да
 
 ← [`01-test-levels-oracles.md`](01-test-levels-oracles.md) · → [`03-testability-dependencies-doubles.md`](03-testability-dependencies-doubles.md)
 
-## Цель
+## Проблема
 
-Проверять не только конкретные examples, но и общие свойства структуры.
+Несколько hand-picked examples не покрывают пространство states. Но у структуры часто есть правило, которое должно быть истинно **после любой допустимой последовательности операций**.
 
-## Example-based test
+У нас уже есть слово — invariant.
 
-```text
-push 10
-get(0) == 10
-```
+## Property
 
-Полезен и понятен, но охватывает одну точку input space.
+**Property-based thinking** формулирует общее свойство и генерирует/перебирает много inputs/sequences.
 
-## Invariant
-
-Утверждение, которое обязано быть истинно для каждого valid state.
-
-Vector:
+Примеры:
 
 ```text
-size <= capacity
-if capacity > 0, backing storage соответствует capacity
-indices [0,size) initialized по contract
+Vector: len <= capacity always
+sort: output sorted AND multiset unchanged
+Hash Table: put(k,v) then get(k) == v unless later delete/update
+encode/decode: decode(encode(x)) == x for valid x
 ```
 
-Heap:
-
-```text
-parent <= children
-```
-
-Allocator:
-
-```text
-blocks do not overlap
-```
-
-Hash Table:
-
-```text
-каждый active key обнаруживается своей probe policy
-active/tombstone counters согласованы с buckets
-```
-
-Test-only invariant checker очень полезен, даже если production API его не экспортирует.
-
-## Property thinking
-
-Property — отношение между действиями/результатами для множества inputs:
-
-```text
-get(set(store,k,v), k) == v
-sort output is ordered AND is permutation of input
-push then pop on heap preserves prior heap contents according to priority
-```
-
-Property testing не обязательно требует специальной library: сначала научись формулировать property и генерировать много inputs обычным loop/script.
+Это сильнее списка примеров, но property тоже может быть неполной. `sorted(output)` alone не замечает, что sort потерял половину values.
 
 ## Regression test
 
-После найденного bug:
+После найденного bug сохрани минимальный input/sequence, который его воспроизводит. Такой test называют **регрессионным (regression test)**: future change не должен вернуть старый failure.
 
 ```text
-minimal reproducer -> test fails -> fix -> test passes -> keep forever
+bug
+→ minimize reproducer
+→ fix root cause
+→ save reproducer as test
 ```
-
-Regression test превращает debugging knowledge в автоматизированную память проекта.
 
 ## Metamorphic relation
 
-Когда exact output трудно заранее посчитать, можно проверить relation. Например сортировка twice должна дать тот же результат; добавление независимого key не должно менять value другого key.
+Иногда точный expected output дорог, но известна связь между outputs. Например sorting twice should equal sorting once. Это supplementary oracle, не replacement всех semantics.
 
-## Упражнение
+## Практика
 
-Для одной своей структуры сформулируй:
+Для Hash Table:
 
-- 4 invariants;
-- 3 properties;
-- 1 реальный/искусственный bug reproducer как regression.
-
-Реализуй минимум один invariant checker, вызываемый в tests.
+1. напиши 3 invariants/properties;
+2. сгенерируй deterministic sequence из put/update/delete/get using fixed seed or explicit list;
+3. сравни behavior с простой reference model (например маленький array map);
+4. сохрани один искусственно найденный edge case как regression.
 
 Разбор: [`02-invariants-properties-regressions.solution.md`](02-invariants-properties-regressions.solution.md).
 
 ## Exit check
 
-Чем property `sorted(output)` слабее полной проверки сортировки? Ответ: нужно ещё доказать, что элементы не потерялись/не появились — например permutation/multiset property.
+Почему property `lookup returns something after insert` слабее `lookup returns the latest value for this exact key after arbitrary collision/delete sequence`?

@@ -1,72 +1,15 @@
-# Arena Allocator — рабочий README
+# Arena Allocator — staged project
 
-## Status
+Build allocator over one preallocated arena. Do **not** replace system `malloc` globally.
 
-## API
+## Stage 1 after 4.5
 
-Зафиксируй signatures allocate/free/stats/destroy и error semantics. `free(NULL)`/invalid pointer policy должна быть явной, а не случайной.
+Aligned bump allocation with checked offsets/bounds.
 
-## Arena
+## Stage 2 after 4.6
 
-```text
-backing: mmap / approved buffer
-arena bytes:
-alignment contract:
-```
+Free/reuse/split/coalesce, invalid/double-free policy and fragmentation metrics.
 
-## Block layout
+Docs: [`SPEC.md`](SPEC.md) · [`ACCEPTANCE.md`](ACCEPTANCE.md) · [`TESTS.md`](TESTS.md) · [`HINTS.md`](HINTS.md).
 
-Нарисуй физическую layout:
-
-```text
-header | payload | header | payload | ...
-```
-
-Какие bytes учитываются в block size? Где padding? Как проверить physical adjacency?
-
-## Arithmetic safety
-
-Документируй helpers/guards для:
-
-- align-up;
-- `header + payload`;
-- `count * size`;
-- offsets inside arena.
-
-Никакое вычисление размера не должно молча wrap.
-
-## Ownership
-
-Arena owner, block ownership, lifetime returned pointers, invalidation after destroy.
-
-## Free structure
-
-First-fit/second policy, free-list ordering, split/coalesce rules.
-
-## Invariants
-
-- blocks не overlap;
-- каждый block внутри arena;
-- payload alignment;
-- free block не появляется дважды;
-- metadata chain/offsets valid;
-- coalescing only physical neighbors;
-- stats согласованы с actual layout.
-
-## Tests
-
-```text
-make test
-```
-
-Добавь invariant checker и randomized operation sequence against a simple reference bookkeeping model, если это помогает.
-
-## Metrics
-
-Internal/external fragmentation, largest free block, active requested bytes, operations.
-
-## Debugging story
-
-## Policy comparison
-
-Сравни минимум две placement/growth policy по одинаковому workload.
+Student owns implementation; no full solution.

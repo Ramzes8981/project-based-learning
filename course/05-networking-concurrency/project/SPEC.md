@@ -1,56 +1,56 @@
-# Concurrent KV Server — SPEC
+# Concurrent KV Server — staged SPEC
 
-## Storage
+## Stage 1 — protocol + single client
 
-Используй собственную C Hash Table Module 1 или адаптированную course-owned implementation ученика.
+- TCP listening socket on configured test address/port;
+- `getaddrinfo`/candidate handling or explicitly scoped IPv4-only course variant documented;
+- exact frame format from [`PROTOCOL.md`](PROTOCOL.md);
+- no assumption `recv == frame` or `send == response`;
+- reject length > `MAX_FRAME` before allocation/arithmetic;
+- fixed-width fields encoded/decoded in protocol byte order;
+- malformed/truncated frame has deterministic close/error policy;
+- every accepted fd closed on all terminal paths.
 
-## Protocol
+## Stage 2 — shared KV concurrency
 
-Length-prefixed binary protocol из Lesson 5.4.
+Choose and document synchronization granularity. Correctness requirement:
 
-Обязательно:
+- concurrent SET/GET/DELETE preserve Hash Table invariants;
+- no C data races;
+- no lock held across blocking network I/O unless explicitly justified;
+- lock ordering documented if >1 lock;
+- disconnect/error cannot leave lock held.
 
-- version;
-- opcode;
-- bounded frame length;
-- explicit key/value lengths;
-- network byte order;
-- success/error responses.
+## Stage 3 — bounded pool/backpressure
 
-## Operations
+- fixed worker count;
+- bounded queue with predicate+condvar loops;
+- ownership of client fd transfers exactly at successful enqueue;
+- full queue policy explicit: reject/close/wait with bounded semantics;
+- shutdown wakes sleeping workers, stops accepting, drains or rejects queued work according to documented policy, joins workers, closes all descriptors.
 
-- GET;
-- SET;
-- optional DELETE transfer/base depending chosen scope.
+No detached-worker leak as shortcut.
 
-## Networking
+## Stage 4 — metrics
 
-- address-independent socket setup;
-- robust partial I/O;
-- peer shutdown/malformed frames;
-- no raw struct serialization.
+At minimum:
 
-## Concurrency core
+- successful/error request count;
+- queue depth/high-water mark;
+- rejection count;
+- latency samples/report p50/p95/p99;
+- throughput under documented closed-loop driver.
 
-```text
-acceptor -> bounded queue -> fixed worker pool -> shared store
-```
-
-- mutex-protected shared store baseline;
-- queue condvars;
-- explicit full-queue policy;
-- graceful shutdown plan.
-
-## Metrics
-
-- accepted/completed/errors/rejected;
-- latency samples/percentiles via harness;
-- active connections;
-- queue depth.
+Metrics collection itself must be thread-safe and must not silently dominate benchmark.
 
 ## Non-goals
 
-- TLS;
-- production authentication;
-- distributed replication;
-- lock-free structures.
+- TLS/auth;
+- distributed state;
+- unbounded values/connections;
+- HTTP compatibility;
+- security against adversarial hash-flood unless chosen as extension.
+
+## Transfer
+
+Choose event-loop alternative, protocol extension or overload-policy experiment. State invariants/resource bounds before code.

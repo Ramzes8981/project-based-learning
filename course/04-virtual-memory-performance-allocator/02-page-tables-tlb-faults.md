@@ -1,83 +1,70 @@
-# 4.2 — Page tables, TLB и page faults
+# 4.2 — Как машина переводит адрес небольшими блоками и что происходит при первом обращении
 
-**Теория:** ~70 мин  
-**Упражнения:** ~45 мин  
-**С телефона:** да
+**Теория:** ~90 мин · **Лаб:** ~75 мин · **С телефона:** theory — да
 
 ← [`01-virtual-address-space-mmap.md`](01-virtual-address-space-mmap.md) · → [`03-cache-locality-working-set.md`](03-cache-locality-working-set.md)
 
-## Цель
+## Проблема
 
-Понять translation path virtual address → page → physical frame и почему TLB/page faults влияют на performance.
+Mapping every possible byte address individually would require absurd metadata. Need group addresses into fixed-size chunks and map/protect them together.
 
-## Разбиение адреса
+## Page
 
-При page size `P = 2^k` virtual address можно conceptually разделить:
+A fixed-size chunk used by virtual-memory mapping is a **страница (page)**. Common Linux x86-64 base page is often 4096 bytes, but code should query system where needed instead of universalizing 4 KiB.
+
+Virtual address splits conceptually:
 
 ```text
-virtual page number | page offset(k bits)
+virtual page number | offset inside page
 ```
 
-Offset внутри page не меняется при translation; меняется mapping virtual page → physical frame.
+Offset remains same during translation; mapping chooses physical frame/backing for virtual page.
 
 ## Page table
 
-Page table хранит translation metadata и permissions:
+Data structures used by hardware/OS to translate virtual pages and store permissions/presence are **таблицы страниц (page tables)**.
 
-```text
-VPN -> PPN/frame + present/read/write/execute/... metadata
-```
-
-Современные 64-bit systems используют multi-level page tables, чтобы не выделять гигантскую плоскую таблицу для всего address space.
-
-Точные x86-64 level details будут optional; важно понять tree-like walk.
+Real x86-64 uses multi-level tables because flat table for enormous address space is wasteful. Core needs causal idea, not memorization of all level names.
 
 ## TLB
 
-Translation Lookaside Buffer — cache недавних virtual→physical translations.
+Walking page tables for every memory access would be expensive. CPU caches recent address translations in **Translation Lookaside Buffer (TLB)**.
 
-Если translation в TLB — CPU избегает полного page-table walk.
+This is the first time term TLB is needed: translation itself created repeated lookup cost.
 
-TLB miss ≠ page fault. При TLB miss translation может быть валидна в page tables и просто потребовать walk.
+TLB is not ordinary data cache; it caches address-translation information.
 
 ## Page fault
 
-Page fault возникает, когда memory access требует kernel handling.
+If translation cannot proceed normally — mapping not present yet, permission violation, file-backed data absent, copy-on-write event etc. — CPU transfers control to OS fault handler. This is **page fault**.
 
-Причины разные:
+Not every page fault means program crash. OS may satisfy valid demand mapping and resume instruction. Invalid/unpermitted access may result in signal such as `SIGSEGV`.
 
-- valid mapping, page ещё не backed/loaded → minor/major-style handling;
-- copy-on-write;
-- protection violation;
-- unmapped invalid access.
+## Demand allocation intuition
 
-Не каждый page fault = segfault. Kernel может обслужить legitimate fault и продолжить instruction.
+`mmap`/allocation can reserve virtual range before every physical backing frame is actually touched. First write may trigger minor fault and materialization. Thus “reserved virtual bytes” ≠ “resident physical memory right now”.
 
-## Demand paging
+## Observe
 
-File/anonymous page может появиться физически только при first access. Это позволяет lazy allocation/loading.
+Use `getrusage`, `/usr/bin/time -v`, or `/proc` counters available in environment to compare page-fault behavior when touching a newly mapped region page by page.
 
-## Copy-on-write и `fork`
+Do not infer exact physical allocation policy from one counter; state what it measures.
 
-После `fork` parent/child могут первоначально share physical pages read-only-like under COW. При write kernel создаёт private copy для изменяющего process.
+## Практика
 
-Это объясняет, как `fork` может быть эффективнее полного eager copy address space.
-
-## Working set
-
-Working set — pages/data, активно используемые workload в данном интервале. Если working set не помещается в fast memory/cache/physical RAM, возрастает churn/misses/faults.
-
-## Exercise
-
-Для page size 4096:
-
-1. разложи addresses `0`, `4095`, `4096`, `8193` на page number + offset;
-2. нарисуй две virtual pages разных processes, mapped на один shared frame;
-3. затем COW write одного process → новый frame;
-4. объясни TLB miss vs page fault.
+1. Query page size with `sysconf(_SC_PAGESIZE)`.
+2. `mmap` a moderate anonymous region.
+3. Record fault/RSS-like evidence before touch and after touching one byte per page.
+4. Protect one region `PROT_NONE` only in controlled child fixture if exploring fault signal; mark broken/intentional.
 
 Разбор: [`02-page-tables-tlb-faults.solution.md`](02-page-tables-tlb-faults.solution.md).
 
+## Causal questions
+
+1. Why map chunks/pages instead of each byte independently?
+2. Why does repeated page-table lookup motivate TLB?
+3. Why is page fault not synonym for segmentation fault?
+
 ## Exit check
 
-Если performance counter показывает много TLB misses, почему это ещё не доказывает swap/page-fault problem?
+Draw virtual address → page/offset → page-table translation → possible TLB hit/miss → physical backing or fault.

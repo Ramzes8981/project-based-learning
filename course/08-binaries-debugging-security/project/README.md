@@ -1,44 +1,25 @@
-# minidbg-c — рабочий README
+# minidbg-c — Linux x86-64 teaching debugger
 
-## Scope
+Build a debugger for **course-owned fixtures only**. Target scope is deliberately narrow so every state transition remains explainable.
 
-```text
-Linux x86-64
-single-threaded controlled tracees
-launch only (no arbitrary attach in core)
-```
+## Milestones
 
-## Build / targets
+1. launch tracee + wait/continue/exit state machine;
+2. register dump;
+3. safe byte-range memory read/write helper;
+4. software breakpoint table;
+5. breakpoint hit dance: restore → RIP rewind → single-step → reinsert;
+6. explicit `step` command;
+7. frame-pointer-only stack trace on fixture built with frame pointers;
+8. optional supported PIE symbol resolution.
 
-Document debugger build and use `tests/targets/Makefile` to build controlled fixtures.
+## Non-goals
 
-## State machine
+- remote debugging;
+- arbitrary hostile process attachment;
+- full DWARF parser;
+- optimized universal unwinder;
+- multi-threaded debugger completeness;
+- exploit automation.
 
-List debugger states and commands allowed from each state. Every `waitpid` result must transition explicitly.
-
-## Tracee ownership/lifecycle
-
-Who creates child, what happens on debugger quit, detach/terminate policy, zombie prevention.
-
-## Registers/memory
-
-Address parser, errno handling for PEEK, architecture-specific assumptions.
-
-## Breakpoints
-
-Record layout, insertion/deletion, duplicate policy, hit detection, RIP correction, step-over/reinsert state.
-
-## PIE
-
-How runtime mapping base + symbol relative value become runtime breakpoint address. Include evidence for one PIE fixture.
-
-## Tests
-
-`TESTS.md`, controlled targets, expected stops/register effects. Never test by attaching to unrelated user/system processes.
-
-## Security/non-goals
-
-This is a debugging learning tool, not an exploitation framework. No untrusted remote attach, no anti-debug bypass, no stealth/injection features.
-
-## Debugging story / known limitations / transfer
-
+Docs: [`SPEC.md`](SPEC.md) · [`ACCEPTANCE.md`](ACCEPTANCE.md) · [`TESTS.md`](TESTS.md) · [`HINTS.md`](HINTS.md).

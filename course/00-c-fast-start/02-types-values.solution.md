@@ -1,34 +1,19 @@
-# Разбор упражнения 0.2
+# Разбор 0.2
 
-Пример:
+Один из корректных вариантов:
 
 ```c
-#include <limits.h>
 #include <stdio.h>
 
 int main(void)
 {
-    int x = 42;
+    int done = 3;
+    int total = 4;
+    double fraction = (double)done / total;
 
-    printf("char      %zu\n", sizeof(char));
-    printf("short     %zu\n", sizeof(short));
-    printf("int       %zu\n", sizeof(int));
-    printf("long      %zu\n", sizeof(long));
-    printf("long long %zu\n", sizeof(long long));
-    printf("x         %zu\n", sizeof(x));
-
-    printf("INT_MIN  %d\n", INT_MIN);
-    printf("INT_MAX  %d\n", INT_MAX);
-    printf("UINT_MAX %u\n", UINT_MAX);
-
-    unsigned int u = UINT_MAX;
-    u += 1U;
-    printf("wrapped  %u\n", u);
-
+    printf("done=%d total=%d fraction=%.2f\n", done, total, fraction);
     return 0;
 }
 ```
 
-На обычном x86-64 Linux часто увидишь `int` 4 bytes и `long` 8 bytes, но смысл упражнения — не запомнить эти числа как закон C.
-
-Unsigned переход из `UINT_MAX` в `0` определён языком. Не переноси этот вывод на signed overflow.
+Если написать `double fraction = done / total;`, сначала выполнится integer division: результат `0`, который затем преобразуется в `0.0`. Cast одного operand меняет тип самой операции деления.

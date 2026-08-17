@@ -1,112 +1,75 @@
-# 9.4 — Backpressure, load shedding и timeout budgets
+# 9.4 — Что делать, когда система физически не успевает
 
-**Теория:** ~80 мин  
-**Failure experiment:** ~2–4 часа  
-**С телефона:** да
+**Теория:** ~75 мин · **Failure experiment:** ~2–4 часа · **С телефона:** да
 
 ← [`03-queueing-latency-capacity.md`](03-queueing-latency-capacity.md) · → [`05-persistence-shutdown-recovery.md`](05-persistence-shutdown-recovery.md)
 
-## Цель
+## Проблема
 
-Сделать overload controlled failure mode, а не бесконечный рост queue/latency/memory.
-
-## Overload
-
-Если incoming work устойчиво больше service capacity:
+Если входящий поток устойчиво больше service capacity:
 
 ```text
 arrival > completion
 → backlog grows
 ```
 
-Unbounded queue лишь откладывает момент failure:
+Неограниченная очередь не создаёт capacity. Она превращает overload в растущие latency и memory usage.
 
-- latency grows;
-- memory grows;
-- requests expire while waiting;
-- recovery after load drop slow.
+## Контролируемый отказ
 
-## Backpressure choices
+Система должна решить, что делать при исчерпании capacity:
 
-Когда capacity exhausted:
+- временно перестать принимать новую работу;
+- блокировать upstream;
+- быстро отклонять часть запросов;
+- ограничивать concurrency;
+- сбрасывать менее важную работу.
 
-- block upstream;
-- stop reading/accepting temporarily;
-- reject quickly;
-- shed lower-priority work;
-- enforce concurrency limits.
+Механизм, который не даёт downstream бесконечно поглощать excess work, называется **обратным давлением (backpressure)**.
 
-Policy зависит service contract.
-
-## Load shedding
-
-Fail fast может быть лучше, чем «успешно принять» request и ответить через минуту после client timeout.
-
-Reject metric должен отличаться от internal error.
+Быстрое контролируемое `BUSY` иногда полезнее, чем «принять» запрос и ответить уже после client deadline.
 
 ## Timeout budget
 
-Timeout должен учитывать whole path:
+Timeout относится ко всему пути:
 
 ```text
 connect + queue + service + storage + response
 ```
 
-Если downstream timeout 5s, upstream retry every 1s может создавать request amplification.
+Если request уже почти исчерпал deadline в queue, выполнение дорогой работы может быть бессмысленным — зависит от protocol semantics.
 
-## Retry storm
-
-Failure → clients retry → load increases → failure worse.
-
-Mitigations:
-
-- bounded retries;
-- exponential backoff;
-- jitter;
-- idempotency/dedup;
-- circuit-breaking/load shedding concepts.
-
-Capstone не требует full circuit breaker library, но review должен увидеть feedback loop.
-
-## Queue capacity
-
-Capacity выбирается evidence-based. Слишком маленькая → unnecessary rejects burst; слишком большая → tail latency/memory.
-
-Bound может быть связан с acceptable queue delay + throughput:
+## Retry feedback loop
 
 ```text
-rough queue length ≈ rate * allowed queue time
+service slows
+→ clients timeout
+→ clients retry
+→ offered load grows
+→ service slows more
 ```
 
-это intuition, не точная guarantee.
+Поэтому retries должны иметь bounds/backoff/jitter и учитывать idempotency.
+
+## Queue bound
+
+Слишком большая queue повышает worst-case waiting time и memory. Слишком маленькая может зря отвергать короткие bursts.
+
+Bound выбирают под workload/latency target и затем проверяют экспериментом.
 
 ## Failure experiment
 
-Нагрузить service выше sustainable throughput.
+Нагрузить service выше sustainable capacity и записать:
 
-Снять:
-
-- queue depth over time;
-- latency percentiles;
+- offered/completed rate;
+- queue depth;
+- p50/p95/p99;
 - rejects;
 - memory;
-- throughput.
+- CPU/storage observations.
 
-Измени одну policy:
-
-- queue size;
-- worker count;
-- reject policy.
-
-Сравни.
-
-## Causal questions
-
-1. Почему unbounded queue скрывает overload, но не решает его?
-2. Как retry может worsen incident?
-3. Почему fast reject иногда улучшает user experience?
-4. Как timeout взаимодействует с queueing?
+Измени **одну** policy и сравни результаты.
 
 ## Exit check
 
-У service должен быть explicit answer: что происходит с новым request, когда capacity exhausted?
+Что происходит с новым request в момент, когда все workers заняты и bounded queue заполнена? Ответ должен быть частью service contract.

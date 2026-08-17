@@ -17,18 +17,36 @@ jobs:
   course-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - name: Validate learner path
+
+      - name: Validate learner path and concept dependencies
         run: python scripts/course_audit.py
-      - name: Compile course Python infrastructure
+
+      - name: Compile Python course infrastructure
         run: |
           python -m py_compile scripts/course_audit.py
           find course -path '*/project/*' -name '*.py' -print0 | xargs -0 -r python -m py_compile
-      - name: Run course infrastructure regression tests
+
+      - name: Run protocol/tool regression tests
         run: python -m unittest discover -s course/05-networking-concurrency/project/tools -p 'test_*.py'
+
+      - name: Compile C language/concurrency fixture
+        run: |
+          cc -std=c17 -Wall -Wextra -Wpedantic -Werror \
+            course/05-networking-concurrency/fixtures/atomic_counter.c \
+            -o /tmp/course-atomic-counter
+          /tmp/course-atomic-counter
+
+      - name: Compile Rust FFI layout fixture
+        run: |
+          rustc --version
+          rustc --edition=2021 --crate-type=lib \
+            course/01b-rust-systems-bridge/fixtures/ffi_layout.rs \
+            -o /tmp/libcourse_ffi_layout.rlib
+
       - name: Compile controlled debugger targets
         run: |
           make -C course/08-binaries-debugging-security/project/tests/targets

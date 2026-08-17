@@ -1,86 +1,74 @@
-# 5.2 — UDP и TCP: datagram vs byte stream
+# 5.2 — Какие гарантии дают UDP и TCP и почему TCP не передаёт сообщения
 
-**Теория:** ~80 мин  
-**Exercise:** ~45 мин  
-**С телефона:** да
+**Теория:** ~85 мин · **Практика:** ~70 мин · **С телефона:** теория — да
 
 ← [`01-link-ip-routing.md`](01-link-ip-routing.md) · → [`03-socket-api-getaddrinfo.md`](03-socket-api-getaddrinfo.md)
 
-## Цель
+## Проблема
 
-Перестать воспринимать TCP как «надёжные сообщения» и понять, почему application framing — ответственность application protocol.
+IP can move packets toward destination, but application still needs a contract:
+
+- should loss be recovered?
+- should bytes remain ordered?
+- is each send a distinct message?
+- how identify application endpoint on host?
+
+Transport protocols choose different trade-offs.
+
+## Ports
+
+A host can run many networked processes/services. Transport protocols use **ports** as endpoint identifiers within IP/transport context.
+
+`IP address + transport protocol + port` helps identify destination endpoint. Port alone is not globally unique service identity.
 
 ## UDP
 
-UDP предоставляет datagrams: одна отправка создаёт datagram boundary, которую receiver получает как datagram, если она доставлена. Сам UDP не обещает delivery, ordering или retransmission.
+User Datagram Protocol (UDP) gives datagram-oriented transport:
 
-Это не «плохой TCP»: DNS, real-time media и custom protocols могут выбирать datagram semantics сознательно.
+- preserves datagram boundaries;
+- no built-in reliable delivery guarantee;
+- no built-in ordering guarantee across datagrams;
+- duplicates/loss/reordering must be acceptable or handled by application above.
+
+A successful local send does not prove remote application received or processed the datagram.
 
 ## TCP
 
-TCP connection предоставляет ordered reliable **byte stream**.
+Transmission Control Protocol (TCP) provides reliable ordered **byte stream** between endpoints, subject to connection failure semantics.
 
-Если sender сделал:
-
-```text
-send 100 bytes
-send 50 bytes
-```
-
-receiver не имеет contract получить именно `100`, затем `50` bytes одним-в-один. `recv` может вернуть любой положительный chunk доступного stream вплоть до requested buffer size.
+Core mental model:
 
 ```text
-30 + 120
-150
-80 + 70
-...
+sender writes bytes: ABC | DEF
+receiver may read: A | BCDE | F
 ```
 
-Order bytes сохраняется, boundaries `send` — нет.
+The separators between application write calls are **not preserved as message boundaries**.
 
-`recv == 0` после чтения уже buffered data означает orderly peer shutdown на stream side. Negative result означает error; для nonblocking режима отдельными нормальными состояниями станут `EAGAIN/EWOULDBLOCK`.
+## Проблема границ сообщений
 
-## Reliability mechanisms intuition
+Если приложению нужны logical messages, оно должно само закодировать, где одно сообщение заканчивается и начинается следующее.
 
-TCP internally использует sequence numbers, acknowledgements, retransmission, flow control и congestion control. Application получает stream abstraction, а не обязана самостоятельно собирать lost packets.
+Такой способ восстановления границ поверх byte stream называется **framing**. Пока достаточно самой причины; конкретный binary format и parser мы построим после знакомства с сетевым API.
 
-### Flow control
+## Что “reliable” не означает
 
-Не даёт sender переполнить advertised receive capacity peer.
+TCP умеет переотправлять и упорядочивать bytes, но не сообщает приложению, успела ли удалённая business operation изменить state перед обрывом. Это отдельная проблема application contract, к которой вернёмся в capstone.
 
-### Congestion control
+## Connection close
 
-Адаптирует sending behavior к network path congestion.
+An orderly EOF tells receiver peer closed its sending direction after bytes already delivered to stream. Reset/error has different semantics. Treat network errors as normal state transitions, not impossible exceptions.
 
-Это разные feedback problems.
+## Partial I/O returns again
 
-## Connection lifecycle
+Сетевые операции чтения/записи не обязаны обработать весь requested buffer одним вызовом. Поэтому parser byte stream должен работать с произвольными chunk boundaries.
 
-Application обычно видит `connect/accept`, а kernel ведёт TCP state machine. Classic three-way handshake — полезная модель establishment, но не повод вручную реализовывать TCP в socket application.
+## Практика
 
-## Half-close
-
-TCP full-duplex. `shutdown` может запретить дальнейшую send/receive direction отдельно; `close` освобождает descriptor reference. Это важно для protocols, где одна сторона сообщает EOF, но ещё читает response.
-
-## Head-of-line blocking
-
-TCP обязан выдавать application bytes по порядку. Если segment потерян, более поздние bytes не могут быть delivered application раньше gap, даже если физически уже пришли.
-
-## Exercise
-
-Protocol: JSON message 1–100 KiB.
-
-Объясни, почему неверно:
-
-```text
-recv(fd, buf, 65536)
-parse buffer as exactly one JSON message
-```
-
-Спроектируй delimiter framing и length-prefix framing. Для каждого перечисли partial read, multiple messages per recv, overlong message, EOF mid-message.
+Using a local TCP pair/tool, deliberately write two chunks and read with different buffer sizes. Record observed chunking, then explain why any observed alignment is not guaranteed contract.
 
 Разбор: [`02-udp-tcp-stream.solution.md`](02-udp-tcp-stream.solution.md).
 
 ## Exit check
 
-TCP гарантирует ordered stream bytes; application message boundaries создаёт наш protocol/parser.
+Почему “одна операция записи = одно сообщение” — неверный contract для TCP и какую новую проблему это создаёт приложению?

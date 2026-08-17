@@ -1,90 +1,43 @@
-# 1B.7 — Bytes, Unicode и UTF-8: где заканчивается «строка»
+# 1B.7 — Почему Rust не позволяет индексировать UTF-8 строку как массив символов
 
-**Теория:** ~80 мин  
-**Упражнение:** ~60 мин  
-**Project slice:** ~30 мин  
-**С телефона:** да
+**Теория:** ~50 мин · **Практика:** ~45 мин · **С телефона:** да
 
 ← [`06-vec-string-collections.md`](06-vec-string-collections.md) · → [`08-unsafe-raw-pointers-ffi.md`](08-unsafe-raw-pointers-ffi.md)
 
-## Цель
+## Что уже известно
 
-Не путать bytes, Unicode code points и визуальные символы; выбирать `&[u8]` или `&str` по контракту данных.
+Из 1.3B: bytes ≠ Unicode code points; UTF-8 code point занимает 1–4 bytes; user-visible grapheme может быть сложнее code point.
 
-## Три уровня
+Этот урок **не впервые объясняет Unicode**. Он показывает, как Rust types защищают тот же contract.
 
-```text
-bytes -> encoding -> Unicode code points -> grapheme clusters on screen
-```
+## `String` / `str` guarantee
 
-**Byte** — 8-bit unit в нашем окружении.  
-**Code point** — Unicode scalar/code point, например `U+0416`.  
-**UTF-8** — encoding code points в 1–4 bytes.  
-**Grapheme cluster** — то, что пользователь часто воспринимает как один «символ»; может состоять из нескольких code points.
+Rust `String` и `str` содержат valid UTF-8. Поэтому arbitrary byte index не обязан попадать на character boundary.
 
-## ASCII
+Именно поэтому `s[0]` для `String`/`str` не предоставляется как «первый символ».
 
-ASCII bytes `0..127` совпадают с теми же Unicode code points в UTF-8. Поэтому ASCII-delimiters (`\n`, space, `:`) можно искать по bytes внутри valid UTF-8 без декодирования всех characters.
-
-## `len()` в Rust string
+## Что считать
 
 ```rust
-let s = "Ж";
-assert_eq!(s.len(), 2);
+s.len()          // bytes
+s.chars()        // Unicode scalar values/code points-like iteration
+s.bytes()        // raw UTF-8 bytes
 ```
 
-`str::len()` возвращает bytes, не количество displayed characters.
+`chars().count()` всё ещё не равно универсальному «количеству видимых graphemes».
 
-`chars().count()` считает Unicode scalar values, но всё ещё не grapheme clusters.
+## Byte protocol boundary
 
-## Почему `s[0]` запрещено
+Network/file binary protocol should parse `&[u8]`. Только field, который protocol объявляет UTF-8 text, преобразуется через validation вроде `std::str::from_utf8`.
 
-UTF-8 variable-width. Arbitrary integer byte index может попасть внутрь encoded code point. Rust не обещает O(1) «character indexing» для `str`.
+Так invalid bytes не превращаются случайно в text assumption.
 
-Slice `&s[a..b]` допустим только по valid UTF-8 boundaries, иначе panic.
+## Практика
 
-## Binary data
-
-Compressed payload, image, hash digest, length-prefixed protocol body — не text. Используй `&[u8]`/`Vec<u8>` и выполняй text decode только там, где protocol explicitly обещает encoding.
-
-## Validation boundary
-
-Типичная pipeline:
-
-```text
-network/file bytes
-↓
-length/bounds validation
-↓
-if field is text: UTF-8 validation
-↓
-&str / String domain logic
-```
-
-Не преобразовывай arbitrary bytes через lossy conversion, если protocol требует отклонять invalid text: это меняет данные и может скрыть malformed input.
-
-## C comparison
-
-`char *`/C string не кодирует encoding. `strlen` считает bytes до `\0`. Значит UTF-8 C string может иметь `strlen` больше числа Unicode characters.
-
-## Упражнение
-
-Напиши Rust функцию, принимающую `&[u8]` и возвращающую:
-
-```text
-Result<&str, Utf8Error-like result>
-```
-
-через standard UTF-8 validation. Проверь ASCII, Cyrillic, emoji и invalid byte sequence.
-
-Затем для valid `&str` сравни `len()` и `chars().count()`.
+Для `"AЖ€"` сравни `len`, `chars().count()`, `bytes()`; затем попробуй `from_utf8` на valid/invalid byte slices и обработай `Result`.
 
 Разбор: [`07-text-bytes-unicode-utf8.solution.md`](07-text-bytes-unicode-utf8.solution.md).
 
-## Project slice
-
-В Rust MiniKV зафиксируй: keys/values — именно UTF-8 text (`String`) или arbitrary bytes (`Vec<u8>`)? Текущий bridge использует text ради сравнения с C strings, но ты должен понимать ограничение.
-
 ## Exit check
 
-Почему «длина строки» без уточнения units — неоднозначная инженерная фраза?
+Почему отсутствие `s[0]` — следствие UTF-8 representation, а не произвольная прихоть Rust?

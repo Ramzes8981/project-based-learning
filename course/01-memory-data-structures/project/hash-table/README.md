@@ -1,56 +1,23 @@
-# Hash Table — рабочий README
+# Hash Table in C — рабочий milestone
 
-Этот файл принадлежит твоей реализации. SPEC задаёт поведение, но representation/API решения документируешь здесь.
+Проект начинается после 1.16 и получает resize после 1.17.
 
-## Status
+## Поведение
 
-## API
+Хранит `key → int value`:
 
-Какие операции и status/error values?
+- put new;
+- update existing;
+- get;
+- delete;
+- collisions не меняют correctness;
+- table растёт по documented policy;
+- allocation failure не теряет old state.
 
-## Representation
+Не требуется cryptographic hash, concurrent access или disk persistence.
 
-- bucket state representation;
-- capacity/active/tombstones;
-- hash/probe policy.
+## Документы
 
-## Ownership & lifetime
+[`SPEC.md`](SPEC.md) · [`ACCEPTANCE.md`](ACCEPTANCE.md) · [`TESTS.md`](TESTS.md) · [`HINTS.md`](HINTS.md)
 
-```text
-table storage owner:
-key owner:
-value owner:
-GET result lifetime:
-what invalidates returned pointers:
-destroy contract:
-```
-
-## Complexity assumptions
-
-Expected/worst-case и assumptions distribution/load factor.
-
-## Growth policy
-
-Threshold, new capacity calculation, failure-safe rehash.
-
-## Metrics
-
-Probes, resize count, max/histogram и что они показывают.
-
-## Build / tests
-
-```text
-make
-make test
-```
-
-Запиши sanitizer run и boundary scenarios.
-
-## Transfer feature
-
-## Debugging story
-
-Symptom → hypothesis → diagnostic evidence → root cause → fix → regression test.
-
-## Known limitations
-
+Student owns implementation; full solution отсутствует.

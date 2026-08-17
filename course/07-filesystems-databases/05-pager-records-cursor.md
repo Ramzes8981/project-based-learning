@@ -1,126 +1,55 @@
-# 7.5 — Pager, records и cursor abstraction
+# 7.4 — Как работать с database file страницами вместо случайных `read/write` по всему коду
 
-**Теория:** ~80 мин  
-**Project slice:** ~6–10 часов  
-**С телефона:** да
+**Теория:** ~85 мин · **Практика/project:** ~4–6 часов · **С телефона:** теория — да
 
 ← [`04-binary-format-pages-serialization.md`](04-binary-format-pages-serialization.md) · → [`06-btree-index-splits.md`](06-btree-index-splits.md)
 
-## Цель
+## Проблема
 
-Разделить storage engine на logical records и physical page I/O.
-
-## Layers
-
-```text
-command/API
-  ↓
-record/index operations
-  ↓
-cursor/navigation
-  ↓
-pager
-  ↓
-pread/pwrite/fsync-ish file layer
-```
-
-Каждый layer имеет contract.
+If every query computes raw offsets and calls `pread/pwrite`, format arithmetic/error handling spreads everywhere. Need one component owning page I/O contract.
 
 ## Pager
 
-Pager отвечает:
-
-- открыть DB file;
-- validate header;
-- read page N;
-- write dirty page N;
-- allocate new page number;
-- track file page count;
-- close/flush according to current non-transactional policy.
-
-Core pager может иметь небольшой in-memory page cache, но сначала synchronous page reads проще для correctness.
-
-## Positional I/O
-
-`pread/pwrite` удобны: operation получает explicit offset и не зависит от shared current file offset.
-
-Page offset:
+A **pager** maps database page number to fixed-size page bytes and hides file-offset I/O details.
 
 ```text
-file_header_bytes + page_no * PAGE_SIZE
+logical page id
+→ checked offset = page_id * PAGE_SIZE
+→ read/write exactly one page
+→ validate short/truncated I/O
 ```
 
-Проверь multiplication/addition overflow before converting to `off_t`/API range.
+Offset multiplication must be checked against target `off_t`/file limits before syscall.
 
-## Record
+## Records
 
-SimpleDB record:
+A record can be fixed-size or variable-size. Core SimpleDB uses exact format from `FORMAT.md`; do not let C struct size silently become record size.
 
-```text
-u32 key
-u16 value_len
-value bytes up to MAX_VALUE
-```
-
-Disk pages не хранят host pointer.
+For slotted/variable layouts, metadata must prevent overlapping/cross-page ranges. If project uses fixed-size records first, variable records remain extension.
 
 ## Cursor
 
-Cursor описывает logical position внутри tree/page:
+A **cursor** is traversal state over logical records/pages. It avoids returning raw pointers to page buffers whose lifetime may end when pager evicts/reuses memory.
+
+Even simple no-cache pager should define what invalidates record views.
+
+## Short I/O
+
+Regular-file reads can return short at EOF; a database page expected fully present must distinguish:
 
 ```text
-page number
-cell/index position
-end flag
+new page/unallocated according to format
+valid full page
+truncated/corrupt file
+I/O error
 ```
 
-Это отделяет traversal от REPL/command parsing.
-
-## REPL/API
-
-Для учебного interface достаточно:
-
-```text
-insert <key> <value>
-get <key>
-scan
-.stats
-.exit
-```
-
-Parser не является SQL parser. Не называй SimpleDB «SQL database».
-
-## Page allocation
-
-Пока нет free-page manager/delete reclaim, новые pages append at end. Это limitation, которую нужно документировать.
-
-## Failure handling
-
-Если page read short/corrupt:
-
-- не interpreting uninitialized bytes;
-- report corruption/I/O error;
-- current operation aborts cleanly.
+Never zero-fill unexpected truncation and silently call it valid old data unless format explicitly defines sparse/new-page semantics.
 
 ## Project slice
 
-Реализуй:
-
-1. open/create;
-2. format header;
-3. page read/write helpers;
-4. leaf root page;
-5. insert few records sequentially;
-6. get/scan before splits;
-7. reopen persistence test.
-
-## Causal questions
-
-1. Почему pager не должен знать CLI syntax?
-2. Почему page offset arithmetic требует overflow checks?
-3. Что cursor abstraction даст после появления internal nodes?
-4. Почему append-only page allocation пока допустима, но это limitation?
+Implement pager + record scan/insert according to project format. Add deterministic I/O seam or truncated fixture for error paths.
 
 ## Exit check
 
-Проследи `get 42` от command до exact page read.
+Why is “short page read” a storage-format decision, not automatically equivalent to “remaining bytes are zero”?

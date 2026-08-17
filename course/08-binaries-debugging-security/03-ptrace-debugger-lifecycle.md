@@ -1,87 +1,71 @@
-# 8.3 — `ptrace` и debugger state machine
+# 8.3 — Как debugger останавливает tracee и получает право его наблюдать
 
-**Теория:** ~105 мин  
-**Project slice:** ~4–6 часов  
-**С телефона:** теория — да
+**Теория:** ~100 мин · **Практика/project:** ~3–5 часов · **С телефона:** theory — да
 
 ← [`02-loader-pie-aslr.md`](02-loader-pie-aslr.md) · → [`04-registers-memory.md`](04-registers-memory.md)
 
-## Цель
+## Проблема
 
-Построить Linux tracer/tracee lifecycle и правильно различать running/stopped/exited/signaled states.
+Another process is normally isolated. Debugger needs OS-mediated interface to stop it, inspect/modify state and resume while receiving events.
 
-## Scope
+On Linux course target this interface is **`ptrace`**.
 
-`ptrace` — Linux process/thread tracing API. `pid` в большинстве requests обозначает конкретный tracee thread ID. Большинство inspect/modify/restart operations требуют, чтобы tracee находился в **ptrace-stop**; attach/seize/interrupt имеют отдельные rules.
-
-Это не portable POSIX debugger abstraction.
-
-## Launch path
-
-Course core:
+## Roles
 
 ```text
-parent fork
-├─ child:
-│    PTRACE_TRACEME
-│    execve/execvp target
-└─ parent:
-     waitpid initial traced stop
-     inspect / command loop
+tracer  — debugger process
+tracee  — debugged process
 ```
 
-`PTRACE_TRACEME` вызывается tracee. После traced `exec` parent получает debugger-visible stop (`SIGTRAP`-style event in this simple setup) и только после `waitpid` может безопасно считать child stopped.
+ptrace permissions are constrained by UID/security policy, Yama, containers, namespaces and other controls. Course only traces own fixtures.
 
-## State machine
+## Launch model
+
+A simple controlled launch:
 
 ```text
-NEW -> RUNNING -> STOPPED -> RUNNING ... -> EXITED
-                          \              -> SIGNALED
-                           -> DETACHED -> normal process
+fork
+child: PTRACE_TRACEME
+child: exec fixture
+parent: waitpid for ptrace stop
+parent: event loop
 ```
 
-Debugger не вызывает memory/register requests «пока target вроде стоит»: у него должен быть explicit state derived from successful `waitpid` decode.
+`exec` of traced child typically produces stop/event suitable for debugger synchronization. Exact stop causes/status must be decoded, not assumed from one signal number.
 
-## `waitpid` decoding
+Alternative attach/seize exists; core can implement launch first.
 
-Status — packed process state, не exit code.
+## Stopped state is the safe inspection point
+
+Debugger should read/change registers or memory when tracee is in ptrace-stop according to API. Maintain explicit debugger state:
 
 ```text
-WIFEXITED    -> WEXITSTATUS valid
-WIFSIGNALED  -> WTERMSIG valid
-WIFSTOPPED   -> WSTOPSIG valid
+RUNNING
+STOPPED(reason/status)
+EXITED(code/signal)
 ```
 
-Для traced child stop reports доступны даже без обычного job-control use of `WUNTRACED`.
+Do not issue random ptrace requests after process exited.
 
-## Restart и signals
+## Wait loop
 
-`PTRACE_CONT`/`PTRACE_SINGLESTEP` переводят stopped tracee обратно в execution; tracer затем **снова** ждёт state change.
+`waitpid` is debugger event source. Decode:
 
-Некоторые stops соответствуют signal delivery. Restart request может передать signal tracee или подавить его. Поэтому «всегда continue с signal=0» способен менять semantics программы. Core обрабатывает собственные `SIGTRAP` stops и явно сообщает остальные; полноценная signal forwarding policy — transfer.
+- normal exit;
+- signal termination;
+- stopped state + signal/event;
+- continue events if enabled.
 
-## Error nuance: peek result `-1`
+Retry wait on `EINTR`. Preserve/deliver signals according to debugger policy rather than swallowing every signal accidentally.
 
-Некоторые ptrace peek requests возвращают прочитанное machine word как return value. Data word сам может быть `-1`. Правильный pattern:
+## Resume
 
-```text
-errno = 0
-value = ptrace(PEEK...)
-if value == -1 AND errno != 0 -> error
-otherwise value is legitimate data
-```
+`PTRACE_CONT` resumes; optional signal argument controls delivery of pending stop signal. A minimal debugger must distinguish breakpoint `SIGTRAP` from unrelated signal that should reach tracee.
 
-## Project slice
+## Project stage
 
-`minidbg-c ./target [args...]`:
-
-- fork/TRACEME/exec;
-- wait initial stop;
-- `continue`, `quit`;
-- exact reporting exited/signaled/stopped;
-- quit/detach/kill policy documented;
-- no zombie tracee.
+Launch fixture, stop at exec, print state, continue, report exit. Only then add registers/memory.
 
 ## Exit check
 
-Каждая debugger command должна иметь допустимый source state и ожидаемый next state. Если такого mapping нет — implementation уже хрупкая.
+Why is `waitpid` not merely “wait until debugger target exits”, and what state transition must occur before register inspection?

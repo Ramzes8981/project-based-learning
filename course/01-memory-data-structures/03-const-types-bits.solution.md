@@ -1,27 +1,21 @@
 # Разбор 1.3
 
-Пример operations:
-
 ```c
-#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
-static uint32_t enable(uint32_t flags, uint32_t mask)
+int checked_array_bytes(size_t count, size_t elem_size, size_t *out)
 {
-    return flags | mask;
-}
+    if (out == NULL) {
+        return 0;
+    }
+    if (elem_size != 0 && count > SIZE_MAX / elem_size) {
+        return 0;
+    }
 
-static uint32_t disable(uint32_t flags, uint32_t mask)
-{
-    return flags & ~mask;
-}
-
-static bool has(uint32_t flags, uint32_t mask)
-{
-    return (flags & mask) != 0;
+    *out = count * elem_size;
+    return 1;
 }
 ```
 
-Здесь state передаётся by value и возвращается как новое значение — подход удобен для маленького integer bitset.
-
-Для mutable struct позже разумнее pointer-based API.
+Важно: выражение `count * elem_size` отсутствует на failure path. Проверка после multiplication была бы слишком поздней.

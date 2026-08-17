@@ -1,48 +1,55 @@
-# Capstone — Acceptance
+# Persistent KV Service — Acceptance
 
-## Functional
+## Behavior
 
-- GET/SET/DELETE;
-- persistence according to documented contract;
-- concurrent clients;
-- malformed requests safe;
-- clean restart;
-- graceful shutdown.
+- GET/SET/DELETE соответствуют `PROTOCOL.md`;
+- несколько клиентов не повреждают state;
+- malformed/oversized input вызывает controlled error;
+- clean restart и shutdown соответствуют `RECOVERY.md`.
 
-## Resource control
+## Resource safety
 
-- frame size bound;
-- connection/work queue bound;
-- backpressure/reject policy;
-- no unexplained fd/thread/memory growth in repeated workload.
+- frame/key/value limits explicit;
+- connection/work queue bounded;
+- overload policy observable;
+- repeated workload не показывает необъяснимого роста fd/thread/memory;
+- all size/offset arithmetic around untrusted lengths checked before allocation/access.
+
+## Concurrency/shutdown
+
+- shared mutable state имеет явного owner/synchronization contract;
+- workers корректно wake/stop/join;
+- storage не закрывается пока worker ещё может его использовать;
+- shutdown time проверяется на определённом workload.
+
+## Persistence/recovery
+
+- acknowledgement guarantee записана точно;
+- clean restart воспроизводим;
+- forced kill/corrupt copy дают поведение, соответствующее documented limitations;
+- parser persistent format не доверяет lengths/offsets слепо.
 
 ## Evidence
 
-- reproducible load generator/config;
-- completed throughput;
-- p50/p95/p99;
-- queue vs service latency;
-- error/reject rate;
-- saturation experiment.
-
-## Reliability
-
-- >= 5 controlled failure scenarios;
-- recovery behavior documented;
-- limitations honest.
+- workload/environment записаны;
+- throughput и p50/p95/p99 воспроизводимы;
+- queue latency отличима от service latency;
+- overload experiment фиксирует rejects/backpressure;
+- минимум 5 controlled failure scenarios.
 
 ## Architecture
 
-- component/state diagram;
-- three ADRs;
+- boundaries + state ownership diagram;
+- минимум 3 ADR;
 - protocol/retry semantics;
-- metric definitions/SLO;
+- metric definitions/SLO hypothesis;
 - security/resource review;
-- 10×/second-node thought experiment.
+- 10×/second-node analysis от измеренного bottleneck.
 
-## Quality
+## Code quality
 
-- no unexplained C/Rust warnings/lints in owned code;
+- no unexplained compiler/linter warnings;
 - relevant sanitizers/tests clean;
-- project README reproducible;
-- one substantial transfer decision/feature designed from first principles.
+- no known UB/resource leaks in happy/error paths;
+- README позволяет воспроизвести build/test/benchmark;
+- implementation milestone code написан студентом, не solution из курса.

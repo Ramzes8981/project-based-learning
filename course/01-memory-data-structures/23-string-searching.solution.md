@@ -1,4 +1,4 @@
-# Разбор упражнения 1.16
+# Разбор упражнения Optional 1B
 
 Для naive length-based search безопасный внешний цикл возможен только если `pattern_len <= text_len`; иначе выражение вроде `text_len - pattern_len` на `size_t` underflow.
 

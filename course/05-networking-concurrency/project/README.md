@@ -1,48 +1,24 @@
-# Concurrent KV Server — рабочий README
+# Concurrent KV Server — staged project
 
-## Status / Build
+Reuses **ideas/contracts** from Hash Table, not a pasted old `main()`.
 
-Executable, `make`, `make test`, run command.
+## Stage 1 after 5.4
 
-## Protocol
+Single-client TCP server with exact binary framing/protocol and robust partial I/O.
 
-Implementation conforms to [`PROTOCOL.md`](PROTOCOL.md). Document any intentionally smaller key/value limits.
+## Stage 2 after 5.5
 
-## Architecture
+Concurrent handlers with shared KV synchronization correctness.
 
-```text
-acceptor -> bounded queue -> workers -> shared Hash Table
-```
+## Stage 3 after 5.6–5.7
 
-Who owns accepted fds/tasks/buffers? When are they closed/freed?
+Bounded worker queue, clean shutdown and explicit overload/backpressure policy.
 
-## Queue invariants
+## Stage 4 after 5.9
 
-Capacity, `not_empty`, `not_full`, shutdown state, wakeup policy.
+Measurement report with throughput + p50/p95/p99 and closed-loop tool limitations.
 
-## Shared store synchronization
+Normative protocol: [`PROTOCOL.md`](PROTOCOL.md).  
+Other docs: [`SPEC.md`](SPEC.md) · [`ACCEPTANCE.md`](ACCEPTANCE.md) · [`TESTS.md`](TESTS.md) · [`HINTS.md`](HINTS.md).
 
-Lock scope and why blocking socket I/O is/not inside store lock.
-
-## Backpressure
-
-What happens when queue full? Reject/close/block policy and metrics.
-
-## Shutdown
-
-Stop accepting, close/mark queue, wake workers, drain/cancel policy, join, destroy store.
-
-## Tests
-
-- parser/protocol unit tests;
-- `tools/client.py` interoperability;
-- `tools/loadgen.py` controlled workload;
-- malformed/partial/slow-client cases;
-- thread/race diagnostics when supported.
-
-## Metrics
-
-accepted/completed/errors/rejected, active, queue depth, latency distribution, throughput.
-
-## Debugging story / known limitations / transfer
-
+Student owns server implementation.

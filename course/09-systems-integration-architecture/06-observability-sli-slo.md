@@ -1,103 +1,65 @@
-# 9.6 — Observability, logging, metrics, SLI и SLO basics
+# 9.6 — Как понять, что происходит внутри сервиса, не читая весь код
 
-**Теория:** ~80 мин  
-**Project slice:** ~3–5 часов  
-**С телефона:** да
+**Теория:** ~75 мин · **Project:** ~3–5 часов · **С телефона:** да
 
 ← [`05-persistence-shutdown-recovery.md`](05-persistence-shutdown-recovery.md) · → [`07-architecture-decisions-security.md`](07-architecture-decisions-security.md)
 
-## Цель
+## Проблема
 
-Сделать service diagnosable: отличать traffic, latency, errors и saturation без чтения каждого source line во время incident.
+Пользователь говорит: «сервис тормозит».
 
-## Logs vs metrics
+Без наблюдений неизвестно, это queue, storage, lock, network, malformed traffic или overload.
 
-Logs — discrete contextual events.
+**Наблюдаемость (observability)** в scope курса — способность получить из runtime signals достаточно evidence для диагностики состояния системы.
 
-Metrics — aggregatable numeric time-series/counters/gauges/histograms.
+## Logs и metrics решают разные задачи
 
-Не логируй каждый request body просто чтобы «было observable»: это I/O cost, noise и privacy/security risk.
+**Logs** — отдельные события с контекстом.
 
-## Minimum signals
+**Metrics** — агрегируемые числа во времени: counters, gauges, histograms/samples.
 
-Capstone exposes/logs at least:
+Логировать каждый request body «на всякий случай» плохо: I/O cost, noise и утечка sensitive data.
 
-- requests total by operation/outcome;
-- errors by category;
-- latency histogram/samples;
-- active connections;
+## Минимальные signals capstone
+
+- requests по operation/outcome;
+- errors по категории;
+- latency distribution;
 - queue depth/rejects;
-- storage read/write/error counts;
+- active connections;
+- storage operations/errors;
 - startup/shutdown/recovery events.
+
+## SLI и SLO
+
+**Показатель уровня сервиса (Service Level Indicator, SLI)** — измеряемая величина, отражающая полезное поведение.
+
+Например: success ratio или p95 latency для определённой группы requests.
+
+**Цель уровня сервиса (Service Level Objective, SLO)** — target для SLI в определённом workload/window.
+
+Учебный пример структуры:
+
+```text
+при workload X
+valid GET/SET success ratio >= target
+и p95 latency <= target
+```
+
+Значения не являются production рекомендацией.
+
+## Denominator matters
+
+Если malformed client request считать «server failure», availability metric будет отвечать не на тот вопрос. Metric definition должна явно задавать population.
 
 ## Cardinality
 
-Metric label `user_id/key/request_id` with unbounded unique values creates high-cardinality explosion in real metrics systems.
-
-Core local metrics may be simple counters, but architecture review must understand cardinality.
-
-## SLI
-
-Service Level Indicator — measured quantity representing user/service behavior.
-
-Examples:
-
-```text
-successful request ratio
-p95 latency under defined request population
-```
-
-## SLO
-
-Service Level Objective — target for SLI over window/workload.
-
-Example learning SLO:
-
-```text
->= 99.5% valid GET/SET requests succeed
-under benchmark workload X,
-p95 < 20 ms on local reference host
-```
-
-Numbers are course hypotheses, not universal production requirements.
-
-## Availability denominator
-
-Define which requests count. Malformed client input usually shouldn't count as server availability failure; internal storage error should.
-
-Metric definition matters more than pretty percentage.
-
-## Health
-
-`process alive` != service healthy. Health concept may include ability to accept/process/storage ready.
-
-But overly aggressive health check can worsen load/restart loops.
-
-## Correlation IDs
-
-Request ID useful to trace a single operation across log events, but do not expose sensitive data or use unbounded ID as metric label.
+Нельзя бездумно использовать `request_id`, key или user ID как metric label: число уникальных time series может взорваться. В local capstone достаточно простых bounded dimensions.
 
 ## Project slice
 
-Implement simple local observability:
-
-- structured log lines or clear key=value format;
-- counters;
-- latency histogram/buckets or samples analyzed by Python;
-- metrics dump endpoint/command/file acceptable.
-
-Document definitions in `METRICS.md`.
-
-## Exercise
-
-Define numerator/denominator for:
-
-- success rate;
-- overload reject rate;
-- malformed request rate.
-
-Explain which indicates service failure.
+Создай `METRICS.md`: для каждой metric запиши definition, units, labels/categories и operational question.
 
 ## Exit check
 
-Каждая metric должна отвечать конкретному operational question.
+Для каждой metric можешь закончить фразу: **«Я смотрю на неё, чтобы отличить X от Y»**?

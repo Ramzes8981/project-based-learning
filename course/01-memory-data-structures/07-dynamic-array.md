@@ -1,113 +1,83 @@
-# 1.7 — Dynamic Array / Vector
+# 1.7 — Как сделать массив, который умеет расти
 
-**Теория:** ~50 мин  
-**Exercise:** ~30 мин  
-**Mini-milestone:** ~4–8 часов суммарно  
-**С телефона:** теория — да; milestone — ПК
+**Теория:** ~65 мин  
+**Практика/project:** ~4–6 часов  
+**С телефона:** теория — да; project — ПК
 
 ← [`06-undefined-behavior-debugging.md`](06-undefined-behavior-debugging.md) · → [`08-linked-structures.md`](08-linked-structures.md)
 
-## Цель
+## Проблема
 
-Понять `size`, `capacity`, geometric growth и amortized cost через собственный маленький Vector implementation.
+Теперь мы умеем выделить `N` элементов, но заранее не знаем, сколько элементов понадобится. Делать `realloc` на каждый `push` можно, но это заставит слишком часто копировать/move storage.
 
-## Fixed vs dynamic
-
-Fixed array:
+Нужно различать:
 
 ```text
-capacity известна заранее
-memory contiguous
-resize отсутствует
+len      — сколько элементов реально есть
+capacity — сколько элементов помещается в текущем allocation без нового роста
 ```
 
-Dynamic array добавляет metadata:
+Термин **ёмкость (capacity)** появляется здесь впервые, потому что теперь у нас действительно есть растущий allocation.
+
+## Модель Vector
+
+```c
+typedef struct {
+    int *data;
+    size_t len;
+    size_t capacity;
+} IntVector;
+```
+
+Invariants:
 
 ```text
-data pointer
-size      — сколько элементов логически хранится
-capacity  — сколько элементов помещается в allocation
+len <= capacity
+capacity == 0 => data may be NULL
+valid elements are data[0..len)
+owner of data is the vector
 ```
 
-Invariant:
+## Grow before write
+
+`push` сначала гарантирует место, только затем пишет:
 
 ```text
-0 <= size <= capacity
+if len == capacity:
+    choose new capacity
+    checked bytes calculation
+    realloc through temporary pointer
+write data[len]
+len += 1
 ```
 
-## Push
+Если grow failed, прежний vector должен остаться валидным и логически неизменённым.
 
-Если `size < capacity`, новый element записывается в `data[size]`, затем size увеличивается.
+## Почему обычно растут геометрически
 
-Если `size == capacity`, сначала нужна большая allocation.
+Если увеличивать allocation на один element каждый раз, последовательность `N` pushes может многократно копировать почти весь старый массив.
 
-## Почему capacity обычно растёт геометрически
+Рост примерно в 2 раза делает дорогие moves редкими. Это приводит к **амортизированной стоимости (amortized cost)**: отдельный `push` иногда дорогой, но средняя стоимость длинной последовательности остаётся близкой к constant.
 
-Плохая стратегия:
+Формальный complexity framework будет в 1.10; здесь нужна только интуиция.
 
-```text
-capacity += 1 при каждом переполнении
-```
+## Pointer invalidation
 
-Тогда при последовательных pushes придётся постоянно копировать всё больше элементов; суммарная работа растёт квадратично по числу push.
+После grow старый `data` мог переместиться. Любой ранее сохранённый pointer на element нужно считать invalid, если API не гарантирует обратное.
 
-Геометрическая стратегия:
+Это должно быть написано в public contract Vector.
 
-```text
-1 -> 2 -> 4 -> 8 -> 16 -> ...
-```
+## Project
 
-делает resize редким. Отдельный resize дорогой `O(n)`, но средняя стоимость последовательного `push` в amortized sense остаётся `O(1)`.
-
-Интуиция суммы копирований до capacity `2^k`:
-
-```text
-1 + 2 + 4 + ... + 2^(k-1) < 2^k
-```
-
-То есть общий объём копирования того же порядка, что итоговое число элементов, а не `n^2`.
-
-## Overflow и growth
-
-Перед doubling нужно проверить:
-
-- `capacity * 2` не overflow;
-- `new_capacity * sizeof(element)` не overflow;
-- allocation failure обработан.
-
-## `realloc` и invalidated pointers
-
-После successful `realloc` old address может стать invalid, потому что data могла переместиться.
-
-Следовательно, external pointers на elements vector могут стать dangling после push/resize. Это важная API-семантика.
+Выполни [`project/vector/SPEC.md`](project/vector/SPEC.md), затем acceptance/tests. Не копируй full implementation из hints: student owns milestone code.
 
 ## Causal questions
 
-1. Чем `size` отличается от `capacity`?
-2. Почему `push` иногда `O(n)`, но amortized считается `O(1)`?
-3. Какие pointers могут стать invalid после resize?
-4. Почему growth factor 2 — policy, а не закон природы?
-
-## Exercise — growth trace
-
-Без кода составь таблицу для pushes 1..20 при initial capacity 1 и doubling policy:
-
-```text
-push index | size before | capacity before | resize? | capacity after
-```
-
-Посчитай суммарное число элементов, которые пришлось бы копировать на resizes.
-
-Затем сравни со стратегией `capacity += 1` качественно и формулой суммы `1 + 2 + ... + (n-1)`.
-
-Разбор: [`07-dynamic-array.solution.md`](07-dynamic-array.solution.md).
-
-## Mini-milestone
-
-Теперь выполни [`project/vector/SPEC.md`](project/vector/SPEC.md).
-
-Не открывай готовые implementations `std::vector`/чужих tutorial'ов для копирования. Standard library можно использовать только как reference поведения/идей после своего design.
+1. Почему `len` и `capacity` нельзя объединить в одно поле?
+2. Почему `push` должен менять `len` только после успешного grow/write?
+3. Почему pointer на `data[0]` может стать dangling после successful `realloc`?
+4. Почему geometric growth уменьшает число full-array moves?
 
 ## Exit check
 
-Нарисуй Vector до и после resize, включая old/new data address и какие aliases стали недействительными.
+Ты можешь нарисовать state transition `len == capacity` → grow success/failure и назвать invariants до и после.

@@ -1,114 +1,86 @@
-# 9.5 — Persistence, graceful shutdown и recovery contracts
+# 9.5 — Когда можно честно сказать «запись сохранена»
 
-**Теория:** ~85 мин  
-**Project/failure lab:** ~3–5 часов  
-**С телефона:** да
+**Теория:** ~80 мин · **Project/failure lab:** ~3–5 часов · **С телефона:** да
 
 ← [`04-backpressure-timeouts-overload.md`](04-backpressure-timeouts-overload.md) · → [`06-observability-sli-slo.md`](06-observability-sli-slo.md)
 
-## Цель
+## Проблема
 
-Определить, какие states должны пережить restart и что service обещает при graceful vs forced termination.
+Server ответил `OK` на `SET`. Через секунду питание пропало.
 
-## Reuse vs rewrite
+Должно ли значение сохраниться?
 
-Capstone может переиспользовать SimpleDB concepts/code и KV server components, но interface boundaries должны быть пересмотрены.
+Без заранее определённого durability contract правильного ответа нет.
 
-Не copy-paste два проекта в один giant `main.c`.
+## Разные уровни обещания
 
-## Persistence contract
-
-Нужно определить:
+`OK` может означать, например:
 
 ```text
-SET success response означает что?
-- updated only in memory?
-- written to page cache?
-- fsync-complete?
+изменено только in-memory state
+bytes переданы kernel/page cache
+fsync-complete согласно выбранному protocol
 ```
 
-Core capstone может выбрать modest durability policy, но она должна быть честно описана.
+Эти гарантии различаются по latency и поведению при failure.
 
-## Graceful shutdown phases
+## Graceful shutdown
 
-Typical sequence:
+Нормальное завершение — тоже protocol:
 
 ```text
-1. mark shutting down
-2. stop accepting new work
-3. choose drain/reject queued work policy
-4. wait/join workers
-5. flush storage/metadata per durability contract
-6. close resources
+1. отметить shutting down
+2. перестать принимать новую работу
+3. drain/reject queued work по policy
+4. дождаться workers
+5. выполнить storage flush/sync по contract
+6. закрыть resources
 7. exit
 ```
 
-Order matters. Closing DB while workers still use it creates use-after-close/race.
+Если закрыть storage раньше workers, получится race/use-after-close логического ресурса.
 
 ## Forced termination
 
-SIGKILL/power loss bypass normal cleanup. Recovery depends persistent format/protocol, not destructor hope.
+`SIGKILL`, crash или power loss обходят cleanup code. Recovery зависит от persistent format/protocol, а не от надежды на destructor/`close()`.
 
-Core SimpleDB lacks WAL, so forced kill during multi-page mutation may corrupt. Capstone must either:
+SimpleDB из предыдущего модуля не превращается автоматически в transactional engine.
 
-- accept/document this limitation;
-- or implement a **small bounded persistence strategy** with simpler atomic snapshot/log contract as transfer.
+## Допустимые core strategies
 
-Do not pretend WAL exists if it doesn't.
-
-## Snapshot approach
-
-For modest KV service one course option:
+### Snapshot
 
 ```text
-in-memory state
-→ periodic/full snapshot temp file
-→ sync
-→ atomic rename-style replacement
+state → temp file → sync → replace old snapshot
 ```
 
-Trade-offs:
+Плюсы: простая recovery модель. Минусы: стоимость O(data size), потеря изменений после последнего snapshot в зависимости от policy.
 
-- simple recovery;
-- expensive O(data size) snapshot;
-- data since last snapshot may be lost;
-- shutdown latency.
-
-## Append-only log approach
-
-Alternative:
+### Append-only mutation log
 
 ```text
-append mutation records
-replay on startup
-periodic compaction/snapshot
+append record → replay on startup → periodic compaction/snapshot
 ```
 
-Trade-offs:
+Плюсы: incremental writes. Минусы: growth, partial tail, checksums/versioning/replay policy.
 
-- faster incremental writes;
-- log growth;
-- record checksums/partial-tail handling;
-- idempotent replay/sequence.
+Можно также аккуратно переиспользовать ограниченный SimpleDB contract.
 
-Core chooses one persistence approach and documents exact guarantee.
+## Corrupt input
 
-## Recovery validation
-
-Startup must validate persistent bytes/version/lengths. Corrupt file should cause explicit safe failure/recovery policy, not OOB parsing.
+Persistent bytes после crash/manual damage нельзя считать доверенными. Startup parser обязан проверять magic/version/lengths/offset arithmetic до доступа к данным.
 
 ## Failure lab
 
-Test:
+Испытай на **копиях** данных:
 
 - clean restart;
-- SIGTERM graceful;
-- forced process kill between mutations;
-- truncated/corrupted copy of storage file;
-- full-like/write failure simulated via injected error or constrained temp environment.
-
-Never intentionally fill system disk.
+- graceful SIGTERM;
+- forced kill;
+- truncated file;
+- bit flip/corruption;
+- injected write/sync failure.
 
 ## Exit check
 
-«Persistent across restart» должно быть заменено точным statement: после каких acknowledgements/failures какие writes guaranteed/lost/corruptible?
+Сформулируй одной фразой: **после какого acknowledgement и при каких failures какие writes гарантированно сохраняются?**

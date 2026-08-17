@@ -1,63 +1,60 @@
-# 8.6 — Single-step и пределы stack unwinding
+# 8.6 — Как выполнить одну instruction и восстановить call chain в ограниченной модели
 
-**Теория:** ~80 мин  
-**Project slice:** ~4–6 часов  
-**С телефона:** да
+**Теория:** ~100 мин · **Практика/project:** ~4–6 часов · **С телефона:** theory — да
 
 ← [`05-software-breakpoints.md`](05-software-breakpoints.md) · → [`07-dwarf-source-debugging.md`](07-dwarf-source-debugging.md)
 
-## Цель
+## Single-step
 
-Использовать instruction single-step и понимать, почему RBP-chain — только учебный special case unwinding.
+`PTRACE_SINGLESTEP` resumes tracee until next instruction boundary/trap event. Parent must `waitpid` again; ptrace commands are state transitions, not synchronous function calls that return after tracee instruction automatically.
 
-## `PTRACE_SINGLESTEP`
+Single-step is essential for breakpoint dance: execute restored original instruction exactly once before reinserting `INT3`.
 
-Restart request запускает stopped tracee и просит остановить его после следующей machine instruction (учитывая возможные signal/tracing events). Сам `ptrace` call возвращает после restart request; tracer узнаёт новый stop только через последующий `waitpid`.
+## Stack trace problem
 
-```text
-STOPPED
- -> PTRACE_SINGLESTEP
- -> RUNNING
- -> waitpid
- -> STOPPED/EXITED/SIGNALED
-```
-
-Это тот же state-machine discipline, который нужен breakpoint step-over.
-
-## Frame-pointer model
-
-При `-O0 -fno-omit-frame-pointer` и обычном x86-64 calling convention часто можно наблюдать chain:
+User wants:
 
 ```text
-RBP -> previous RBP
-RBP+8 -> return address
+current function
+caller
+caller of caller
+...
 ```
 
-Но это compiler/code-generation convention under assumptions, не C language guarantee.
+Machine only guarantees ABI/register/memory state, not convenient call objects.
 
-Compiler может omit frame pointer, inline, tail-call, rearrange prologue/epilogue или represent optimized frames иначе.
+## Frame-pointer teaching mode
 
-## Bounded educational walk
+Compile fixture with:
 
-Stretch `bt` может:
+```text
+-O0/-Og as chosen
+-fno-omit-frame-pointer
+```
 
-1. start current RBP;
-2. validate alignment/mapping/read success;
-3. read previous RBP + return address;
-4. require monotonic/sane stack direction/range under target assumptions;
-5. cap maximum frames;
-6. stop on zero/error/cycle/sanity violation.
+Under x86-64 SysV conventional frame-pointer chain, RBP can point to previous frame metadata/return address. This is **not universal unwinding algorithm**; optimized code may omit frame pointer, inline calls, tail-call, use DWARF CFI.
 
-Нельзя бесконечно chase arbitrary tracee values as pointers.
+## Safe chain walk
 
-## Real unwind metadata
+For course fixture only:
 
-Production debuggers use ABI rules + unwind metadata such as DWARF Call Frame Information, not blind frame-pointer chains. Lesson 8.7 объясняет source/debug metadata conceptually; full unwinder remains stretch.
+- start current RIP/RBP;
+- validate each candidate RBP address is readable/mapped and aligned enough for target ABI;
+- read saved previous RBP + return address via ptrace helper;
+- detect non-progress/cycles;
+- cap maximum depth;
+- stop on invalid memory rather than crash tracer.
 
-## Project slice
+Never trust tracee memory chain as safe pointer structure; corrupted program can contain arbitrary values.
 
-Core `step`: show RIP before/after and decode resulting state. Stretch `bt`: only fixtures built with documented frame-pointer flags.
+## Symbolization
+
+Return runtime address can be mapped to nearest supported ELF symbol when available; stripped binaries may only show addresses.
+
+## Project stage
+
+Implement `step` and frame-pointer backtrace for dedicated `target_stack` fixture. README states limitations loudly.
 
 ## Exit check
 
-Почему successful `PTRACE_SINGLESTEP` request не означает, что tracee уже снова stopped?
+Why can a frame-pointer backtrace work perfectly on course fixture and fail on optimized production binary without debugger bug?

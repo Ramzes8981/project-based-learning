@@ -1,101 +1,90 @@
-# 5.5 — Threads, races, mutexes и condition variables
+# 5.5 — Почему два threads ломают общий mutable state
 
-**Теория:** ~95 мин  
-**Lab:** ~90 мин  
-**С телефона:** теория — да
+**Теория:** ~95 мин · **Практика:** ~90 мин · **С телефона:** теория — да
 
-← [`04-framing-protocol-design.md`](04-framing-protocol-design.md) · → [`06-thread-pool-backpressure.md`](06-thread-pool-backpressure.md)
+← [`04-framing-protocol-design.md`](04-framing-protocol-design.md) · → [`05b-condvars-bounded-queue.md`](05b-condvars-bounded-queue.md)
 
-## Цель
+## Проблема
 
-Понять shared-memory concurrency и построить bounded producer/consumer queue foundation.
+Single-client server can block while one connection waits. A direct idea: run handlers concurrently in multiple execution flows inside one process.
 
-## Process vs thread
+A **поток (thread)** is an execution flow sharing process address space/resources with other threads while having its own execution state such as stack/register context.
 
-Threads одного process разделяют address space и многие process resources, но имеют собственные execution stacks/register context.
+Shared address space makes communication cheap—and creates correctness hazards.
 
-Shared memory уменьшает copying, но создаёт synchronization obligations.
+## Read-modify-write is not one indivisible event
 
-## C data race
-
-Если два threads обращаются к одному ordinary object concurrently, минимум один access write и нет требуемой synchronization/happens-before relation, C program имеет data race и undefined behavior.
-
-`counter++` концептуально:
-
-```text
-load
-add
-store
+```c
+counter += 1;
 ```
 
-и не становится atomic только потому, что source line одна.
+conceptually can be:
+
+```text
+read counter
+compute +1
+write counter
+```
+
+Two threads may interleave and lose update.
+
+## Data race in C
+
+When threads access same memory concurrently, at least one access is a write, and accesses are not properly synchronized according to C memory model, program can have **data race**; data race causes undefined behavior in C.
+
+This is stronger than “sometimes wrong final number”. Compiler/hardware are not required to preserve naive interleaving model for racy program.
 
 ## Mutex
 
-Mutex сериализует critical section и создаёт synchronization around shared invariant:
+A **мьютекс (mutex)** provides mutual exclusion around critical section/shared invariant.
 
 ```text
 lock
-check/change shared state
-unlock
+→ read/modify shared state
+→ restore invariant
+→ unlock
 ```
 
-Для POSIX mutex normal rule: thread, который успешно владеет mutex, освобождает его согласно выбранному mutex type/contract. Не проектируй code, где arbitrary thread «на всякий случай unlock чужой mutex».
+Mutex protects an invariant/resource, not arbitrary lines because they “look dangerous”. Document what lock guards.
 
 ## Lock scope
 
-Начинай с coarse lock, если так correctness очевиднее, затем измеряй. Fine-grained locks могут повысить parallelism, но добавляют lock-order/deadlock/state complexity.
-
-Не держи store mutex вокруг slow network read/write без необходимости: один client способен задержать всех workers.
+Too narrow → invariant may still race. Too broad → unrelated work serializes, increasing queue/wait time. Never hold application lock across slow blocking I/O unless design explicitly requires it.
 
 ## Deadlock
 
-```text
-A holds L1 -> waits L2
-B holds L2 -> waits L1
-```
-
-Практические техники:
-
-- global lock ordering;
-- minimal nested locks;
-- не вызывать unknown callbacks под lock без contract;
-- не делать blocking I/O под shared-state lock без причины.
-
-## Condition variable = wait for predicate
-
-Правильная форма:
+If code acquires multiple locks in inconsistent order:
 
 ```text
-lock mutex
-while predicate false:
-    cond_wait(cond, mutex)
-use/update state
-unlock
+T1 owns A, waits B
+T2 owns B, waits A
 ```
 
-`cond_wait` conceptually atomically releases associated mutex while sleeping and reacquires it before return. Проверка — `while`, не `if`: wakeup не является доказательством, что predicate всё ещё true; возможны spurious wakeups/competition.
+neither progresses. Это **взаимная блокировка (deadlock)**. Более системный анализ wait-for dependencies вернётся в OS-модуле; базовая профилактика здесь — минимизировать lock count и задавать единый lock order, если locks несколько.
 
-## Bounded queue predicates
+## Atomics — только для простого отдельного state
 
-```text
-not_empty: size > 0
-not_full:  size < capacity
-```
+C11/C17 предоставляет **атомарные объекты (atomic objects)** через `<stdatomic.h>`. Например, отдельный counter можно хранить как `atomic_int` и обновлять atomic operation.
 
-Producer waits `not_full`, pushes under lock, signals/broadcasts `not_empty`. Consumer зеркально.
+Это не превращает несколько полей Hash Table в одну атомарную транзакцию. Atomics подходят для invariants, которые действительно выражаются отдельным atomic state; compound structures обычно требуют более высокого уровня synchronization.
 
-## Shutdown state
+Детали memory ordering beyond простых counters — optional advanced concurrency.
 
-Queue обычно требует дополнительный state `stopping/closed`. Иначе workers могут навсегда ждать empty queue во время server shutdown.
+## Rust bridge: `Send` и `Sync` теперь имеют причину
 
-## Lab
+Только теперь, после появления реальных threads, полезно раскрыть два Rust contracts:
 
-1. Counter race experiment — наблюдение, не «доказательство отсутствия race», если value случайно правильный.
-2. Исправить mutex.
-3. Bounded queue + two condvars + shutdown flag.
-4. Если ThreadSanitizer совместим с environment, использовать как diagnostic; clean run не proof.
+- `Send` — ownership значения разрешено переносить между threads;
+- `Sync` — shared references к типу разрешено использовать между threads согласно его safety contract.
+
+Это marker traits. `Sync` не означает «внутри есть mutex» и не доказывает отсутствие deadlock/business-logic race.
+
+## Практика
+
+1. Собери controlled counter race fixture, явно помеченный **BROKEN EXAMPLE**, и проверь ThreadSanitizer там, где он поддерживается.
+2. Исправь вариант mutex-ом и объясни guarded invariant.
+3. Отдельно сделай простой atomic counter и объясни, почему этот приём нельзя механически перенести на всю Hash Table.
 
 ## Exit check
 
-Нарисуй queue state machine и точно напиши predicates, которые проверяются в `while`.
+Почему atomic counter может быть полностью корректен рядом с логически сломанным shared Hash Table state, и почему один mutex вокруг всего request может быть корректным, но плохо масштабироваться?
