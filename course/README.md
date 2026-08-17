@@ -43,71 +43,71 @@ causal questions
 
 ## Core path
 
-### 0. [Как из текста на C получить работающую программу](00-c-fast-start/README.md)
+### 0. [Как из текста на C получить работающую программу](<00 - C Fast Start/README.md>)
 
 Плавный вход в C: значения, ветвления, функции, несколько значений подряд, текст в C, структуры и многофайловая программа. Линковщик появляется только тогда, когда возникает отдельная сборка нескольких файлов.
 
 **Итог:** маленькая программа «имя → значение» с фиксированным числом записей, описанная сначала через поведение, а не через структуры данных.
 
-### 1. [Как программа находит данные в памяти и безопасно управляет их временем жизни](01-memory-data-structures/README.md)
+### 1. [Как программа находит данные в памяти и безопасно управляет их временем жизни](<01 - Memory and Data Structures/README.md>)
 
 Первая половина модуля — модель памяти C: адреса, указатели, границы, время жизни, динамическая память, ownership-by-convention, UB и диагностика. Затем — структуры данных и алгоритмические trade-offs, которые реально нужны systems engineer.
 
 **Core проекты:** растущий Vector и Hash Table.  
 **Optional advanced algorithms:** DP, KMP/Rabin–Karp, Trie и формальная probability-лекция вынесены из обязательного gate.
 
-### 1B. [Как Rust заставляет явно описывать владение ресурсами](01b-rust-systems-bridge/README.md)
+### 1B. [Как Rust заставляет явно описывать владение ресурсами](<01B - Rust Systems Bridge/README.md>)
 
 Rust не повторяет C с новым синтаксисом. Он показывает, какие уже знакомые C-контракты компилятор способен проверять: ownership, borrowing, lifetime, typed errors и `unsafe` boundary.
 
-### 1C. [Как проверять программы так, чтобы тесты ловили реальные поломки](01c-testing-engineering/README.md)
+### 1C. [Как проверять программы так, чтобы тесты ловили реальные поломки](<01C - Testing Engineering/README.md>)
 
 Oracles, invariants, regression tests, negative tests, fuzzing intuition и testability. Unix-specific I/O testing появляется позже, после Unix API.
 
-### 2. [Как ОС запускает программы и соединяет их в shell](02-unix-shell/README.md)
+### 2. [Как ОС запускает программы и соединяет их в shell](<02 - Unix Shell/README.md>)
 
 Сначала появляется модель запущенной программы и обращения к ОС; затем file descriptors, terminal, `fork/exec/wait`, redirection, pipes и signals.
 
 **Проект:** Unix Shell.
 
-### 3. [Как процессор превращает биты в выполнение инструкций](03-computer-architecture/README.md)
+### 3. [Как процессор превращает биты в выполнение инструкций](<03 - Computer Architecture/README.md>)
 
 Представление чисел, Boolean logic, state, ISA, machine code, fetch/decode/execute, assembler и мост к x86-64 ABI.
 
 **Проект:** Tiny16 assembler + emulator.
 
-### 4. [Почему адрес программы не равен ячейке RAM и откуда берётся стоимость памяти](04-virtual-memory-performance-allocator/README.md)
+### 4. [Почему адрес программы не равен ячейке RAM и откуда берётся стоимость памяти](<04 - Virtual Memory, Performance and Allocators/README.md>)
 
 Virtual address space, pages, page tables, TLB, faults, cache locality, measurement и allocator design. Allocator изучается двумя циклами: сначала выдача выровненных блоков, затем возврат/повторное использование.
 
 **Проект:** Arena Allocator.
 
-### 5. [Как байты доходят до другой программы и что ломается при параллельной обработке](05-networking-concurrency/README.md)
+### 5. [Как байты доходят до другой программы и что ломается при параллельной обработке](<05 - Networking and Concurrency/README.md>)
 
 IP/routing, UDP/TCP, socket API, главное свойство TCP stream, framing, threads, races, synchronization, bounded queues, backpressure и `poll`.
 
 **Проект:** Concurrent KV Server.
 
-### 6. [Как ОС делит процессор, память и ресурсы между программами](06-os-isolation/README.md)
+### 6. [Как ОС делит процессор, память и ресурсы между программами](<06 - Operating Systems and Isolation/README.md>)
 
 Scheduling, memory pressure, IPC, `/proc`, namespaces, cgroup v2 и capabilities. Базовые mutex/condvar не преподаются второй раз: здесь они используются для анализа системных последствий.
 
 **Проект:** Modern Linux Isolation Lab.
 
-### 7. [Как данные получают имя на диске, переживают сбой и превращаются в базу данных](07-filesystems-databases/README.md)
+### 7. [Как данные получают имя на диске, переживают сбой и превращаются в базу данных](<07 - Filesystems and Databases/README.md>)
 
 Names/inodes, page cache, durability, binary formats, pager, records, B-tree family, buffering/query cost и transaction/WAL concepts.
 
 **Проект:** SimpleDB.  
 **Optional lab:** FUSE — после базовой модели файловой системы, а не как prerequisite для БД.
 
-### 8. [Как запущенная программа выглядит изнутри debugger-а](08-binaries-debugging-security/README.md)
+### 8. [Как запущенная программа выглядит изнутри debugger-а](<08 - Binaries, Debugging and Security/README.md>)
 
 ELF, loader, PIE/ASLR, `ptrace`, registers/memory, software breakpoints, stepping, stack unwinding, DWARF boundary и memory-corruption mitigations.
 
 **Проект:** `minidbg-c`.
 
-### 9. [Как собрать один измеримый сервис и аргументировать архитектурные решения](09-systems-integration-architecture/README.md)
+### 9. [Как собрать один измеримый сервис и аргументировать архитектурные решения](<09 - Systems Integration and Architecture/README.md>)
 
 Requirements, workload, retry/idempotency contracts, queueing, overload, durability, observability, SLI/SLO, ADR/security review и вопрос второго узла.
 
